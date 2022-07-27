@@ -1,7 +1,7 @@
 /**
  * @file pinConfig.h
  * @author dominic gasperini 
- * @brief this file holds the pins for the board I/O
+ * @brief this file holds the pin layout for the board I/O
  * @version 0.1
  * @date 2022-07-27
  * 
@@ -10,21 +10,22 @@
  */
 
 // Sensors
-const int wheelSpeedFRSensor = 1;
-const int wheelSpeedFLSensor = 2;
-const int wheelSpeedBRSensor = 3;
-const int wheelSpeedBLSensor = 4;
+#define WHEEL_SPEED_FR_SENSOR               1
+#define WHEEL_SPEED_FL_SENSOR               2
+#define WHEEL_SPEED_BR_SENSOR               3
+#define WHEEL_SPEED_BL_SENSOR               4
 
-const int wheelHeightFRSensor = 5;
-const int wheelHeightFLSensor = 6;
-const int wheelHeightBRSensor = 7;
-const int wheelHeightBLSensor = 8;
+#define WHEEL_HEIGHT_FR_SENSOR              5
+#define WHEEL_HEIGHT_FL_SENSOR              6
+#define WHEEL_HEIGHT_BR_SENSOR              7
+#define WHEEL_HEIGHT_BL_SENSOR              8
 
-const int steeringWheelPot = 9;
+#define STEERING_WHEEL_POT                  9
 
-// Input Methods
-const int readyToDriveButton = 10;
-const int brakeRegenPot = 11;
-const int coastRegenPot = 12;
 
-// Output Methods
+// Input
+#define READY_TO_DRIVE_BUTTON               10
+#define BRAKE_REGEN_POT                     11
+#define COAST_REGEN_POT                     12
+
+// Output

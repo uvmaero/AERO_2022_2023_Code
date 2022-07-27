@@ -21,12 +21,12 @@
 
 
 // *** defines *** // 
-#define SENSOR_POLL_INTERVAL            5
-#define CAN_READ_WRITE_INTERVAL         10
+#define SENSOR_POLL_INTERVAL            50000       // 0.05 seconds in microseconds
+#define CAN_READ_WRITE_INTERVAL         100000      // 0.1 seconds in microseconds
 
 
 // *** global variables *** // 
-// initialize sensor struct
+
 struct Sensors
 {
   uint16_t wheelSpeedFR = 0;
@@ -43,7 +43,6 @@ struct Sensors
 };
 volatile Sensors sensors;
 
-// initialize inputs struct
 struct Inputs
 {
   uint16_t brakeRegen = 0;
@@ -64,20 +63,20 @@ void setup()
   Serial.begin(9600);
 
   // initialize sensors
-  pinMode(wheelSpeedFRSensor, INPUT);
-  pinMode(wheelSpeedFLSensor, INPUT);
-  pinMode(wheelSpeedBRSensor, INPUT);
-  pinMode(wheelSpeedBLSensor, INPUT);
-  pinMode(wheelHeightFRSensor, INPUT);
-  pinMode(wheelHeightFLSensor, INPUT);
-  pinMode(wheelHeightBRSensor, INPUT);
-  pinMode(wheelHeightBLSensor, INPUT);
-  pinMode(steeringWheelPot, INPUT);
+  pinMode(WHEEL_SPEED_FR_SENSOR, INPUT);
+  pinMode(WHEEL_SPEED_FL_SENSOR, INPUT);
+  pinMode(WHEEL_SPEED_BR_SENSOR, INPUT);
+  pinMode(WHEEL_SPEED_BL_SENSOR, INPUT);
+  pinMode(WHEEL_HEIGHT_FR_SENSOR, INPUT);
+  pinMode(WHEEL_HEIGHT_FL_SENSOR, INPUT);
+  pinMode(WHEEL_HEIGHT_BR_SENSOR, INPUT);
+  pinMode(WHEEL_HEIGHT_BL_SENSOR, INPUT);
+  pinMode(STEERING_WHEEL_POT, INPUT);
 
   // initialize inputs
-  pinMode(brakeRegenPot, INPUT);
-  pinMode(coastRegenPot, INPUT);
-  pinMode(readyToDriveButton, INPUT);
+  pinMode(BRAKE_REGEN_POT, INPUT);
+  pinMode(COAST_REGEN_POT, INPUT);
+  pinMode(READY_TO_DRIVE_BUTTON, INPUT);
 
   // initalize outputs
 
@@ -91,11 +90,11 @@ void setup()
 
   // initialize timer interrupts
   // timer for polling sensors
-  Timer1.initialize(50000);     // 0.05 seconds in microseconds
+  Timer1.initialize(SENSOR_POLL_INTERVAL);
   Timer1.attachInterrupt(PollSensorData);
 
   // timer for reading and writing to CAN
-  Timer3.initialize(100000);    // 0.1 seconds in microseconds
+  Timer3.initialize(CAN_READ_WRITE_INTERVAL);
   Timer3.attachInterrupt(CANReadWrite);
 }
 
@@ -106,19 +105,27 @@ void loop() {
   {
     // update wheel dash
 
-    // update aero remote data aquisition system
+    // update aero remote data aquisition network (ARDAN)
 
   }
 }
 
-
-
+/**
+ * @brief Interrupt Handler for Timer 1
+ * This ISR is for reading sensor data from the car 
+ * Is called every 0.05 seconds
+ */
 void PollSensorData()
 {
 
 }
 
-
+/**
+ * @brief Interrupt Handler for Timer 2
+ * This ISR is for reading and writing to the CAN bus
+ * Is called every 0.1 seconds
+ * 
+ */
 void CANReadWrite()
 {
   // read data off the CAN bus
@@ -147,7 +154,6 @@ void CANReadWrite()
       }
     }
   }
-
 
   // write to CAN bus
   tCAN outgoingMessage;

@@ -18,6 +18,9 @@
 
 #define STEERING_WHEEL_POT                  9
 
+#define PEDAL_0_PIN                         12
+#define PEDAL_1_PIN                         13
+
 
 // Inputs
 

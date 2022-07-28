@@ -23,7 +23,12 @@
 // *** defines *** // 
 #define SENSOR_POLL_INTERVAL            50000       // 0.05 seconds in microseconds
 #define CAN_READ_WRITE_INTERVAL         100000      // 0.1 seconds in microseconds
-
+#define BRAKE_LIGHT_THRESHOLD           10
+#define PEDAL_DEADBAND                  10
+#define PEDAL_MIN                       128
+#define PEDAL_MAX                       600
+#define TORQUE_DEADBAND                 5
+#define MAX_TORQUE                      220         // MAX TORQUE RINEHART CAN ACCEPT, DO NOT EXCEED (230)
 
 // *** global variables *** //
 
@@ -43,7 +48,29 @@ enum DriveModes
 // Car Data Struct
 struct CarData
 {
-  // for sensor data
+
+  struct DrivingData
+  {
+    bool readyToDrive = false;
+    bool enableInverter = false;
+
+    bool imdFault = false;
+    bool bmsFault = false;
+
+    uint16_t commandedTorque = 0;
+    bool driveDirection = true;             // true = forward | false = reverse
+    DriveModes driveMode = ECO;
+  } drivingData;
+  
+  struct BatteryStatus
+  {
+    uint16_t batteryChargeState = 0;
+    int16_t busVoltage = 0;
+    int16_t rinehartVoltage = 0;
+    float pack1Temp = 0;
+    float pack2Temp = 0;
+  } batteryStatus;
+
   struct Sensors
   {
     uint16_t wheelSpeedFR = 0;
@@ -57,18 +84,26 @@ struct CarData
     uint16_t wheelHeightBL = 0;
 
     uint16_t steeringWheelAngle = 0;
-
-    uint16_t batteryState = 0;
   } sensors;
 
-  // for input data
   struct Inputs
   {
+    uint16_t pedal0 = 0;
+    uint16_t pedal1 = 0;
+    uint16_t brake0 = 0;
+    uint16_t brake1 = 0;
     uint16_t brakeRegen = 0;
     uint16_t coastRegen = 0;
-    bool readyToDrive = false;
-    DriveModes driveMode = ECO;
+    float vicoreTemp = 0;
   } inputs;
+
+  struct Outputs
+  {
+    bool buzzerState = false;
+    uint8_t buzzerCounter = 0;
+    bool brakeLight = false;
+  } outputs;
+  
 };
 CarData carData;
 
@@ -76,9 +111,10 @@ CarData carData;
 // *** function declarations *** //
 void PollSensorData();
 void CANReadWrite();
-void UpdateARDAN();
 void SendUpdatedDashData();
 void ReceiveDashData();
+void GetCommandedTorque();
+long MapValue(long x, long in_min, long in_max, long out_min, long out_max);
 
 // *** setup *** //
 void setup()
@@ -154,6 +190,11 @@ void loop() {
  */
 void PollSensorData()
 {
+  // get pedal positions
+  carData.inputs.pedal0 = analogRead(PEDAL_0_PIN);
+  carData.inputs.pedal1 = analogRead(PEDAL_1_PIN);
+  GetCommandedTorque();
+
   // update wheel speed values
   carData.sensors.wheelSpeedFR = analogRead(WHEEL_SPEED_FR_SENSOR);
   carData.sensors.wheelSpeedFL = analogRead(WHEEL_HEIGHT_FL_SENSOR);
@@ -164,6 +205,26 @@ void PollSensorData()
 
   // update steering wheel position
   carData.sensors.steeringWheelAngle = analogRead(STEERING_WHEEL_POT);
+
+  // buzzer logic
+  if (carData.outputs.buzzerState == 1)
+  {
+    carData.outputs.buzzerCounter++;
+    if (carData.outputs.buzzerCounter >= 40)           // buzzerCounter is being updated on a 5Hz interval, so after 40 cycles, 2 seconds have passed
+    {
+      carData.outputs.buzzerState = 0;
+      carData.outputs.buzzerCounter = 0;
+      carData.drivingData.enableInverter = true;       // enable the inverter so that we can tell rinehart to turn inverter on
+    }
+  }
+
+  // brake light logic 
+  int brakeAverage = (carData.inputs.brake0 + carData.inputs.brake1) / 2;
+  if (brakeAverage >= BRAKE_LIGHT_THRESHOLD)
+    carData.outputs.brakeLight = true;     // turn it on 
+
+  else
+    carData.outputs.brakeLight = false;     // turn it off
 }
 
 /**
@@ -226,14 +287,6 @@ void CANReadWrite()
  * @brief 
  * 
  */
-void UpdateARDAN()
-{
-}
-
-/**
- * @brief 
- * 
- */
 void SendUpdatedDashData()
 {
   // send data
@@ -246,4 +299,57 @@ void SendUpdatedDashData()
 void ReceiveDashData()
 {
   // update values
+}
+
+// function to re-map the pedal value to a torque value based on the drive mode
+void GetCommandedTorque()
+{
+  // get the pedal average
+  int pedalAverage = (carData.inputs.pedal0 + carData.inputs.pedal0) / 2;
+
+  // drive mode logic
+  switch (carData.drivingData.driveMode)
+  {
+    case SLOW:  // runs at 50% power
+      carData.drivingData.commandedTorque = MapValue(pedalAverage, PEDAL_MIN, PEDAL_MAX, 0, MAX_TORQUE * 0.50);
+    break;
+
+    case ECO:   // runs at 75% power
+      carData.drivingData.commandedTorque = MapValue(pedalAverage, PEDAL_MIN, PEDAL_MAX, 0, MAX_TORQUE * 0.75);
+    break;
+
+    case FAST:  // runs at 100% power
+      carData.drivingData.commandedTorque = MapValue(pedalAverage, PEDAL_MIN, PEDAL_MAX, 0, MAX_TORQUE);
+    break;
+    
+    // error state, set the mode to ECO
+    default:
+      // set the state to ECO for next time
+      carData.drivingData.driveMode = ECO;
+
+      // we don't want to send a torque if we are in an undefined state
+      carData.drivingData.commandedTorque = 0;
+    break;
+  }
+
+  // for throttle safety, we will have a deadband
+  if (carData.drivingData.commandedTorque <= TORQUE_DEADBAND)   // if less than 5% power is requested, just call it 0
+  {
+    carData.drivingData.commandedTorque = 0;
+  }
+}
+
+
+/**
+ * @brief 
+ * 
+ * @param x             input value to be re-mapped
+ * @param in_min        input value min of range
+ * @param in_max        input value max of range
+ * @param out_min       output value min of range
+ * @param out_max       output value max of range
+ * @return long         the remapped value
+ */
+long MapValue(long x, long in_min, long in_max, long out_min, long out_max) {
+  return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
 }

@@ -132,10 +132,10 @@ void setup()
   // initalize outputs
 
   // initalize CAN
-  if (Canbus.init(CANSPEED_500))    // set bit rate to 500
-    Serial.println("CAN INIT [ SUCCESS ]");
+  if (Canbus.init(CANSPEED_500))    // set bit rate to 500kbps
+    Serial.println("CAN ACTIVATE [ SUCCESS ]");
   else
-    Serial.println("CAN INIT [ FAILED ]");
+    Serial.println("CAN ACTIVATE [ FAILED ]");
 
   // initialize bluetooth low energy
   
@@ -150,14 +150,24 @@ void setup()
   Timer3.attachInterrupt(CANReadWrite);
 
   // initialize ARDAN
-  ardan.begin();
-  ResponseStructContainer ardanConfigContainer = ardan.getConfiguration();
-  Configuration ardanConfig = *(Configuration*) ardanConfigContainer.data;
-  ResponseStructContainer ardanModuleContainer = ardan.getModuleInformation();
-  ModuleInformation ardanModuleInfo = *(ModuleInformation*) ardanModuleContainer.data;
-  ResponseStatus responseStatus = ardan.sendMessage("ARDAN ONLINE");
-  Serial.print("ARDAN INIT STATUS: ");
-  Serial.println(responseStatus.getResponseDescription());
+  if (ardan.begin())
+  {
+    Serial.println("ARDAN INIT [ SUCCESS ]");
+    ResponseStructContainer ardanConfigContainer = ardan.getConfiguration();
+    Configuration ardanConfig = *(Configuration*) ardanConfigContainer.data;
+    Serial.print("ARDAN CHANNEL: ");
+    Serial.println(ardanConfig.getChannelDescription());
+    ResponseStructContainer ardanModuleContainer = ardan.getModuleInformation();
+    ModuleInformation ardanModuleInfo = *(ModuleInformation*) ardanModuleContainer.data;
+    Serial.print("ARDAN MODULE FREQUENCY: ");
+    Serial.println(ardanModuleInfo.features);
+    ResponseStatus responseStatus = ardan.sendMessage("ARDAN ONLINE");
+    Serial.print("ARDAN INIT STATUS: ");
+    Serial.println(responseStatus.getResponseDescription());
+  }
+  else
+    Serial.println("ARDAN INIT [ FAILED ]");
+  
 }
 
 // *** loop *** // 
@@ -325,7 +335,7 @@ void GetCommandedTorque()
     // error state, set the mode to ECO
     default:
       // set the state to ECO for next time
-      carData.drivingData.driveMode = ECO;
+      carData.drivingData.driveMode = SLOW;
 
       // we don't want to send a torque if we are in an undefined state
       carData.drivingData.commandedTorque = 0;

@@ -16,6 +16,7 @@
 #include <Canbus.h>
 #include <mcp2515.h>
 #include <mcp2515_defs.h>
+#include <LoRa_E32.h>
 #include "pinConfig.h"
 
 
@@ -28,6 +29,8 @@
 
 // Bluetooth Low Energy Connection
 
+// aero remote data aquisition network (ARDAN)
+LoRa_E32 ardan(ARDAN_RX_PIN, ARDAN_TX_PIN);
 
 // Drive Mode enumeration
 enum DriveModes
@@ -37,34 +40,37 @@ enum DriveModes
   FAST = 20
 };
 
-// Sensor data struct
-struct Sensors
+// Car Data Struct
+struct CarData
 {
-  uint16_t wheelSpeedFR = 0;
-  uint16_t wheelSpeedFL = 0;
-  uint16_t wheelSpeedBR = 0;
-  uint16_t wheelSpeedBL = 0;
+  // for sensor data
+  struct Sensors
+  {
+    uint16_t wheelSpeedFR = 0;
+    uint16_t wheelSpeedFL = 0;
+    uint16_t wheelSpeedBR = 0;
+    uint16_t wheelSpeedBL = 0;
 
-  uint16_t wheelHeightFR = 0;
-  uint16_t wheelHeightFL = 0;
-  uint16_t wheelHeightBR = 0;
-  uint16_t wheelHeightBL = 0;
+    uint16_t wheelHeightFR = 0;
+    uint16_t wheelHeightFL = 0;
+    uint16_t wheelHeightBR = 0;
+    uint16_t wheelHeightBL = 0;
 
-  uint16_t steeringWheelAngle = 0;
+    uint16_t steeringWheelAngle = 0;
 
-  uint16_t batteryState = 0;
+    uint16_t batteryState = 0;
+  } sensors;
+
+  // for input data
+  struct Inputs
+  {
+    uint16_t brakeRegen = 0;
+    uint16_t coastRegen = 0;
+    bool readyToDrive = false;
+    DriveModes driveMode = ECO;
+  } inputs;
 };
-volatile Sensors sensors;
-
-// Input data struct 
-struct Inputs
-{
-  uint16_t brakeRegen = 0;
-  uint16_t coastRegen = 0;
-  bool readyToDrive = false;
-  DriveModes driveMode = ECO;
-};
-volatile Inputs inputs;
+CarData carData;
 
 
 // *** function declarations *** //
@@ -107,8 +113,15 @@ void setup()
   Timer3.initialize(CAN_READ_WRITE_INTERVAL);
   Timer3.attachInterrupt(CANReadWrite);
 
-  // initialize aero remote data aquisition network (ARDAN)
-
+  // initialize ARDAN
+  ardan.begin();
+  ResponseStructContainer ardanConfigContainer = ardan.getConfiguration();
+  Configuration ardanConfig = *(Configuration*) ardanConfigContainer.data;
+  ResponseStructContainer ardanModuleContainer = ardan.getModuleInformation();
+  ModuleInformation ardanModuleInfo = *(ModuleInformation*) ardanModuleContainer.data;
+  ResponseStatus responseStatus = ardan.sendMessage("ARDAN ONLINE");
+  Serial.print("ARDAN INIT STATUS: ");
+  Serial.println(responseStatus.getResponseDescription());
 }
 
 // *** loop *** // 
@@ -124,7 +137,13 @@ void loop() {
     }
 
     // update ARDAN
-
+    if (ardan.available() > 1)
+    {
+      // send message
+      ResponseStatus response = ardan.sendFixedMessage(0, 3, 4, &carData, sizeof(carData));
+      Serial.print("ARDAN MESSAGE SENT STATUS: ");
+      Serial1.println(response.getResponseDescription());
+    }
   }
 }
 
@@ -135,7 +154,16 @@ void loop() {
  */
 void PollSensorData()
 {
-  sensors.wheelSpeedFR = analogRead(WHEEL_SPEED_FR_SENSOR);
+  // update wheel speed values
+  carData.sensors.wheelSpeedFR = analogRead(WHEEL_SPEED_FR_SENSOR);
+  carData.sensors.wheelSpeedFL = analogRead(WHEEL_HEIGHT_FL_SENSOR);
+
+  // update wheel ride height value s
+  carData.sensors.wheelHeightFR = analogRead(WHEEL_HEIGHT_FR_SENSOR);
+  carData.sensors.wheelHeightFL = analogRead(WHEEL_HEIGHT_FL_SENSOR);
+
+  // update steering wheel position
+  carData.sensors.steeringWheelAngle = analogRead(STEERING_WHEEL_POT);
 }
 
 /**

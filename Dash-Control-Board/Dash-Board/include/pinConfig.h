@@ -22,3 +22,5 @@
 // Inputs
 
 // Outputs
+#define ARDAN_RX_PIN                        10
+#define ARDAN_TX_PIN                        11

@@ -21,7 +21,7 @@
 
 
 // *** defines *** // 
-#define SENSOR_POLL_INTERVAL            50000       // 0.05 seconds in microseconds
+#define SENSOR_POLL_INTERVAL            150000      // 0.15 seconds in microseconds
 #define CAN_READ_WRITE_INTERVAL         100000      // 0.1 seconds in microseconds
 #define BRAKE_LIGHT_THRESHOLD           10
 #define PEDAL_DEADBAND                  10

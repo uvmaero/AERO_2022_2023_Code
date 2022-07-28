@@ -13,11 +13,12 @@
 #include <Arduino.h>
 #include <TimerOne.h>
 #include <TimerThree.h>
+#include <ArduinoBLE.h>
 #include <Canbus.h>
 #include <mcp2515.h>
 #include <mcp2515_defs.h>
-//#include <ArduinoBLE.h>
 #include "pinConfig.h"
+#include "uuidConfig.h"
 
 
 // *** defines *** // 
@@ -25,7 +26,14 @@
 #define CAN_READ_WRITE_INTERVAL         100000      // 0.1 seconds in microseconds
 
 
-// *** global variables *** // 
+// *** global variables *** //
+
+enum DriveModes
+{
+  SLOW = 0,
+  ECO = 10,
+  FAST = 20
+};
 
 struct Sensors
 {
@@ -40,6 +48,8 @@ struct Sensors
   uint16_t wheelHeightBL = 0;
 
   uint16_t steeringWheelAngle = 0;
+
+  uint16_t batteryState = 0;
 };
 volatile Sensors sensors;
 
@@ -48,13 +58,38 @@ struct Inputs
   uint16_t brakeRegen = 0;
   uint16_t coastRegen = 0;
   bool readyToDrive = false;
+  DriveModes driveMode = ECO;
 };
 volatile Inputs inputs;
+
+// Bluetooth Low Energy address
+BLEService wheelDashUpdateService(PERIPHERAL_UUID);
+
+// Bluetooth Low Energy Charactaristics, using 16 bit UUIDs
+BLEIntCharacteristic wheelSpeedFR_BLE(WHEEL_SPEED_FR_UUID, BLERead | BLENotify);
+BLEIntCharacteristic wheelSpeedFL_BLE(WHEEL_SPEED_FL_UUID, BLERead | BLENotify);
+BLEIntCharacteristic wheelSpeedBR_BLE(WHEEL_SPEED_BR_UUID, BLERead | BLENotify);
+BLEIntCharacteristic wheelSpeedBL_BLE(WHEEL_SPEED_BL_UUID, BLERead | BLENotify);
+
+BLEIntCharacteristic wheelHeightFR_BLE(WHEEL_HEIGHT_FR_UUID, BLERead | BLENotify);
+BLEIntCharacteristic wheelHeightFL_BLE(WHEEL_HEIGHT_FL_UUID, BLERead | BLENotify);
+BLEIntCharacteristic wheelHeightBR_BLE(WHEEL_HEIGHT_BR_UUID, BLERead | BLENotify);
+BLEIntCharacteristic wheelHeightBL_BLE(WHEEL_HEIGHT_BL_UUID, BLERead | BLENotify);
+
+BLEIntCharacteristic coastRegen_BLE(COAST_REGEN_UUID, BLERead | BLEWrite);
+BLEIntCharacteristic brakeRegen_BLE(BRAKE_REGEN_UUID, BLERead | BLEWrite);
+
+BLEBoolCharacteristic readyToDrive_BLE(READY_TO_DRIVE_UUID, BLERead | BLEWrite);
+BLEIntCharacteristic batteryState_BLE(BATTERY_STATE_UUID, BLERead | BLENotify);
+BLEIntCharacteristic driveMode_BLE(DRIVE_MODE_UUID, BLERead | BLEWrite);
 
 
 // *** function declarations *** //
 void PollSensorData();
 void CANReadWrite();
+void UpdateARDAN();
+void SendUpdatedDashData();
+void ReceiveDashData();
 
 // *** setup *** //
 void setup()
@@ -65,28 +100,44 @@ void setup()
   // initialize sensors
   pinMode(WHEEL_SPEED_FR_SENSOR, INPUT);
   pinMode(WHEEL_SPEED_FL_SENSOR, INPUT);
-  pinMode(WHEEL_SPEED_BR_SENSOR, INPUT);
-  pinMode(WHEEL_SPEED_BL_SENSOR, INPUT);
   pinMode(WHEEL_HEIGHT_FR_SENSOR, INPUT);
   pinMode(WHEEL_HEIGHT_FL_SENSOR, INPUT);
-  pinMode(WHEEL_HEIGHT_BR_SENSOR, INPUT);
-  pinMode(WHEEL_HEIGHT_BL_SENSOR, INPUT);
   pinMode(STEERING_WHEEL_POT, INPUT);
-
-  // initialize inputs
-  pinMode(BRAKE_REGEN_POT, INPUT);
-  pinMode(COAST_REGEN_POT, INPUT);
-  pinMode(READY_TO_DRIVE_BUTTON, INPUT);
 
   // initalize outputs
 
   // initalize CAN
   if (Canbus.init(CANSPEED_500))    // set bit rate to 500
-    Serial.println("CAN INIT");
+    Serial.println("CAN INIT [ SUCCESS ]");
   else
-    Serial.println("FAIlED CAN INIT");
+    Serial.println("CAN INIT [ FAILED ]");
 
   // initialize bluetooth low energy
+  if (BLE.begin())
+  {
+    Serial.println("BLE INIT [ SUCCESS ]");
+
+    // setup
+    BLE.setLocalName("DashBoard");
+    BLE.setAdvertisedService(wheelDashUpdateService);
+    wheelDashUpdateService.addCharacteristic(wheelSpeedFR_BLE);
+    wheelDashUpdateService.addCharacteristic(wheelSpeedFL_BLE);
+    wheelDashUpdateService.addCharacteristic(wheelSpeedBR_BLE);
+    wheelDashUpdateService.addCharacteristic(wheelSpeedBL_BLE);
+    wheelDashUpdateService.addCharacteristic(wheelHeightFR_BLE);
+    wheelDashUpdateService.addCharacteristic(wheelHeightFL_BLE);
+    wheelDashUpdateService.addCharacteristic(wheelHeightBR_BLE);
+    wheelDashUpdateService.addCharacteristic(wheelHeightBL_BLE);
+    wheelDashUpdateService.addCharacteristic(coastRegen_BLE);
+    wheelDashUpdateService.addCharacteristic(brakeRegen_BLE);
+    wheelDashUpdateService.addCharacteristic(readyToDrive_BLE);
+    wheelDashUpdateService.addCharacteristic(driveMode_BLE);
+    wheelDashUpdateService.addCharacteristic(batteryState_BLE);
+    SendUpdatedDashData();
+    BLE.advertise();
+  }
+  else 
+    Serial.println("BLE INIT [ FAILED ]");
 
   // initialize timer interrupts
   // timer for polling sensors
@@ -96,6 +147,9 @@ void setup()
   // timer for reading and writing to CAN
   Timer3.initialize(CAN_READ_WRITE_INTERVAL);
   Timer3.attachInterrupt(CANReadWrite);
+
+  // initialize aero remote data aquisition network (ARDAN)
+  
 }
 
 // *** loop *** // 
@@ -104,8 +158,14 @@ void loop() {
   while(1)
   {
     // update wheel dash
+    BLEDevice central = BLE.central();
+    if (central && central.connected())
+    {
+      SendUpdatedDashData();
+      ReceiveDashData();
+    }
 
-    // update aero remote data aquisition network (ARDAN)
+    // update ARDAN
 
   }
 }
@@ -117,7 +177,7 @@ void loop() {
  */
 void PollSensorData()
 {
-
+  sensors.wheelSpeedFR = analogRead(WHEEL_SPEED_FR_SENSOR);
 }
 
 /**
@@ -174,4 +234,50 @@ void CANReadWrite()
   // send the messagee
   mcp2515_bit_modify(CANCTRL, (1<<REQOP2) | (1<<REQOP1) | (1<<REQOP0), 0);
   mcp2515_send_message(&outgoingMessage);
+}
+
+/**
+ * @brief 
+ * 
+ */
+void UpdateARDAN()
+{
+}
+
+/**
+ * @brief 
+ * 
+ */
+void SendUpdatedDashData()
+{
+  wheelSpeedFR_BLE.writeValue(sensors.wheelSpeedFR);
+  wheelSpeedFL_BLE.writeValue(sensors.wheelSpeedFL);
+  wheelSpeedBR_BLE.writeValue(sensors.wheelSpeedBR);
+  wheelSpeedBL_BLE.writeValue(sensors.wheelSpeedBL);
+  wheelHeightFR_BLE.writeValue(sensors.wheelHeightFR);
+  wheelHeightFL_BLE.writeValue(sensors.wheelHeightFL);
+  wheelHeightBR_BLE.writeValue(sensors.wheelHeightBR);
+  wheelHeightBL_BLE.writeValue(sensors.wheelHeightBL);
+  coastRegen_BLE.writeValue(inputs.coastRegen);
+  brakeRegen_BLE.writeValue(inputs.brakeRegen);
+  readyToDrive_BLE.writeValue(inputs.readyToDrive);
+  driveMode_BLE.writeValue(inputs.driveMode);
+  batteryState_BLE.writeValue(sensors.batteryState);
+}
+
+/**
+ * @brief 
+ * 
+ */
+void ReceiveDashData()
+{
+  // check for a connection
+  if (peripheral.connected())
+  {
+    // update values
+    inputs.coastRegen = coastRegen_BLE.value();
+    inputs.brakeRegen = brakeRegen_BLE.value();
+    inputs.readyToDrive = readyToDrive_BLE.value();
+    inputs.driveMode = (DriveModes)driveMode_BLE.value();
+  }
 }

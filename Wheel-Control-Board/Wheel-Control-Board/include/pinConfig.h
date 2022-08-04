@@ -9,21 +9,18 @@
  * 
  */
 
-// Sensors
-#define WHEEL_SPEED_FR_SENSOR               1
-#define WHEEL_SPEED_FL_SENSOR               2
-
-#define WHEEL_HEIGHT_FR_SENSOR              5
-#define WHEEL_HEIGHT_FL_SENSOR              6
-
-#define STEERING_WHEEL_POT                  9
-
-#define PEDAL_0_PIN                         12
-#define PEDAL_1_PIN                         13
-
-
 // Inputs
+#define COAST_REGEN                             1
+#define BRAKE_REGEN                             2
+#define READY_TO_DRIVE_BUTTON                   3
+#define DRIVE_DIRECTION_SWITCH                  4
+#define DRIVE_MODE_BUTTON                       5
 
 // Outputs
-#define ARDAN_RX_PIN                        10
-#define ARDAN_TX_PIN                        11
+#define IMD_FAULT_LED                           6
+#define BMS_FAULT_LED                           7
+#define READY_TO_DRIVE_LED                      8
+
+// LCD
+#define LCD_SDA                                 9
+#define LCD_SCL                                 10

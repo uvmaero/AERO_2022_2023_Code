@@ -118,7 +118,7 @@ struct WCB_Data
   
   struct BatteryStatus
   {
-    uint16_t batteryChargeState = 0;
+    uint8_t batteryChargeState = 0;
 
     float pack1Temp = 0;
     float pack2Temp = 0;
@@ -139,8 +139,8 @@ struct WCB_Data
 
   struct Inputs
   {
-    uint16_t brakeRegen = 0;
-    uint16_t coastRegen = 0;
+    uint8_t brakeRegen = 0;
+    uint8_t coastRegen = 0;
   } inputs;
 };
 WCB_Data wcbData; 

@@ -15,6 +15,7 @@
 #define READY_TO_DRIVE_BUTTON                   3
 #define DRIVE_DIRECTION_SWITCH                  4
 #define DRIVE_MODE_BUTTON                       5
+#define LCD_BUTTON                              11
 
 // Outputs
 #define IMD_FAULT_LED                           6
@@ -22,5 +23,5 @@
 #define READY_TO_DRIVE_LED                      8
 
 // LCD
-#define LCD_SDA                                 9
-#define LCD_SCL                                 10
+#define I2C_SDA                                 9
+#define I2C_SCL                                 10

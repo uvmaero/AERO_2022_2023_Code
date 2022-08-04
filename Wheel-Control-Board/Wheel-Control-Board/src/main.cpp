@@ -11,6 +11,7 @@
 #include <Arduino.h>
 #include <esp_now.h>
 #include <WiFi.h>
+#include <LiquidCrystal_I2C.h>
 #include "pinConfig.h"
 
 
@@ -128,14 +129,28 @@ hw_timer_t* timer0 = NULL;
 hw_timer_t* timer1 = NULL;
 portMUX_TYPE timerMux = portMUX_INITIALIZER_UNLOCKED;
 
+// LCD 
+LiquidCrystal_I2C lcd(0x27, 20, 2);    // set the LCD address to 0x27 for a 16 chars and 2 line display
+enum LCDMode
+{
+  RACE_MODE = 0,
+  ELECTRICAL_MODE = 10,
+  MECHANICAL_MODE = 20
+};
+LCDMode lcdMode = RACE_MODE;
+LCDMode previousLcdMode = lcdMode;
+
 
 // *** function declarations *** //
-void PollSensorData();
+void PollInputData();
 void UpdateFCB();
 void FCBDataSent(const uint8_t* macAddress, esp_now_send_status_t status);
 void FCBDataReceived(const uint8_t* mac, const uint8_t* incomingData, int length);
 void AfterInitLCD();
 void UpdateLCD();
+void LCDButtonInterrupt();
+void ReadyToDriveButtonInterrupt();
+void DriveModeButtonInterrupt();
 
 
 // *** setup *** //
@@ -150,6 +165,7 @@ void setup()
   pinMode(READY_TO_DRIVE_BUTTON, INPUT);
   pinMode(DRIVE_DIRECTION_SWITCH, INPUT);
   pinMode(DRIVE_MODE_BUTTON, INPUT);
+  pinMode(LCD_BUTTON, INPUT);
 
   // --- initalize outputs --- //
   pinMode(IMD_FAULT_LED, OUTPUT);
@@ -157,6 +173,10 @@ void setup()
   pinMode(READY_TO_DRIVE_LED, OUTPUT);
 
   // --- initialize LCD --- //
+  lcd.init();
+  lcd.backlight();
+  lcd.noCursor();
+  lcd.noAutoscroll();
   AfterInitLCD();
 
   // --- initialize ESP-NOW ---//
@@ -188,7 +208,7 @@ void setup()
 
   // --- initialize timer interrupts --- //
   timer0 = timerBegin(0, TIMER_INTERRUPT_PRESCALER, true);
-  timerAttachInterrupt(timer0, &PollSensorData, true);
+  timerAttachInterrupt(timer0, &PollInputData, true);
   timerAlarmWrite(timer0, SENSOR_POLL_INTERVAL, true);
   timerAlarmEnable(timer0);
 
@@ -196,6 +216,11 @@ void setup()
   timerAttachInterrupt(timer1, &UpdateFCB, true);
   timerAlarmWrite(timer1, FCB_UPDATE_INTERVAL, true);
   timerAlarmEnable(timer1);
+
+  // --- initialize hardware interrupts --- //
+  attachInterrupt(LCD_BUTTON, &LCDButtonInterrupt, LOW);
+  attachInterrupt(DRIVE_MODE_BUTTON, &DriveModeButtonInterrupt, LOW);
+  attachInterrupt(READY_TO_DRIVE_BUTTON, &ReadyToDriveButtonInterrupt, LOW);
 }
 
 
@@ -211,9 +236,11 @@ void loop()
  * @brief 
  * 
  */
-void PollSensorData()
+void PollInputData()
 {
-
+  // regen knobs
+  dashData.inputs.brakeRegen = analogRead(BRAKE_REGEN);
+  dashData.inputs.coastRegen = analogRead(COAST_REGEN);
 }
 
 
@@ -223,6 +250,29 @@ void PollSensorData()
  */
 void UpdateLCD()
 {
+  // check to see if the display mode has changed
+  if (lcdMode != previousLcdMode)
+    lcd.clear();
+
+  // update the values on the display
+  switch (lcdMode)
+  {
+  case RACE_MODE:
+  previousLcdMode = lcdMode;
+  break;
+
+  case ELECTRICAL_MODE:
+  previousLcdMode = lcdMode;
+  break;
+
+  case MECHANICAL_MODE:
+  previousLcdMode = lcdMode;
+  break;
+
+  default:
+  lcdMode = RACE_MODE;
+  break;
+  }
 
 }
 
@@ -233,7 +283,12 @@ void UpdateLCD()
  */
 void AfterInitLCD()
 {
+  lcd.clear();
 
+  lcd.setCursor(3, 0);
+  lcd.printf("Booting Up...");
+  lcd.setCursor(6, 1);
+  lcd.printf("AERO");
 }
 
 
@@ -287,4 +342,56 @@ void FCBDataReceived(const uint8_t* mac, const uint8_t* incomingData, int length
   dashData.inputs.coastRegen = fcbData.inputs.coastRegen;
   dashData.inputs.brakeRegen = fcbData.inputs.brakeRegen;
   dashData.drivingData.readyToDrive = fcbData.drivingData.readyToDrive;
+}
+
+
+/**
+ * @brief 
+ * 
+ */
+void LCDButtonInterrupt()
+{
+  int mode = lcdMode;
+
+  // increment mode
+  mode += 10;
+
+  // make sure we aren't out of bounds
+  if (mode > 20)
+  {
+    mode = 0;
+  }
+
+  lcdMode = (LCDMode)mode;
+}
+
+
+/**
+ * @brief 
+ * 
+ */
+void ReadyToDriveButtonInterrupt()
+{
+
+}
+
+
+/**
+ * @brief 
+ * 
+ */
+void DriveModeButtonInterrupt()
+{
+  int mode = dashData.drivingData.driveMode;
+
+  // increment mode
+  mode += 10;
+
+  // make sure we aren't out of bounds
+  if (mode > 20)
+  {
+    mode = 0;
+  }
+
+  dashData.drivingData.driveMode = (DriveModes)mode;
 }

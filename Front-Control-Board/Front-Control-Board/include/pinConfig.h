@@ -21,9 +21,10 @@
 #define PEDAL_0_PIN                         12
 #define PEDAL_1_PIN                         13
 
-
 // Inputs
+#define CAN_MESSAGE_INTERRUPT_PIN           15             
 
 // Outputs
-#define ARDAN_RX_PIN                        10
-#define ARDAN_TX_PIN                        11
+#define ARDAN_SS_PIN                        10
+#define ARDAN_RST_PIN                       11
+#define ARDAN_DIO_PIN                       14

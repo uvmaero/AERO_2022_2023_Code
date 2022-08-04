@@ -1,12 +1,9 @@
 /**
  * @file main.cpp
- * @author dominic gasperini
+ * @author Dominic Gasperini - UVM '23
  * @brief this drives the front control board on clean speed 5.5
- * @version 0.1
- * @date 2022-07-25
- * 
- * @copyright Copyright (c) 2022
- * 
+ * @version 0.9
+ * @date 2022-08-04
  */
 
 // *** includes *** // 
@@ -21,7 +18,7 @@
 // *** defines *** // 
 #define TIMER_INTERRUPT_PRESCALER       80          // this is based off to the clock speed (assuming 80 MHz), gets us to microseconds
 #define SENSOR_POLL_INTERVAL            50000       // 0.05 seconds in microseconds
-#define CAN_READ_WRITE_INTERVAL         10000       // 0.1 seconds in microseconds
+#define CAN_WRITE_INTERVAL              10000       // 0.1 seconds in microseconds
 #define WCB_UPDATE_INTERVAL             200000      // 0.2 seconds in microseconds
 #define ARDAN_UPDATE_INTERVAL           250000      // 0.25 seconds in microseconds
 #define BRAKE_LIGHT_THRESHOLD           10
@@ -151,9 +148,6 @@ WCB_Data wcbData;
 // CAN
 MCP_CAN CAN0(10);       // set CS pin to 10
 
-// Aero Remote Data Aquisition Network (ARDAN)
-
-
 // Hardware ISR Timers
 hw_timer_t* timer0 = NULL;
 hw_timer_t* timer1 = NULL;
@@ -164,7 +158,8 @@ portMUX_TYPE timerMux = portMUX_INITIALIZER_UNLOCKED;
 
 // *** function declarations *** //
 void PollSensorData();
-void CANReadWrite();
+void CANRead();
+void CANWrite();
 void UpdateARDAN();
 void UpdateWCB();
 void WCBDataSent(const uint8_t* macAddress, esp_now_send_status_t status);
@@ -175,55 +170,75 @@ long MapValue(long x, long in_min, long in_max, long out_min, long out_max);
 // *** setup *** //
 void setup()
 {
-  // initialize serial
+  // --- initialize serial --- //
   Serial.begin(9600);
 
-  // initialize sensors
+  // --- initialize sensors --- //
   pinMode(WHEEL_SPEED_FR_SENSOR, INPUT);
   pinMode(WHEEL_SPEED_FL_SENSOR, INPUT);
   pinMode(WHEEL_HEIGHT_FR_SENSOR, INPUT);
   pinMode(WHEEL_HEIGHT_FL_SENSOR, INPUT);
   pinMode(STEERING_WHEEL_POT, INPUT);
 
-  // initalize outputs
+  // --- initalize outputs --- //
 
 
-  // initalize CAN
+  // --- initalize CAN --- //
+  pinMode(CAN_MESSAGE_INTERRUPT_PIN, INPUT);
+  // create interrupt when the message arrived pin is pulled low
+  attachInterrupt(CAN_MESSAGE_INTERRUPT_PIN, CANRead, LOW);
+  
+  // init CAN
   if (CAN0.begin(MCP_ANY, CAN_500KBPS, MCP_16MHZ) == CAN_OK)
     Serial.println("CAN INIT [ SUCCESS ]");
   else
     Serial.println("CAN INIT [ FAILED ]");
   
+  // set mode to read and write
   CAN0.setMode(MCP_NORMAL);
 
-  // initialize ESP-NOW
+  // setup mask and filter
+  CAN0.init_Mask(0, 0, 0xFFFFFFFF);       // check all ID bits, excludes everything except select IDs
+  CAN0.init_Filt(0, 0, 0x100);            // RCB ID 1
+  CAN0.init_Filt(1, 0, 0x101);            // RCB ID 2
+  CAN0.init_Filt(2, 0, 0x102);            // Rinehart ID
+
+  // --- initialize ESP-NOW ---//
+  // turn on wifi access point 
   WiFi.mode(WIFI_STA);
+
+  // init ESP-NOW service
   if (esp_now_init() != ESP_OK)
     Serial.println("ESP-NOW INIT [ SUCCESS ]");
   else
     Serial.println("ESP-NOW INIT [ FAILED ]");
   
+  // attach the data send function to the message sent callback
   esp_now_register_send_cb(WCBDataSent);
+  
+  // get peer informtion about WCB
   memcpy(wcbInfo.peer_addr, wcbAddress, sizeof(wcbAddress));
   wcbInfo.channel = 0;
   wcbInfo.encrypt = false;
 
+  // add WCB as a peer
   if (esp_now_add_peer(&wcbInfo) != ESP_OK)
     Serial.println("ESP-NOW CONNECTION [ SUCCESS ]");
   else
     Serial.println("ESP-NOW CONNECTION [ FAILED ]");
 
+  // attach message received callback to the data received function
   esp_now_register_recv_cb(WCBDataReceived);
 
-  // initialize timer interrupts
+  // --- initialize timer interrupts --- //
   timer0 = timerBegin(0, TIMER_INTERRUPT_PRESCALER, true);
   timerAttachInterrupt(timer0, &PollSensorData, true);
   timerAlarmWrite(timer0, SENSOR_POLL_INTERVAL, true);
   timerAlarmEnable(timer0);
 
   timer1 = timerBegin(1, TIMER_INTERRUPT_PRESCALER, true);
-  timerAttachInterrupt(timer1, &CANReadWrite, true);
-  timerAlarmWrite(timer1, CAN_READ_WRITE_INTERVAL, true);
+  timerAttachInterrupt(timer1, &CANWrite, true);
+  timerAlarmWrite(timer1, CAN_WRITE_INTERVAL, true);
   timerAlarmEnable(timer1);
 
   timer2 = timerBegin(2, TIMER_INTERRUPT_PRESCALER, true);
@@ -231,16 +246,25 @@ void setup()
   timerAlarmWrite(timer2, WCB_UPDATE_INTERVAL, true);
   timerAlarmEnable(timer2);
 
-
   timer3 = timerBegin(3, TIMER_INTERRUPT_PRESCALER, true);
   timerAttachInterrupt(timer3, &UpdateARDAN, true);
   timerAlarmWrite(timer3, ARDAN_UPDATE_INTERVAL, true);
   timerAlarmEnable(timer3);
 
-  // initialize ARDAN
+  // --- initialize ARDAN ---//
+  // set pins for the radio module
+  LoRa.setPins(ARDAN_SS_PIN, ARDAN_RST_PIN, ARDAN_DIO_PIN);
 
+  // init LoRa
+  if (!LoRa.begin(915E6))         // 915E6 is for use in North America 
+    Serial.println("ARDAN INIT [SUCCESSS ]");
+  else 
+    Serial.println("ARDAN INIT [ FAILED ]");
 
-  // End Setup Section in Serial Monitor
+  // set the sync word so the car and monitoring station can communicate
+  LoRa.setSyncWord(0xA1);         // the channel to be transmitting on (range: 0x00 - 0xFF)
+
+  // --- End Setup Section in Serial Monitor --- //
   Serial.print("|--- END SETUP ---|\n\n\n");
 }
 
@@ -251,10 +275,9 @@ void loop()
 }
 
 
-/**SENSOR_POLL_INTERVAL
- * @brief Interrupt Handler for Timer 1
+/**
+ * @brief Interrupt Handler for Timer 0
  * This ISR is for reading sensor data from the car 
- * Is called every 0.05 seconds
  */
 void PollSensorData()
 {
@@ -297,38 +320,50 @@ void PollSensorData()
 
 
 /**
- * @brief Interrupt Handler for Timer 2
- * This ISR is for reading and writing to the CAN bus
- * Is called every 0.1 seconds
- * 
+ * @brief Interrupt Handler for on CAN Message Received
+ * This ISR is for reading an incoming message from the CAN bus
  */
-void CANReadWrite()
+void CANRead()
 {
-  // read data off the CAN bus
+  // inits
   unsigned long receivingID = 0;
   byte messageLength = 0;
   byte receivingBuffer[8];
 
+  // read the message
   CAN0.readMsgBuf(&receivingID, &messageLength, receivingBuffer);
 
+  // filter for only the IDs we are interested in
   switch (receivingID)
   {
+    // message from RCB: Sensor Data
     case 0x100:
     // do stuff with the data in the message
     break;
 
+    // message from RCB: BMS and electrical data
     case 0x101:
     // do stuff with the data in the message
     break;
 
     default:
     // do nothing because we didn't get any messages of interest
+    return;
     break;
   }
+}
 
-  // write to CAN bus
+
+/**
+ * @brief Interrupt Handler for Timer 1
+ * This ISR is for reading and writing to the CAN bus
+ */
+void CANWrite()
+{
+  // inits
   byte outgoingMessage[8];
 
+  // build message
   outgoingMessage[0] = 0x00;
   outgoingMessage[1] = 0x01;
   outgoingMessage[2] = 0x02;
@@ -338,6 +373,7 @@ void CANReadWrite()
   outgoingMessage[6] = 0x06;
   outgoingMessage[7] = 0x07;
 
+  // send the message and get its sent status
   byte sentStatus = CAN0.sendMsgBuf(0x100, 0, sizeof(outgoingMessage), outgoingMessage);
 
   if (sentStatus == CAN_OK)
@@ -348,8 +384,8 @@ void CANReadWrite()
 
 
 /**
- * @brief 
- * 
+ * @brief Interrupt Handler for Timer 3
+ * update the car data supplied to the FCB
  */
 void UpdateWCB()
 {
@@ -379,20 +415,20 @@ void UpdateWCB()
 }
 
 
-
 /**
- * @brief 
- * 
+ * @brief Interrupt Handler for Timer 4
+ * update the ARDAN with live car data
  */
 void UpdateARDAN()
 {
-
+  LoRa.beginPacket();
+  LoRa.write((uint8_t *) &carData, sizeof(carData));    // pass the casted the reference of the struct to a uint8
+  LoRa.endPacket();                                     // and the size of the struct
 }
 
 
 /**
  * @brief Get the Commanded Torque from pedal values
- * 
  */
 void GetCommandedTorque()
 {
@@ -433,10 +469,10 @@ void GetCommandedTorque()
 
 
 /**
- * @brief 
+ * @brief a callback function for when data is sent to WCB
  * 
- * @param macAddress 
- * @param status 
+ * @param macAddress      the address of the WCB
+ * @param status          indicator of successful message sent
  */
 void WCBDataSent(const uint8_t* macAddress, esp_now_send_status_t status)
 {
@@ -446,30 +482,35 @@ void WCBDataSent(const uint8_t* macAddress, esp_now_send_status_t status)
 
 
 /**
- * @brief 
+ * @brief a callback function for when data is received from WCB
  * 
- * @param mac 
- * @param incomingData 
- * @param length 
+ * @param mac             the address of the WCB
+ * @param incomingData    the structure of incoming data
+ * @param length          size of the incoming data
  */
 void WCBDataReceived(const uint8_t* mac, const uint8_t* incomingData, int length)
 {
   // copy data to the wcbData struct 
   memcpy(&wcbData, incomingData, sizeof(wcbData));
 
-  // update FCB data
-
+  // get updated WCB data
+  carData.drivingData.driveDirection = wcbData.drivingData.driveDirection;
+  carData.drivingData.driveMode = wcbData.drivingData.driveMode;
+  carData.inputs.coastRegen = wcbData.inputs.coastRegen;
+  carData.inputs.brakeRegen = wcbData.inputs.brakeRegen;
+  carData.drivingData.readyToDrive = wcbData.drivingData.readyToDrive;
 }
 
+
 /**
- * @brief 
+ * @brief scale a value inside a range of values to a new range of values
  * 
  * @param x             input value to be re-mapped
  * @param in_min        input value min of range
  * @param in_max        input value max of range
  * @param out_min       output value min of range
  * @param out_max       output value max of range
- * @return long         the remapped value
+ * @return              the remapped value
  */
 long MapValue(long x, long in_min, long in_max, long out_min, long out_max) {
   return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;

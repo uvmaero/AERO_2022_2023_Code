@@ -17,8 +17,8 @@
 
 // *** defines *** // 
 #define TIMER_INTERRUPT_PRESCALER       80          // this is based off to the clock speed (assuming 80 MHz), gets us to microseconds
-#define SENSOR_POLL_INTERVAL            50000       // 0.05 seconds in microseconds
-#define FCB_UPDATE_INTERVAL             200000      // 0.2 seconds in microseconds
+#define SENSOR_POLL_INTERVAL            100000      // 0.1 seconds in microseconds
+#define FCB_UPDATE_INTERVAL             125000      // 0.125 seconds in microseconds
 
 
 // *** global variables *** //

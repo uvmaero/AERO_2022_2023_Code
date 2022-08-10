@@ -239,7 +239,11 @@ void setup()
 
 // *** loop *** // 
 void loop()
-{
+{ 
+  // update LEDs
+  digitalWrite(IMD_FAULT_LED, dashData.drivingData.imdFault);
+  digitalWrite(BMS_FAULT_LED, dashData.drivingData.bmsFault);
+
   // update wheel dash LCD
   UpdateLCD();
 }

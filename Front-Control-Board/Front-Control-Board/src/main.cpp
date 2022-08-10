@@ -118,7 +118,9 @@ struct WCB_Data
   
   struct BatteryStatus
   {
-    uint8_t batteryChargeState = 0;
+    uint16_t batteryChargeState = 0;
+    int16_t busVoltage = 0;
+    int16_t rinehartVoltage = 0;
 
     float pack1Temp = 0;
     float pack2Temp = 0;

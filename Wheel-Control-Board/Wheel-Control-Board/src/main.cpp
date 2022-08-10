@@ -51,6 +51,8 @@ struct FCB_Data
   struct BatteryStatus
   {
     uint16_t batteryChargeState = 0;
+    int16_t busVoltage = 0;
+    int16_t rinehartVoltage = 0;
 
     float pack1Temp = 0;
     float pack2Temp = 0;
@@ -87,7 +89,6 @@ struct DashData
   struct DrivingData
   {
     bool readyToDrive = false;
-    bool enableInverter = false;
 
     bool imdFault = false;
     bool bmsFault = false;
@@ -157,6 +158,9 @@ void FCBDataSent(const uint8_t* macAddress, esp_now_send_status_t status);
 void FCBDataReceived(const uint8_t* mac, const uint8_t* incomingData, int length);
 void AfterInitLCD();
 void UpdateLCD();
+void DisplayRaceMode();
+void DisplayElectricalMode();
+void DisplayMechanicalMode();
 void LCDButtonInterrupt();
 void ReadyToDriveButtonInterrupt();
 void DriveModeButtonInterrupt();
@@ -266,38 +270,25 @@ void UpdateLCD()
   // update the values on the display
   switch (lcdMode)
   {
-  case RACE_MODE:
-  previousLcdMode = lcdMode;
-  break;
+    case RACE_MODE:
+    previousLcdMode = lcdMode;
+    DisplayRaceMode();
+    break;
 
-  case ELECTRICAL_MODE:
-  previousLcdMode = lcdMode;
-  break;
+    case ELECTRICAL_MODE:
+    previousLcdMode = lcdMode;
+    DisplayElectricalMode();
+    break;
 
-  case MECHANICAL_MODE:
-  previousLcdMode = lcdMode;
-  break;
+    case MECHANICAL_MODE:
+    previousLcdMode = lcdMode;
+    DisplayMechanicalMode();
+    break;
 
-  default:
-  lcdMode = RACE_MODE;
-  break;
+    default:
+    lcdMode = RACE_MODE;
+    break;
   }
-
-}
-
-
-/**
- * @brief 
- * 
- */
-void AfterInitLCD()
-{
-  lcd.clear();
-
-  lcd.setCursor(3, 0);
-  lcd.printf("Booting Up...");
-  lcd.setCursor(6, 1);
-  lcd.printf("AERO");
 }
 
 
@@ -349,13 +340,22 @@ void FCBDataReceived(const uint8_t* mac, const uint8_t* incomingData, int length
   // copy data to the fcbData struct 
   memcpy(&fcbData, incomingData, sizeof(fcbData));
 
-  // get updated WCB data
-  dashData.drivingData.driveDirection = fcbData.drivingData.driveDirection;
-  dashData.drivingData.driveMode = fcbData.drivingData.driveMode;
-  dashData.inputs.coastRegen = fcbData.io.coastRegen;
-  dashData.inputs.brakeRegen = fcbData.io.brakeRegen;
-  dashData.outputs.buzzerActive = fcbData.io.buzzerActive;
-  dashData.drivingData.readyToDrive = fcbData.drivingData.readyToDrive;
+  // update battery & electrical data
+  dashData.batteryStatus.batteryChargeState = fcbData.batteryStatus.batteryChargeState;
+  dashData.batteryStatus.busVoltage = fcbData.batteryStatus.busVoltage;
+  dashData.batteryStatus.rinehartVoltage = fcbData.batteryStatus.rinehartVoltage;
+  dashData.batteryStatus.pack1Temp = fcbData.batteryStatus.pack1Temp;
+  dashData.batteryStatus.pack2Temp = fcbData.batteryStatus.pack2Temp;
+
+  // update sensor data
+  dashData.sensors.wheelSpeedFR = fcbData.sensors.wheelSpeedFR;
+  dashData.sensors.wheelSpeedFR = fcbData.sensors.wheelSpeedFL;
+  dashData.sensors.wheelSpeedFR = fcbData.sensors.wheelSpeedBR;
+  dashData.sensors.wheelSpeedFR = fcbData.sensors.wheelSpeedBL;
+  dashData.sensors.wheelSpeedFR = fcbData.sensors.wheelSpeedFR;
+  dashData.sensors.wheelSpeedFR = fcbData.sensors.wheelSpeedFL;
+  dashData.sensors.wheelSpeedFR = fcbData.sensors.wheelSpeedBR;
+  dashData.sensors.wheelSpeedFR = fcbData.sensors.wheelSpeedBL;
 }
 
 
@@ -373,7 +373,7 @@ void LCDButtonInterrupt()
   // make sure we aren't out of bounds
   if (mode > 20)
   {
-    mode = 0;
+    mode = 0;       // loop back around to start
   }
 
   lcdMode = (LCDMode)mode;
@@ -408,8 +408,53 @@ void DriveModeButtonInterrupt()
   // make sure we aren't out of bounds
   if (mode > 20)
   {
-    mode = 0;
+    mode = 0;     // loop back around to start
   }
 
   dashData.drivingData.driveMode = (DriveModes)mode;
+}
+
+
+/**
+ * @brief 
+ * 
+ */
+void AfterInitLCD()
+{
+  lcd.clear();
+
+  lcd.setCursor(3, 0);
+  lcd.printf("Booting Up...");
+  lcd.setCursor(6, 1);
+  lcd.printf("AERO");
+}
+
+
+/**
+ * @brief 
+ * 
+ */
+void DisplayRaceMode()
+{
+
+}
+
+
+/**
+ * @brief 
+ * 
+ */
+void DisplayElectricalMode()
+{
+
+}
+
+
+/**
+ * @brief 
+ * 
+ */
+void DisplayMechanicalMode()
+{
+
 }

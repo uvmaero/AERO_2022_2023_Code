@@ -25,6 +25,7 @@
 #define CAN_MESSAGE_INTERRUPT_PIN           15             
 
 // Outputs
+#define BUZZER_PIN                          16
 #define ARDAN_SS_PIN                        10
 #define ARDAN_RST_PIN                       11
 #define ARDAN_DIO_PIN                       14

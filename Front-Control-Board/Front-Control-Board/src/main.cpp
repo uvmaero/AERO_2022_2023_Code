@@ -91,7 +91,7 @@ struct CarData
 
   struct Outputs
   {
-    bool buzzerState = false;
+    bool buzzerActive = false;
     uint8_t buzzerCounter = 0;
     bool brakeLight = false;
   } outputs;
@@ -137,11 +137,15 @@ struct WCB_Data
     uint16_t wheelHeightBL = 0;
   } sensors;
 
-  struct Inputs
+  struct IO
   {
+    // inputs
     uint8_t brakeRegen = 0;
     uint8_t coastRegen = 0;
-  } inputs;
+
+    // outputs
+    bool buzzerActive = false;
+  } io;
 };
 WCB_Data wcbData; 
 
@@ -298,14 +302,18 @@ void PollSensorData()
   carData.sensors.steeringWheelAngle = analogRead(STEERING_WHEEL_POT);
 
   // buzzer logic
-  if (carData.outputs.buzzerState == 1)
+  if (carData.outputs.buzzerActive)
   {
+    digitalWrite(BUZZER_PIN, carData.outputs.buzzerActive)
     carData.outputs.buzzerCounter++;
-    if (carData.outputs.buzzerCounter >= 40)           // buzzerCounter is being updated on a 5Hz interval, so after 40 cycles, 2 seconds have passed
+    if (carData.outputs.buzzerCounter >= 2*(1 / SENSOR_POLL_INTERVAL))    // get 2 seconds worth of interrupt counts
     {
-      carData.outputs.buzzerState = 0;
-      carData.outputs.buzzerCounter = 0;
-      carData.drivingData.enableInverter = true;       // enable the inverter so that we can tell rinehart to turn inverter on
+      // update buzzer state and turn off the buzzer
+      carData.outputs.buzzerActive = false;
+      digitalWrite(BUZZER_PIN, carData.outputs.buzzerActive)
+
+      carData.outputs.buzzerCounter = 0;                        // reset buzzer count
+      carData.drivingData.enableInverter = true;                // enable the inverter so that we can tell rinehart to turn inverter on
     }
   }
 
@@ -498,6 +506,7 @@ void WCBDataReceived(const uint8_t* mac, const uint8_t* incomingData, int length
   carData.drivingData.driveMode = wcbData.drivingData.driveMode;
   carData.inputs.coastRegen = wcbData.inputs.coastRegen;
   carData.inputs.brakeRegen = wcbData.inputs.brakeRegen;
+  carData.outputs.buzzerActive = wcbData.io.buzzerActive;
   carData.drivingData.readyToDrive = wcbData.drivingData.readyToDrive;
 }
 

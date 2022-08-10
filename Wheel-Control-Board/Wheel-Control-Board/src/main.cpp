@@ -69,11 +69,15 @@ struct FCB_Data
     uint16_t wheelHeightBL = 0;
   } sensors;
 
-  struct Inputs
+  struct IO
   {
-    uint16_t brakeRegen = 0;
-    uint16_t coastRegen = 0;
-  } inputs;
+    // inputs
+    uint8_t brakeRegen = 0;
+    uint8_t coastRegen = 0;
+
+    // outputs
+    bool buzzerActive = false;
+  } io;
 };
 FCB_Data fcbData; 
 
@@ -121,6 +125,11 @@ struct DashData
     uint8_t brakeRegen = 0;
     uint8_t coastRegen = 0;
   } inputs;
+
+  struct Outputs
+  {
+    bool buzzerActive = false;
+  } outputs;
 };
 DashData dashData;
 
@@ -299,9 +308,13 @@ void AfterInitLCD()
 void UpdateFCB()
 {
   // update input data
-  
+  fcbData.drivingData.readyToDrive = dashData.drivingData.readyToDrive;
+  fcbData.drivingData.driveDirection = dashData.drivingData.driveDirection;
+  fcbData.io.brakeRegen = dashData.inputs.brakeRegen;
+  fcbData.io.coastRegen = dashData.inputs.coastRegen;
+  fcbData.io.buzzerActive = dashData.outputs.buzzerActive;
 
-  // send message
+  // send mesasge
   esp_err_t result = esp_now_send(fcbAddress, (uint8_t *) &fcbData, sizeof(fcbData));
 
   if (result == ESP_OK)
@@ -339,8 +352,9 @@ void FCBDataReceived(const uint8_t* mac, const uint8_t* incomingData, int length
   // get updated WCB data
   dashData.drivingData.driveDirection = fcbData.drivingData.driveDirection;
   dashData.drivingData.driveMode = fcbData.drivingData.driveMode;
-  dashData.inputs.coastRegen = fcbData.inputs.coastRegen;
-  dashData.inputs.brakeRegen = fcbData.inputs.brakeRegen;
+  dashData.inputs.coastRegen = fcbData.io.coastRegen;
+  dashData.inputs.brakeRegen = fcbData.io.brakeRegen;
+  dashData.outputs.buzzerActive = fcbData.io.buzzerActive;
   dashData.drivingData.readyToDrive = fcbData.drivingData.readyToDrive;
 }
 
@@ -372,7 +386,11 @@ void LCDButtonInterrupt()
  */
 void ReadyToDriveButtonInterrupt()
 {
+  // update ready to drive status
+  dashData.drivingData.readyToDrive = true;
 
+  // update buzzer status
+  dashData.outputs.buzzerActive = true;
 }
 
 

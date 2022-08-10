@@ -306,13 +306,13 @@ void PollSensorData()
   // buzzer logic
   if (carData.outputs.buzzerActive)
   {
-    digitalWrite(BUZZER_PIN, carData.outputs.buzzerActive)
+    digitalWrite(BUZZER_PIN, carData.outputs.buzzerActive);
     carData.outputs.buzzerCounter++;
     if (carData.outputs.buzzerCounter >= 2*(1 / SENSOR_POLL_INTERVAL))    // get 2 seconds worth of interrupt counts
     {
       // update buzzer state and turn off the buzzer
       carData.outputs.buzzerActive = false;
-      digitalWrite(BUZZER_PIN, carData.outputs.buzzerActive)
+      digitalWrite(BUZZER_PIN, carData.outputs.buzzerActive);
 
       carData.outputs.buzzerCounter = 0;                        // reset buzzer count
       carData.drivingData.enableInverter = true;                // enable the inverter so that we can tell rinehart to turn inverter on
@@ -322,7 +322,7 @@ void PollSensorData()
   // brake light logic 
   int brakeAverage = (carData.inputs.brake0 + carData.inputs.brake1) / 2;
   if (brakeAverage >= BRAKE_LIGHT_THRESHOLD)
-    carData.outputs.brakeLight = true;     // turn it on 
+    carData.outputs.brakeLight = true;      // turn it on 
 
   else
     carData.outputs.brakeLight = false;     // turn it off
@@ -384,7 +384,7 @@ void CANWrite()
   outgoingMessage[7] = 0x07;
 
   // send the message and get its sent status
-  byte sentStatus = CAN0.sendMsgBuf(0x100, 0, sizeof(outgoingMessage), outgoingMessage);
+  byte sentStatus = CAN0.sendMsgBuf(0x100, 0, sizeof(outgoingMessage), outgoingMessage);    // (sender address, STD CAN frame, size of message, message)
 
   if (sentStatus == CAN_OK)
     Serial.println("CAN Message Sent Status: Success");
@@ -432,8 +432,8 @@ void UpdateWCB()
 void UpdateARDAN()
 {
   LoRa.beginPacket();
-  LoRa.write((uint8_t *) &carData, sizeof(carData));    // pass the casted the reference of the struct to a uint8
-  LoRa.endPacket();                                     // and the size of the struct
+  LoRa.write((uint8_t *) &carData, sizeof(carData));
+  LoRa.endPacket();
 }
 
 
@@ -506,8 +506,8 @@ void WCBDataReceived(const uint8_t* mac, const uint8_t* incomingData, int length
   // get updated WCB data
   carData.drivingData.driveDirection = wcbData.drivingData.driveDirection;
   carData.drivingData.driveMode = wcbData.drivingData.driveMode;
-  carData.inputs.coastRegen = wcbData.inputs.coastRegen;
-  carData.inputs.brakeRegen = wcbData.inputs.brakeRegen;
+  carData.inputs.coastRegen = wcbData.io.coastRegen;
+  carData.inputs.brakeRegen = wcbData.io.brakeRegen;
   carData.outputs.buzzerActive = wcbData.io.buzzerActive;
   carData.drivingData.readyToDrive = wcbData.drivingData.readyToDrive;
 }

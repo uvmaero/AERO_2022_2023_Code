@@ -11,7 +11,7 @@
 #include <Arduino.h>
 #include <esp_now.h>
 #include <WiFi.h>
-#include <LiquidCrystal_I2C.h>
+#include "TFT_eSPI.h"
 #include "pinConfig.h"
 
 
@@ -144,7 +144,7 @@ hw_timer_t* timer1 = NULL;
 portMUX_TYPE timerMux = portMUX_INITIALIZER_UNLOCKED;
 
 // LCD 
-LiquidCrystal_I2C lcd(0x27, 20, 2);    // set the LCD address to 0x27 for a 16 chars and 2 line display
+TFT_eSPI display = TFT_eSPI();
 enum LCDMode
 {
   RACE_MODE = 0,
@@ -190,10 +190,8 @@ void setup()
   pinMode(READY_TO_DRIVE_LED, OUTPUT);
 
   // --- initialize LCD --- //
-  lcd.init();
-  lcd.backlight();
-  lcd.noCursor();
-  lcd.noAutoscroll();
+  display.init();
+  display.setRotation(2);
   AfterInitLCD();
 
   // --- initialize ESP-NOW ---//
@@ -399,7 +397,7 @@ void UpdateLCD()
 {
   // check to see if the display mode has changed
   if (lcdMode != previousLcdMode)
-    lcd.clear();
+    // lcd.clear();
 
   // update the values on the display
   switch (lcdMode)
@@ -427,20 +425,16 @@ void UpdateLCD()
 
 
 /**
- * @brief 
+ * @brief content to be displayed during the boot sequence
  * 
  */
 void AfterInitLCD()
 {
-  lcd.clear();
-
-  // on line 1
-  lcd.setCursor(3, 0);
-  lcd.printf("Booting Up...");
-
-  // on line 2
-  lcd.setCursor(4, 1);
-  lcd.printf("~AERO~");
+  display.fillScreen(random(0xFFFF));
+  display.setCursor(0, 0);
+  display.setTextColor(TFT_WHITE, TFT_BLACK);
+  display.setTextSize(2);
+  display.print("Welcome AERO Driver");
 }
 
 
@@ -450,50 +444,7 @@ void AfterInitLCD()
  */
 void DisplayRaceMode()
 {
-  // line 1 - mph
-  lcd.setCursor(7, 0);
-  lcd.print("    ");
-  lcd.printf("%d mph", dashData.drivingData.currentSpeed);
 
-  // line 2 - drive direction
-  lcd.setCursor(0, 1);
-  lcd.print("   ");
-  if (dashData.drivingData.driveDirection)
-  {
-    lcd.print("FWD");
-  }
-
-  else
-  {
-    lcd.print("RVS");
-  }
-
-  // line 2 - drive mode
-  lcd.setCursor(8, 1);
-  lcd.print("    ");
-  switch (dashData.drivingData.driveMode)
-  {
-    case SLOW:
-    lcd.print("SLOW");
-    break;
-
-    case ECO:
-    lcd.print("ECO");
-    break;
-
-    case FAST:
-    lcd.print("FAST");
-    break;
-
-    default:
-    lcd.print("MODE ERR");
-    break;
-  }
-
-  // line 2 - battery percentage
-  lcd.setCursor(16, 1);
-  lcd.print("    ");
-  lcd.printf("%d%%", dashData.batteryStatus.batteryChargeState);
 }
 
 

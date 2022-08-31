@@ -287,6 +287,9 @@ void loop()
  */
 void PollSensorData()
 {
+  // turn off wifi for ADC channel 2 to function
+  WiFi.mode(WIFI_OFF);
+
   // get pedal positions
   carData.inputs.pedal0 = analogRead(PEDAL_0_PIN);
   carData.inputs.pedal1 = analogRead(PEDAL_1_PIN);
@@ -326,6 +329,9 @@ void PollSensorData()
 
   else
     carData.outputs.brakeLight = false;     // turn it off
+
+  // turn wifi back on to re-enable esp-now connection to wheel board
+  WiFi.mode(WIFI_STA);
 }
 
 

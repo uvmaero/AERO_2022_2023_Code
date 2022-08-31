@@ -17,7 +17,7 @@
 
 // *** defines *** // 
 #define TIMER_INTERRUPT_PRESCALER       80          // this is based off to the clock speed (assuming 80 MHz), gets us to microseconds
-#define SENSOR_POLL_INTERVAL            75000       // 0.075 seconds in microseconds
+#define SENSOR_POLL_INTERVAL            50000       // 0.05 seconds in microseconds
 #define CAN_WRITE_INTERVAL              100000      // 0.1 seconds in microseconds
 #define WCB_UPDATE_INTERVAL             150000      // 0.15 seconds in microseconds
 #define ARDAN_UPDATE_INTERVAL           250000      // 0.25 seconds in microseconds
@@ -311,7 +311,7 @@ void PollSensorData()
   {
     digitalWrite(BUZZER_PIN, carData.outputs.buzzerActive);
     carData.outputs.buzzerCounter++;
-    if (carData.outputs.buzzerCounter >= 2*(1 / SENSOR_POLL_INTERVAL))    // get 2 seconds worth of interrupt counts
+    if (carData.outputs.buzzerCounter >= (2 * (100 / (SENSOR_POLL_INTERVAL / 10000))))    // get 2 seconds worth of interrupt counts
     {
       // update buzzer state and turn off the buzzer
       carData.outputs.buzzerActive = false;

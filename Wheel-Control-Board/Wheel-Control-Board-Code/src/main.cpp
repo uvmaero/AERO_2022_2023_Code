@@ -46,6 +46,8 @@ struct FCB_Data
 
     bool driveDirection = true;             // true = forward | false = reverse
     DriveModes driveMode = ECO;
+
+    uint8_t currentSpeed = 0;
   } drivingData;
   
   struct BatteryStatus
@@ -95,6 +97,8 @@ struct DashData
 
     bool driveDirection = true;             // true = forward | false = reverse
     DriveModes driveMode = ECO;
+
+    uint8_t currentSpeed = 0;
   } drivingData;
   
   struct BatteryStatus
@@ -265,41 +269,6 @@ void PollInputData()
  * @brief 
  * 
  */
-void UpdateLCD()
-{
-  // check to see if the display mode has changed
-  if (lcdMode != previousLcdMode)
-    lcd.clear();
-
-  // update the values on the display
-  switch (lcdMode)
-  {
-    case RACE_MODE:
-    previousLcdMode = lcdMode;
-    DisplayRaceMode();
-    break;
-
-    case ELECTRICAL_MODE:
-    previousLcdMode = lcdMode;
-    DisplayElectricalMode();
-    break;
-
-    case MECHANICAL_MODE:
-    previousLcdMode = lcdMode;
-    DisplayMechanicalMode();
-    break;
-
-    default:
-    lcdMode = RACE_MODE;
-    break;
-  }
-}
-
-
-/**
- * @brief 
- * 
- */
 void UpdateFCB()
 {
   // update input data
@@ -344,6 +313,9 @@ void FCBDataReceived(const uint8_t* mac, const uint8_t* incomingData, int length
   // copy data to the fcbData struct 
   memcpy(&fcbData, incomingData, sizeof(fcbData));
 
+  // updated mechanical data
+  dashData.drivingData.currentSpeed = fcbData.drivingData.currentSpeed;
+
   // update battery & electrical data
   dashData.batteryStatus.batteryChargeState = fcbData.batteryStatus.batteryChargeState;
   dashData.batteryStatus.busVoltage = fcbData.batteryStatus.busVoltage;
@@ -360,27 +332,6 @@ void FCBDataReceived(const uint8_t* mac, const uint8_t* incomingData, int length
   dashData.sensors.wheelSpeedFR = fcbData.sensors.wheelSpeedFL;
   dashData.sensors.wheelSpeedFR = fcbData.sensors.wheelSpeedBR;
   dashData.sensors.wheelSpeedFR = fcbData.sensors.wheelSpeedBL;
-}
-
-
-/**
- * @brief 
- * 
- */
-void LCDButtonInterrupt()
-{
-  int mode = lcdMode;
-
-  // increment mode
-  mode += 10;
-
-  // make sure we aren't out of bounds
-  if (mode > 20)
-  {
-    mode = 0;       // loop back around to start
-  }
-
-  lcdMode = (LCDMode)mode;
 }
 
 
@@ -423,14 +374,20 @@ void DriveModeButtonInterrupt()
  * @brief 
  * 
  */
-void AfterInitLCD()
+void LCDButtonInterrupt()
 {
-  lcd.clear();
+  int mode = lcdMode;
 
-  lcd.setCursor(3, 0);
-  lcd.printf("Booting Up...");
-  lcd.setCursor(6, 1);
-  lcd.printf("AERO");
+  // increment mode
+  mode += 10;
+
+  // make sure we aren't out of bounds
+  if (mode > 20)
+  {
+    mode = 0;       // loop back around to start
+  }
+
+  lcdMode = (LCDMode)mode;
 }
 
 
@@ -438,9 +395,105 @@ void AfterInitLCD()
  * @brief 
  * 
  */
+void UpdateLCD()
+{
+  // check to see if the display mode has changed
+  if (lcdMode != previousLcdMode)
+    lcd.clear();
+
+  // update the values on the display
+  switch (lcdMode)
+  {
+    case RACE_MODE:
+    previousLcdMode = lcdMode;
+    DisplayRaceMode();
+    break;
+
+    case ELECTRICAL_MODE:
+    previousLcdMode = lcdMode;
+    DisplayElectricalMode();
+    break;
+
+    case MECHANICAL_MODE:
+    previousLcdMode = lcdMode;
+    DisplayMechanicalMode();
+    break;
+
+    default:
+    lcdMode = RACE_MODE;
+    break;
+  }
+}
+
+
+/**
+ * @brief 
+ * 
+ */
+void AfterInitLCD()
+{
+  lcd.clear();
+
+  // on line 1
+  lcd.setCursor(3, 0);
+  lcd.printf("Booting Up...");
+
+  // on line 2
+  lcd.setCursor(4, 1);
+  lcd.printf("~AERO~");
+}
+
+
+/**
+ * @brief LCD display setup for when the car is being driven
+ * 
+ */
 void DisplayRaceMode()
 {
+  // line 1 - mph
+  lcd.setCursor(7, 0);
+  lcd.print("    ");
+  lcd.printf("%d mph", dashData.drivingData.currentSpeed);
 
+  // line 2 - drive direction
+  lcd.setCursor(0, 1);
+  lcd.print("   ");
+  if (dashData.drivingData.driveDirection)
+  {
+    lcd.print("FWD");
+  }
+
+  else
+  {
+    lcd.print("RVS");
+  }
+
+  // line 2 - drive mode
+  lcd.setCursor(8, 1);
+  lcd.print("    ");
+  switch (dashData.drivingData.driveMode)
+  {
+    case SLOW:
+    lcd.print("SLOW");
+    break;
+
+    case ECO:
+    lcd.print("ECO");
+    break;
+
+    case FAST:
+    lcd.print("FAST");
+    break;
+
+    default:
+    lcd.print("MODE ERR");
+    break;
+  }
+
+  // line 2 - battery percentage
+  lcd.setCursor(16, 1);
+  lcd.print("    ");
+  lcd.printf("%d%%", dashData.batteryStatus.batteryChargeState);
 }
 
 

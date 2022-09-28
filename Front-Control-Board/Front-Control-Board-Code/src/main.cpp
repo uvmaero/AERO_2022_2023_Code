@@ -448,6 +448,8 @@ void UpdateARDAN()
  */
 void GetCommandedTorque()
 {
+  // TODO: ensure the two pedal reads are within margin of error
+
   // get the pedal average
   int pedalAverage = (carData.inputs.pedal0 + carData.inputs.pedal0) / 2;
 

@@ -2697,7 +2697,7 @@
     (property "Value" "Conn_01x23" (id 1) (at 251.714 53.8479 0)
       (effects (font (size 1.27 1.27)) (justify left))
     )
-    (property "Footprint" "" (id 2) (at 249.174 52.578 0)
+    (property "Footprint" "AERO_Footprints:TE_1-770669-1_23pin_Horizontal" (id 2) (at 249.174 52.578 0)
       (effects (font (size 1.27 1.27)) hide)
     )
     (property "Datasheet" "~" (id 3) (at 249.174 52.578 0)
@@ -4141,7 +4141,7 @@
       (reference "J1") (unit 1) (value "Conn_01x08") (footprint "AERO_Footprints:TE_1-776280-1_8pin_Horizontal")
     )
     (path "/197899a5-be91-4fa9-8e75-522cf68d1072"
-      (reference "J2") (unit 1) (value "Conn_01x23") (footprint "")
+      (reference "J2") (unit 1) (value "Conn_01x23") (footprint "AERO_Footprints:TE_1-770669-1_23pin_Horizontal")
     )
     (path "/5026d5ac-936b-4ec5-ab91-2c1c820a0f48"
       (reference "J3") (unit 1) (value "USB_B_Micro") (footprint "Connector_USB:USB_Micro-B_Wuerth_614105150721_Vertical")

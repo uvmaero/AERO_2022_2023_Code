@@ -1,4 +1,11 @@
-19870727475309261
+20011178442051326
+AERO_Footprints
+1-770966-0
+
+
+0
+2
+2
 AERO_Footprints
 87583-2010BLF
 USB - A USB 2.0 Receptacle Connector 4 Position 
@@ -7,6 +14,76 @@ USB - A USB 2.0 Receptacle Connector 4 Position
 6
 5
 AERO_Footprints
+AERO_Logo_10x4mm
+
+
+0
+0
+0
+AERO_Footprints
+AERO_Logo_15x6mm
+
+
+0
+0
+0
+AERO_Footprints
+AERO_Logo_20x8mm
+
+
+0
+0
+0
+AERO_Footprints
+AERO_Logo_25x10mm
+
+
+0
+0
+0
+AERO_Footprints
+AERO_Logo_30x12mm
+
+
+0
+0
+0
+AERO_Footprints
+AERO_Logo_35x14mm
+
+
+0
+0
+0
+AERO_Footprints
+AERO_Logo_40x16mm
+
+
+0
+0
+0
+AERO_Footprints
+AERO_Logo_45x18mm
+
+
+0
+0
+0
+AERO_Footprints
+AERO_Logo_50x20mm
+
+
+0
+0
+0
+AERO_Footprints
+BL-HJXGXBX32M
+
+
+0
+4
+4
+AERO_Footprints
 Bell_0ADKP1000-RE
 
 
@@ -14,12 +91,75 @@ Bell_0ADKP1000-RE
 2
 2
 AERO_Footprints
+CAP_18x25_NICH
+CP, Radial series, Radial, pin pitch=7.50mm, , diameter=18mm, Electrolytic Capacitor
+CP Radial series Radial pin pitch 7.50mm  diameter 18mm Electrolytic Capacitor
+0
+2
+2
+AERO_Footprints
+CONV_PDQE15-Q24-S24-D
+
+
+0
+6
+6
+AERO_Footprints
+CUS-14TB
+
+
+0
+12
+6
+AERO_Footprints
+DCM4623TD2J13D0T70
+
+
+0
+9
+9
+AERO_Footprints
 DCM4623TD2J13D0T70_w_landpattern
 
 
 0
 15
+9
+AERO_Footprints
+DCM4623TD2J13D0T70_w_landpattern-SP3
+
+
+0
 15
+9
+AERO_Footprints
+DF22-1P
+
+
+0
+3
+1
+AERO_Footprints
+DF22-2P-7.92DSA05
+
+
+0
+2
+2
+AERO_Footprints
+DF22L-2P-7.92DS05
+
+
+0
+2
+2
+AERO_Footprints
+DF22_CONN_01x02
+
+
+0
+2
+2
 AERO_Footprints
 DIP1549W45P254L3404H940Q24
 
@@ -28,9 +168,30 @@ DIP1549W45P254L3404H940Q24
 24
 24
 AERO_Footprints
+DO-214AA
+DO214AC PACKAGE. MONODIRECTIONAL.
+DO214AC PACKAGE. MONODIRECTIONAL.
+0
+2
+2
+AERO_Footprints
 DSUB-9_Female_Horizontal_P2.77x2.84mm_EdgePinOffset9.90mm_Housed_MountingHolesOffset11.32mm
 9-pin D-Sub connector, horizontal/angled (90 deg), THT-mount, female, pitch 2.77x2.84mm, pin-PCB-offset 9.9mm, distance of mounting holes 25mm, distance of mounting holes to PCB edge 11.32mm, see https://disti-assets.s3.amazonaws.com/tonar/files/datasheets/16730.pdf
 9-pin D-Sub connector horizontal angled 90deg THT female pitch 2.77x2.84mm pin-PCB-offset 9.9mm mounting-holes-distance 25mm mounting-hole-offset 25mm
+0
+11
+10
+AERO_Footprints
+DSUB-9_Female_TALL_DE09-SE-1-BL-JS
+9-pin D-Sub connector, straight/vertical, THT-mount, female, pitch 2.77x2.84mm, distance of mounting holes 25mm, see https://disti-assets.s3.amazonaws.com/tonar/files/datasheets/16730.pdf
+9-pin D-Sub connector straight vertical THT female pitch 2.77x2.84mm mounting holes distance 25mm
+0
+11
+10
+AERO_Footprints
+DSUB-9_Male_TALL_DE09-PE-1-BL-JS
+9-pin D-Sub connector, straight/vertical, THT-mount, male, pitch 2.77x2.84mm, distance of mounting holes 25mm, see https://disti-assets.s3.amazonaws.com/tonar/files/datasheets/16730.pdf
+9-pin D-Sub connector straight vertical THT male pitch 2.77x2.84mm mounting holes distance 25mm
 0
 11
 10
@@ -49,12 +210,89 @@ DSUB-15-HD_Female_Vertical_P2.29x1.98mm_MountingHoles
 17
 16
 AERO_Footprints
+EPM1510SJ
+
+
+0
+10
+10
+AERO_Footprints
+FB_0805
+PAS-IND-INDUCTOR-2
+
+0
+2
+2
+AERO_Footprints
+Female_DB9_171-009-213R911
+9-pin D-Sub connector, straight/vertical, THT-mount, male, pitch 2.77x2.84mm, distance of mounting holes 25mm, see https://disti-assets.s3.amazonaws.com/tonar/files/datasheets/16730.pdf
+9-pin D-Sub connector straight vertical THT male pitch 2.77x2.84mm mounting holes distance 25mm
+0
+11
+10
+AERO_Footprints
+Fuse_1812_4532Metric_Pad1.30x3.40mm_HandSolder
+Fuse SMD 1812 (4532 Metric), square (rectangular) end terminal, IPC_7351 nominal with elongated pad for handsoldering. (Body size source: https://www.nikhef.nl/pub/departments/mt/projects/detectorR_D/dtddice/ERJ2G.pdf), generated with kicad-footprint-generator
+resistor handsolder
+0
+2
+2
+AERO_Footprints
+Fuseholder_Blade_Mini_Keystone_3568
+fuse holder, car blade fuse mini, http://www.keyelco.com/product-pdf.cfm?p=306
+car blade fuse mini
+0
+4
+2
+AERO_Footprints
+Fuseholder_Cylinder-5x20mm_Schurter_0031_8201_Horizontal_Open_3d
+http://www.schurter.com/var/schurter/storage/ilcatalogue/files/document/datasheet/en/pdf/typ_OGN.pdf
+Fuseholder horizontal open 5x20 Schurter 0031.8201
+0
+2
+2
+AERO_Footprints
 G2RL
 
 
 0
 5
 5
+AERO_Footprints
+IN_S128TATRGB
+
+
+0
+4
+4
+AERO_Footprints
+JST_PHD_B10B-PHDSS_2x05_P2.00mm_Vertical
+JST PHD series connector, B10B-PHDSS (http://www.jst-mfg.com/product/pdf/eng/ePHD.pdf), generated with kicad-footprint-generator
+connector JST PHD vertical
+0
+10
+10
+AERO_Footprints
+JST_PHD_B12B-PHDSS_2x06_P2.00mm_Vertical
+JST PHD series connector, B12B-PHDSS (http://www.jst-mfg.com/product/pdf/eng/ePHD.pdf), generated with kicad-footprint-generator
+connector JST PHD vertical
+0
+12
+12
+AERO_Footprints
+JST_XH_B4B-XH-AM_1x04_P2.50mm_Vertical
+JST XH series connector, B4B-XH-AM, with boss (http://www.jst-mfg.com/product/pdf/eng/eXH.pdf), generated with kicad-footprint-generator
+connector JST XH vertical boss
+0
+4
+4
+AERO_Footprints
+JUMPER_BLUE
+Through hole straight pin header, 1x03, 2.54mm pitch, single row
+Through hole pin header THT 1x03 2.54mm single row
+0
+0
+0
 AERO_Footprints
 KEYSTONE_AA_2460
 
@@ -63,12 +301,96 @@ KEYSTONE_AA_2460
 2
 0
 AERO_Footprints
+KRL6432E-M-R003-F-T1
+
+
+0
+2
+2
+AERO_Footprints
 LDB-_L
 
 
 0
 9
 9
+AERO_Footprints
+LPA-C011301S-x LED 0805 LIGHT PIPE SINGLE VERT SMD
+
+
+0
+2
+2
+AERO_Footprints
+LXML-PM01
+
+
+0
+3
+3
+AERO_Footprints
+M2011S3A1W03_SPST
+
+
+0
+3
+3
+AERO_Footprints
+MLX_0022057038
+0022057038_A
+Connector
+0
+3
+3
+AERO_Footprints
+Male_DB9_171-009-113R911
+9-pin D-Sub connector, straight/vertical, THT-mount, male, pitch 2.77x2.84mm, distance of mounting holes 25mm, see https://disti-assets.s3.amazonaws.com/tonar/files/datasheets/16730.pdf
+9-pin D-Sub connector straight vertical THT male pitch 2.77x2.84mm mounting holes distance 25mm
+0
+11
+10
+AERO_Footprints
+Murata_DFE252012P_Inductor
+
+
+0
+2
+2
+AERO_Footprints
+NeOhm_RR01_Vert
+Resistor, Axial_DIN0309 series, Axial, Vertical, pin pitch=2.54mm, 0.5W = 1/2W, length*diameter=9*3.2mm^2, http://cdn-reichelt.de/documents/datenblatt/B400/1_4W%23YAG.pdf
+Resistor Axial_DIN0309 series Axial Vertical pin pitch 2.54mm 0.5W = 1/2W length 9mm diameter 3.2mm
+0
+2
+2
+AERO_Footprints
+PA2607
+
+
+0
+2
+2
+AERO_Footprints
+PCC-1_2-R
+
+
+0
+2
+2
+AERO_Footprints
+QFP40P900X900X120-65N
+
+
+0
+65
+65
+AERO_Footprints
+RELAY_T9VV1K15-12S
+
+
+0
+4
+4
 AERO_Footprints
 RJ45_Amphenol_54602-x08_Horizontal
 8 Pol Shallow Latch Connector, Modjack, RJ45 (https://cdn.amphenol-icc.com/media/wysiwyg/files/drawing/c-bmj-0102.pdf)
@@ -77,12 +399,96 @@ RJ45
 8
 8
 AERO_Footprints
-TE_1-776087-1
-Connector
-TE 1-776087-1
+RJ45_OST_PJ012-8P8CX_Vertical
+RJ45 vertical connector http://www.on-shore.com/wp-content/uploads/2015/09/PJ012-8P8CX.pdf
+RJ45 PJ012
+0
+8
+8
+AERO_Footprints
+RJ45_TE_5569284-1-8P8CX_Vertical
+RJ45 vertical connector http://www.on-shore.com/wp-content/uploads/2015/09/PJ012-8P8CX.pdf
+RJ45 PJ012
+0
+8
+8
+AERO_Footprints
+ROX3SJ10K
+
+
+0
+2
+2
+AERO_Footprints
+Resonator_SMD_muRata_CSTxExxV-3Pin_3.0x1.1mm_HandSoldering
+SMD Resomator/Filter Murata CSTCE, https://www.murata.com/en-eu/products/productdata/8801162264606/SPEC-CSTNE16M0VH3C000R0.pdf
+SMD SMT ceramic resonator filter
+0
+3
+3
+AERO_Footprints
+SK_14D01
+
+
+0
+6
+6
+AERO_Footprints
+SOIC127P600X175-8N
+
+
+0
+8
+8
+AERO_Footprints
+SOP65P640X120-16N
+
+
+0
+16
+16
+AERO_Footprints
+SRF4532-220Y
+
+
+0
+4
+4
+AERO_Footprints
+TC33X-503ECT-ND
+
+
+0
+3
+3
+AERO_Footprints
+TE-2199119-M2-B-KEY
+
+
+0
+70
+67
+AERO_Footprints
+TE_1-770669-1_23pin_Horizontal
+
+
 0
 23
 23
+AERO_Footprints
+TE_1-776087-1
+
+
+0
+23
+23
+AERO_Footprints
+TE_1-776163-1_35pin_Horizontal
+
+
+0
+35
+35
 AERO_Footprints
 TE_1-776200-1_23pin_Vertical
 
@@ -90,6 +496,69 @@ TE_1-776200-1_23pin_Vertical
 0
 23
 23
+AERO_Footprints
+TE_1-776228-1_23P_VERT
+
+
+0
+23
+23
+AERO_Footprints
+TE_1-776228-1_23P_VERT_ASM
+
+
+0
+23
+23
+AERO_Footprints
+TE_1-776228-2_23P_VERT
+
+
+0
+23
+23
+AERO_Footprints
+TE_1-776231-1_35pin_Vertical
+
+
+0
+35
+35
+AERO_Footprints
+TE_1-776262-1_14pin_Vertical
+
+
+0
+14
+14
+AERO_Footprints
+TE_1-776266-1_14pin_Horizontal
+
+
+0
+14
+14
+AERO_Footprints
+TE_1-776276-1_8pin_Vertical
+
+
+0
+8
+8
+AERO_Footprints
+TE_1-776280-1_8pin_Horizontal
+
+
+0
+8
+8
+AERO_Footprints
+TE_4-2172079-2
+
+
+0
+6
+6
 AERO_Footprints
 TE_1217861-1
 
@@ -105,12 +574,40 @@ connector TE MATE-N-LOK side entry
 2
 2
 AERO_Footprints
+TE_MATE-N-LOK_1-770866-x_1x02_P4.14mm_Vertical_ASM
+Molex Mini-Universal MATE-N-LOK, old mpn/engineering number: 1-770866-x, 2 Pins per row (http://www.te.com/commerce/DocumentDelivery/DDEController?Action=srchrtrv&DocNm=82181_SOFTSHELL_HIGH_DENSITY&DocType=CS&DocLang=EN), generated with kicad-footprint-generator
+connector TE MATE-N-LOK side entry
+0
+2
+2
+AERO_Footprints
 TE_MATE-N-LOK_1-770870-x_1x03_P4.14mm_Vertical
 Molex Mini-Universal MATE-N-LOK, old mpn/engineering number: 1-770870-x, 3 Pins per row (http://www.te.com/commerce/DocumentDelivery/DDEController?Action=srchrtrv&DocNm=82181_SOFTSHELL_HIGH_DENSITY&DocType=CS&DocLang=EN), generated with kicad-footprint-generator
 connector TE MATE-N-LOK side entry
 0
 3
 3
+AERO_Footprints
+TE_MATE-N-LOK_1-770874-x_2x02_P4.14mm_Vertical
+Molex Mini-Universal MATE-N-LOK, old mpn/engineering number: 1-770874-x, 2 Pins per row (http://www.te.com/commerce/DocumentDelivery/DDEController?Action=srchrtrv&DocNm=82181_SOFTSHELL_HIGH_DENSITY&DocType=CS&DocLang=EN), generated with kicad-footprint-generator
+connector TE MATE-N-LOK side entry
+0
+4
+4
+AERO_Footprints
+TLP182
+
+
+0
+4
+4
+AERO_Footprints
+TO127P2020X500X2100-15
+
+
+0
+15
+15
 AERO_Footprints
 TUSB4020BIPHPR
 
@@ -119,12 +616,103 @@ TUSB4020BIPHPR
 49
 49
 AERO_Footprints
+TWW20J500E
+
+
+0
+4
+2
+AERO_Footprints
+Toggle_Switch_100SP1T1B4M2QE
+http://spec_sheets.e-switch.com/specs/T111597.pdf
+
+0
+3
+3
+AERO_Footprints
 USB_B_OST_USB-B1HSxx_Horizontal
 USB B receptacle, Horizontal, through-hole, http://www.on-shore.com/wp-content/uploads/2015/09/usb-b1hsxx.pdf
 USB-B receptacle horizontal through-hole
 0
 6
 5
+AERO_Footprints
+USB_B_TE_5787834_Vertical
+http://www.mouser.com/ds/2/418/NG_CD_5787834_A4-669110.pdf
+USB_B USB B vertical female connector
+0
+6
+5
+AERO_Footprints
+Wire_16AWG
+
+
+0
+1
+1
+AERO_Footprints
+button_12mm
+
+
+0
+4
+4
+AERO_Footprints
+hvlightningsymbol
+
+
+0
+0
+0
+AERO_Footprints
+luxeon-pm01
+
+
+0
+3
+3
+AERO_Footprints
+pacman-logo-silkscreen
+
+
+0
+0
+0
+AERO_Footprints
+try3
+
+
+0
+0
+0
+AERO_Footprints
+try4
+
+
+0
+0
+0
+AERO_Footprints
+try5
+
+
+0
+0
+0
+AERO_Footprints
+vicor-socket
+
+
+0
+39
+7
+AERO_Footprints
+vicor-socket-no-cutouts
+
+
+0
+39
+7
 Audio_Module
 Reverb_BTDR-1H
 Digital Reverberation Unit, http://www.belton.co.kr/inc/downfile.php?seq=17&file=pdf (footprint from http://www.uk-electronic.de/PDF/BTDR-1.pdf)

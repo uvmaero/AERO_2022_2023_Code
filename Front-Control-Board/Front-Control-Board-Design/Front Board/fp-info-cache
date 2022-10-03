@@ -1,4 +1,130 @@
-19841367466494921
+19870727475309261
+AERO_Footprints
+87583-2010BLF
+USB - A USB 2.0 Receptacle Connector 4 Position 
+
+0
+6
+5
+AERO_Footprints
+Bell_0ADKP1000-RE
+
+
+0
+2
+2
+AERO_Footprints
+DCM4623TD2J13D0T70_w_landpattern
+
+
+0
+15
+15
+AERO_Footprints
+DIP1549W45P254L3404H940Q24
+
+
+0
+24
+24
+AERO_Footprints
+DSUB-9_Female_Horizontal_P2.77x2.84mm_EdgePinOffset9.90mm_Housed_MountingHolesOffset11.32mm
+9-pin D-Sub connector, horizontal/angled (90 deg), THT-mount, female, pitch 2.77x2.84mm, pin-PCB-offset 9.9mm, distance of mounting holes 25mm, distance of mounting holes to PCB edge 11.32mm, see https://disti-assets.s3.amazonaws.com/tonar/files/datasheets/16730.pdf
+9-pin D-Sub connector horizontal angled 90deg THT female pitch 2.77x2.84mm pin-PCB-offset 9.9mm mounting-holes-distance 25mm mounting-hole-offset 25mm
+0
+11
+10
+AERO_Footprints
+DSUB-15-HD_Female_Horizontal_P2.29x2.54mm_EdgePinOffset8.35mm_Housed_MountingHolesOffset10.89mm
+15-pin D-Sub connector, horizontal/angled (90 deg), THT-mount, female, pitch 2.29x1.98mm, pin-PCB-offset 8.35mm, distance of mounting holes 25mm, distance of mounting holes to PCB edge 10.889999999999999mm, see https://disti-assets.s3.amazonaws.com/tonar/files/datasheets/16730.pdf
+15-pin D-Sub connector horizontal angled 90deg THT female pitch 2.29x1.98mm pin-PCB-offset 8.35mm mounting-holes-distance 25mm mounting-hole-offset 25mm
+0
+17
+16
+AERO_Footprints
+DSUB-15-HD_Female_Vertical_P2.29x1.98mm_MountingHoles
+15-pin D-Sub connector, straight/vertical, THT-mount, female, pitch 2.29x1.98mm, distance of mounting holes 25mm, see https://disti-assets.s3.amazonaws.com/tonar/files/datasheets/16730.pdf
+15-pin D-Sub connector straight vertical THT female pitch 2.29x1.98mm mounting holes distance 25mm
+0
+17
+16
+AERO_Footprints
+G2RL
+
+
+0
+5
+5
+AERO_Footprints
+KEYSTONE_AA_2460
+
+
+0
+2
+0
+AERO_Footprints
+LDB-_L
+
+
+0
+9
+9
+AERO_Footprints
+RJ45_Amphenol_54602-x08_Horizontal
+8 Pol Shallow Latch Connector, Modjack, RJ45 (https://cdn.amphenol-icc.com/media/wysiwyg/files/drawing/c-bmj-0102.pdf)
+RJ45
+0
+8
+8
+AERO_Footprints
+TE_1-776087-1
+Connector
+TE 1-776087-1
+0
+23
+23
+AERO_Footprints
+TE_1-776200-1_23pin_Vertical
+
+
+0
+23
+23
+AERO_Footprints
+TE_1217861-1
+
+
+0
+2
+1
+AERO_Footprints
+TE_MATE-N-LOK_1-770866-x_1x02_P4.14mm_Vertical
+Molex Mini-Universal MATE-N-LOK, old mpn/engineering number: 1-770866-x, 2 Pins per row (http://www.te.com/commerce/DocumentDelivery/DDEController?Action=srchrtrv&DocNm=82181_SOFTSHELL_HIGH_DENSITY&DocType=CS&DocLang=EN), generated with kicad-footprint-generator
+connector TE MATE-N-LOK side entry
+0
+2
+2
+AERO_Footprints
+TE_MATE-N-LOK_1-770870-x_1x03_P4.14mm_Vertical
+Molex Mini-Universal MATE-N-LOK, old mpn/engineering number: 1-770870-x, 3 Pins per row (http://www.te.com/commerce/DocumentDelivery/DDEController?Action=srchrtrv&DocNm=82181_SOFTSHELL_HIGH_DENSITY&DocType=CS&DocLang=EN), generated with kicad-footprint-generator
+connector TE MATE-N-LOK side entry
+0
+3
+3
+AERO_Footprints
+TUSB4020BIPHPR
+
+
+0
+49
+49
+AERO_Footprints
+USB_B_OST_USB-B1HSxx_Horizontal
+USB B receptacle, Horizontal, through-hole, http://www.on-shore.com/wp-content/uploads/2015/09/usb-b1hsxx.pdf
+USB-B receptacle horizontal through-hole
+0
+6
+5
 Audio_Module
 Reverb_BTDR-1H
 Digital Reverberation Unit, http://www.belton.co.kr/inc/downfile.php?seq=17&file=pdf (footprint from http://www.uk-electronic.de/PDF/BTDR-1.pdf)

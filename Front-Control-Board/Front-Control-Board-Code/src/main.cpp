@@ -40,7 +40,6 @@ enum DriveModes
 // Car Data Struct
 struct CarData
 {
-
   struct DrivingData
   {
     bool readyToDrive = false;

@@ -237,7 +237,7 @@ void loop()
 
 
 /**
- * @brief 
+ * @brief poll the sensors to see if there have been updates from the driver
  * 
  */
 void PollInputData()
@@ -255,7 +255,8 @@ void PollInputData()
 
 
 /**
- * @brief 
+ * @brief send out a broadcast of ESP-NOW that updates FCB 
+ * with data from the wheel 
  * 
  */
 void UpdateFCB()
@@ -329,7 +330,7 @@ void FCBDataReceived(const uint8_t* mac, const uint8_t* incomingData, int length
 
 
 /**
- * @brief 
+ * @brief button interrupt for the ready to drive button
  * 
  */
 void ReadyToDriveButtonInterrupt()
@@ -349,7 +350,7 @@ void ReadyToDriveButtonInterrupt()
 
 
 /**
- * @brief 
+ * @brief button interrupt for changing the drive mode of the car 
  * 
  */
 void DriveModeButtonInterrupt()
@@ -376,7 +377,7 @@ void DriveModeButtonInterrupt()
 
 
 /**
- * @brief 
+ * @brief button interrupt for changing the mode of the LCD
  * 
  */
 void LCDButtonInterrupt()
@@ -403,14 +404,16 @@ void LCDButtonInterrupt()
 
 
 /**
- * @brief 
+ * @brief update the current screen that the LCD is showing
+ * also detect if there was a change and clear it 
  * 
  */
 void UpdateLCD()
 {
   // check to see if the display mode has changed
-  if (lcdMode != previousLcdMode)
+  if (lcdMode != previousLcdMode) {
     // lcd.clear();
+  }
 
   // update the values on the display
   switch (lcdMode)

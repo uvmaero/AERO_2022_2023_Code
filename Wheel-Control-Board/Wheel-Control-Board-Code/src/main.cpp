@@ -108,8 +108,7 @@ struct DashData
     float pack1Temp = 0;
     float pack2Temp = 0;
   } batteryStatus;
-
-  struct Sensors
+  struct Inputs
   {
     uint16_t wheelSpeedFR = 0;
     uint16_t wheelSpeedFL = 0;
@@ -122,10 +121,7 @@ struct DashData
     uint16_t wheelHeightBL = 0;
 
     uint16_t steeringWheelAngle = 0;
-  } sensors;
 
-  struct Inputs
-  {
     uint8_t brakeRegen = 0;
     uint8_t coastRegen = 0;
   } inputs;
@@ -315,14 +311,14 @@ void FCBDataReceived(const uint8_t* mac, const uint8_t* incomingData, int length
   dashData.batteryStatus.pack2Temp = fcbData.batteryStatus.pack2Temp;
 
   // update sensor data
-  dashData.sensors.wheelSpeedFR = fcbData.sensors.wheelSpeedFR;
-  dashData.sensors.wheelSpeedFR = fcbData.sensors.wheelSpeedFL;
-  dashData.sensors.wheelSpeedFR = fcbData.sensors.wheelSpeedBR;
-  dashData.sensors.wheelSpeedFR = fcbData.sensors.wheelSpeedBL;
-  dashData.sensors.wheelSpeedFR = fcbData.sensors.wheelSpeedFR;
-  dashData.sensors.wheelSpeedFR = fcbData.sensors.wheelSpeedFL;
-  dashData.sensors.wheelSpeedFR = fcbData.sensors.wheelSpeedBR;
-  dashData.sensors.wheelSpeedFR = fcbData.sensors.wheelSpeedBL;
+  dashData.inputs.wheelSpeedFR = fcbData.sensors.wheelSpeedFR;
+  dashData.inputs.wheelSpeedFR = fcbData.sensors.wheelSpeedFL;
+  dashData.inputs.wheelSpeedFR = fcbData.sensors.wheelSpeedBR;
+  dashData.inputs.wheelSpeedFR = fcbData.sensors.wheelSpeedBL;
+  dashData.inputs.wheelSpeedFR = fcbData.sensors.wheelSpeedFR;
+  dashData.inputs.wheelSpeedFR = fcbData.sensors.wheelSpeedFL;
+  dashData.inputs.wheelSpeedFR = fcbData.sensors.wheelSpeedBR;
+  dashData.inputs.wheelSpeedFR = fcbData.sensors.wheelSpeedBL;
 
   // re-enable interrupts
   portEXIT_CRITICAL_ISR(&timerMux);

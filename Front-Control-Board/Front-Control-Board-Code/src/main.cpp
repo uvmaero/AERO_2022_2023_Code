@@ -59,8 +59,8 @@ struct CarData
     uint16_t batteryChargeState = 0;
     int16_t busVoltage = 0;
     int16_t rinehartVoltage = 0;
-    float pack1Temp = 0;
-    float pack2Temp = 0;
+    float pack1Temp = 0.0f;
+    float pack2Temp = 0.0f;
   } batteryStatus;
 
   struct Sensors
@@ -86,7 +86,10 @@ struct CarData
     uint16_t brake1 = 0;
     uint16_t brakeRegen = 0;
     uint16_t coastRegen = 0;
-    float vicoreTemp = 0;
+
+    float vicoreTemp = 0.0f;
+    float pumpTempIn = 0.0f;
+    float pimpTempOut = 0.0f;
   } inputs;
 
   struct Outputs

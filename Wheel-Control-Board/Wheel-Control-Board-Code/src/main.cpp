@@ -32,7 +32,6 @@ enum DriveModes
 
 // ESP-NOW Connection
 uint8_t fcbAddress[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
-esp_now_peer_info fcbInfo;
 
 // ESP-NOW data transfer struct
 struct FCB_Data
@@ -158,7 +157,6 @@ LCDMode previousLcdMode = lcdMode;
 // *** function declarations *** //
 void PollInputData();
 void UpdateFCB();
-void FCBDataSent(const uint8_t* macAddress, esp_now_send_status_t status);
 void FCBDataReceived(const uint8_t* mac, const uint8_t* incomingData, int length);
 void AfterInitLCD();
 void UpdateLCD();
@@ -197,26 +195,13 @@ void setup()
   // --- initialize ESP-NOW ---//
   // turn on wifi access point 
   WiFi.mode(WIFI_STA);
+  Serial.printf("DEVICE MAC ADDRESS: %s\n", WiFi.macAddress());
 
   // init ESP-NOW service
   if (esp_now_init() != ESP_OK)
     Serial.println("ESP-NOW INIT [ SUCCESS ]");
   else
     Serial.println("ESP-NOW INIT [ FAILED ]");
-  
-  // attach the data send function to the message sent callback
-  esp_now_register_send_cb(FCBDataSent);
-  
-  // get peer informtion about WCB
-  memcpy(fcbInfo.peer_addr, fcbAddress, sizeof(fcbAddress));
-  fcbInfo.channel = 0;
-  fcbInfo.encrypt = false;
-
-  // add WCB as a peer
-  if (esp_now_add_peer(&fcbInfo) != ESP_OK)
-    Serial.println("ESP-NOW CONNECTION [ SUCCESS ]");
-  else
-    Serial.println("ESP-NOW CONNECTION [ FAILED ]");
 
   // attach message received callback to the data received function
   esp_now_register_recv_cb(FCBDataReceived);
@@ -257,9 +242,15 @@ void loop()
  */
 void PollInputData()
 {
+  // disable interrupts
+  portENTER_CRITICAL_ISR(&timerMux);
+
   // regen knobs
   dashData.inputs.brakeRegen = analogRead(BRAKE_REGEN);
   dashData.inputs.coastRegen = analogRead(COAST_REGEN);
+
+  // re-enable interrupts
+  portEXIT_CRITICAL_ISR(&timerMux);
 }
 
 
@@ -269,6 +260,17 @@ void PollInputData()
  */
 void UpdateFCB()
 {
+  // disable interrupts
+  portENTER_CRITICAL_ISR(&timerMux);
+
+  // get peer information
+  esp_now_peer_info_t fcbInfo = {};
+  memcpy(&fcbInfo.peer_addr, fcbAddress, 6);
+  if (!esp_now_is_peer_exist(fcbAddress))
+  {
+    esp_now_add_peer(&fcbInfo);
+  }
+
   // update input data
   fcbData.drivingData.readyToDrive = dashData.drivingData.readyToDrive;
   fcbData.drivingData.driveDirection = dashData.drivingData.driveDirection;
@@ -279,23 +281,8 @@ void UpdateFCB()
   // send mesasge
   esp_err_t result = esp_now_send(fcbAddress, (uint8_t *) &fcbData, sizeof(fcbData));
 
-  if (result == ESP_OK)
-    Serial.println("WCB Update: Successful");
-  else
-    Serial.println("WCB Update: Failed");
-}
-
-
-/**
- * @brief a callback function for when data is sent to FCB
- * 
- * @param macAddress      the address of the FCB
- * @param status          indicator of successful message sent
- */
-void FCBDataSent(const uint8_t* macAddress, esp_now_send_status_t status)
-{
-  Serial.print("Last Packet Send Status: ");
-  Serial.println(status == ESP_NOW_SEND_SUCCESS ? "SUCCESS" : "FAILED");
+  // re-enable interrupts
+  portEXIT_CRITICAL_ISR(&timerMux);
 }
 
 
@@ -308,6 +295,11 @@ void FCBDataSent(const uint8_t* macAddress, esp_now_send_status_t status)
  */
 void FCBDataReceived(const uint8_t* mac, const uint8_t* incomingData, int length)
 {
+  // re-enable interrupts
+  portENTER_CRITICAL_ISR(&timerMux);
+
+  Serial.println("message received from front control board");
+
   // copy data to the fcbData struct 
   memcpy(&fcbData, incomingData, sizeof(fcbData));
 
@@ -330,6 +322,9 @@ void FCBDataReceived(const uint8_t* mac, const uint8_t* incomingData, int length
   dashData.sensors.wheelSpeedFR = fcbData.sensors.wheelSpeedFL;
   dashData.sensors.wheelSpeedFR = fcbData.sensors.wheelSpeedBR;
   dashData.sensors.wheelSpeedFR = fcbData.sensors.wheelSpeedBL;
+
+  // re-enable interrupts
+  portEXIT_CRITICAL_ISR(&timerMux);
 }
 
 
@@ -339,11 +334,17 @@ void FCBDataReceived(const uint8_t* mac, const uint8_t* incomingData, int length
  */
 void ReadyToDriveButtonInterrupt()
 {
+  // re-enable interrupts
+  portENTER_CRITICAL_ISR(&timerMux);
+
   // update ready to drive status
   dashData.drivingData.readyToDrive = true;
 
   // update buzzer status
   dashData.outputs.buzzerActive = true;
+
+  // re-enable interrupts
+  portEXIT_CRITICAL_ISR(&timerMux);
 }
 
 
@@ -353,6 +354,9 @@ void ReadyToDriveButtonInterrupt()
  */
 void DriveModeButtonInterrupt()
 {
+  // re-enable interrupts
+  portENTER_CRITICAL_ISR(&timerMux);
+
   int mode = dashData.drivingData.driveMode;
 
   // increment mode
@@ -365,6 +369,9 @@ void DriveModeButtonInterrupt()
   }
 
   dashData.drivingData.driveMode = (DriveModes)mode;
+
+  // re-enable interrupts
+  portEXIT_CRITICAL_ISR(&timerMux);
 }
 
 
@@ -374,6 +381,9 @@ void DriveModeButtonInterrupt()
  */
 void LCDButtonInterrupt()
 {
+  // re-enable interrupts
+  portENTER_CRITICAL_ISR(&timerMux);
+
   int mode = lcdMode;
 
   // increment mode
@@ -386,6 +396,9 @@ void LCDButtonInterrupt()
   }
 
   lcdMode = (LCDMode)mode;
+
+  // re-enable interrupts
+  portEXIT_CRITICAL_ISR(&timerMux);
 }
 
 

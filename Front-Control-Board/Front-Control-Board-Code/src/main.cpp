@@ -49,6 +49,7 @@ struct CarData
     bool bmsFault = false;
 
     uint16_t commandedTorque = 0;
+    float currentSpeed = 0.0f;
     bool driveDirection = true;             // true = forward | false = reverse
     DriveModes driveMode = ECO;
   } drivingData;

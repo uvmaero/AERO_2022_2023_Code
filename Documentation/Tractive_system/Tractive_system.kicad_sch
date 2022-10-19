@@ -427,7 +427,11 @@
     (property "Reference" "U2" (id 0) (at 181.61 97.2607 0)
       (effects (font (size 1.27 1.27)) hide)
     )
+<<<<<<< Updated upstream
     (property "Value" "Motor_Controler" (id 1) (at 181.61 90.805 0))
+=======
+    (property "Value" "Motor_Controler" (id 1) (at 181.61 92.075 0))
+>>>>>>> Stashed changes
     (property "Footprint" "" (id 2) (at 181.61 84.455 0)
       (effects (font (size 1.27 1.27)) hide)
     )
@@ -454,9 +458,15 @@
     (property "Datasheet" "" (id 3) (at 104.775 72.39 0)
       (effects (font (size 1.27 1.27)) hide)
     )
+<<<<<<< Updated upstream
     (pin "" (uuid 2332e564-2031-40a7-8220-a0dec0f264e3))
     (pin "" (uuid 3f83dc20-359d-4d40-83f4-0b364d670c8e))
     (pin "" (uuid b19d9a10-d500-4c00-870f-aa67d757eb47))
+=======
+    (pin "" (uuid 6c800910-4b88-45e9-b56c-dfd5417c4236))
+    (pin "" (uuid 6c800910-4b88-45e9-b56c-dfd5417c4236))
+    (pin "" (uuid 6c800910-4b88-45e9-b56c-dfd5417c4236))
+>>>>>>> Stashed changes
     (pin "" (uuid 6c800910-4b88-45e9-b56c-dfd5417c4236))
   )
 
@@ -513,8 +523,13 @@
     (property "Datasheet" "" (id 3) (at 33.02 88.9 0)
       (effects (font (size 1.27 1.27)) hide)
     )
+<<<<<<< Updated upstream
     (pin "" (uuid ae23edeb-e272-476d-b985-7fb9ec97eb5d))
     (pin "" (uuid ae23edeb-e272-476d-b985-7fb9ec97eb5d))
+=======
+    (pin "" (uuid ae23edeb-e272-476d-b985-7fb9ec97eb5e))
+    (pin "" (uuid ae23edeb-e272-476d-b985-7fb9ec97eb5e))
+>>>>>>> Stashed changes
   )
 
   (symbol (lib_id "AERO_Symbols:HVD") (at 104.775 103.505 180) (unit 1)
@@ -530,9 +545,15 @@
     (property "Datasheet" "" (id 3) (at 104.775 103.505 0)
       (effects (font (size 1.27 1.27)) hide)
     )
+<<<<<<< Updated upstream
     (pin "" (uuid 9ca2047d-68e7-476c-8d3a-c17bc4b9dab1))
     (pin "" (uuid a8e14d4c-258b-4508-b72f-8aa4cee6d354))
     (pin "" (uuid 5293f52d-8e27-4b30-afd6-e0c55efc2159))
+=======
+    (pin "" (uuid 64741a11-b1c4-4d33-bfed-267631987503))
+    (pin "" (uuid 64741a11-b1c4-4d33-bfed-267631987503))
+    (pin "" (uuid 64741a11-b1c4-4d33-bfed-267631987503))
+>>>>>>> Stashed changes
     (pin "" (uuid 64741a11-b1c4-4d33-bfed-267631987503))
   )
 
@@ -607,12 +628,21 @@
     (property "Datasheet" "" (id 3) (at 141.605 88.265 0)
       (effects (font (size 1.27 1.27)) hide)
     )
+<<<<<<< Updated upstream
     (pin "" (uuid bc97d98c-3ca7-4095-bad4-366e0fd7eb97))
     (pin "" (uuid bc97d98c-3ca7-4095-bad4-366e0fd7eb97))
     (pin "" (uuid bc97d98c-3ca7-4095-bad4-366e0fd7eb97))
     (pin "" (uuid bc97d98c-3ca7-4095-bad4-366e0fd7eb97))
     (pin "" (uuid bc97d98c-3ca7-4095-bad4-366e0fd7eb97))
     (pin "" (uuid bc97d98c-3ca7-4095-bad4-366e0fd7eb97))
+=======
+    (pin "" (uuid bc97d98c-3ca7-4095-bad4-366e0fd7eb9c))
+    (pin "" (uuid bc97d98c-3ca7-4095-bad4-366e0fd7eb9c))
+    (pin "" (uuid bc97d98c-3ca7-4095-bad4-366e0fd7eb9c))
+    (pin "" (uuid bc97d98c-3ca7-4095-bad4-366e0fd7eb9c))
+    (pin "" (uuid bc97d98c-3ca7-4095-bad4-366e0fd7eb9c))
+    (pin "" (uuid bc97d98c-3ca7-4095-bad4-366e0fd7eb9c))
+>>>>>>> Stashed changes
   )
 
   (sheet_instances

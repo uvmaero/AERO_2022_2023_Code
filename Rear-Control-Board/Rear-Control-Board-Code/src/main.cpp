@@ -23,7 +23,12 @@
 
 // *** global variables *** //
 // Drive Mode Enumeration Type
-
+enum DriveModes
+{
+  SLOW = 0,
+  ECO = 10,
+  FAST = 20
+};
 
 // Car Data Struct
 struct CarData
@@ -111,8 +116,6 @@ void PollSensorData();
 void CANRead();
 void CANWrite();
 void LogCarData();
-void WCBDataSent(const uint8_t* macAddress, esp_now_send_status_t status);
-void WCBDataReceived(const uint8_t* mac, const uint8_t* incomingData, int length);
 
 
 // *** setup *** //
@@ -167,22 +170,7 @@ void setup()
   else
     Serial.println("ESP-NOW INIT [ FAILED ]");
   
-  // attach the data send function to the message sent callback
-  esp_now_register_send_cb(WCBDataSent);
-  
-  // get peer informtion about WCB
-  memcpy(wcbInfo.peer_addr, wcbAddress, sizeof(wcbAddress));
-  wcbInfo.channel = 0;
-  wcbInfo.encrypt = false;
-
-  // add WCB as a peer
-  if (esp_now_add_peer(&wcbInfo) != ESP_OK)
-    Serial.println("ESP-NOW CONNECTION [ SUCCESS ]");
-  else
-    Serial.println("ESP-NOW CONNECTION [ FAILED ]");
-
-  // attach message received callback to the data received function
-  esp_now_register_recv_cb(WCBDataReceived);
+  // TODO: finish this
 
 
   // --- initialize timer interrupts --- //

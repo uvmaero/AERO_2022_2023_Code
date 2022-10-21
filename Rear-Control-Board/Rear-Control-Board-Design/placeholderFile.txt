@@ -1,0 +1,2 @@
+this file serves as a placeholder to initialize the folder strucutre on git
+please delete this file after adding board design files!

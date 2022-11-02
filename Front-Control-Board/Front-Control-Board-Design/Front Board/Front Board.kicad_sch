@@ -2008,6 +2008,10 @@
     (effects (font (size 1.27 1.27)) (justify right bottom))
     (uuid 484b8e21-df53-4222-aebd-a7132fd50f9f)
   )
+  (label "13" (at 158.115 69.215 0)
+    (effects (font (size 1.27 1.27)) (justify left bottom))
+    (uuid 4bedcba0-085b-4037-96a3-54717893f6bb)
+  )
   (label "RTD_bttn" (at 244.094 29.718 180)
     (effects (font (size 1.27 1.27)) (justify right bottom))
     (uuid 4f4547ce-5726-497d-ae59-92fd8aeb1402)
@@ -2035,6 +2039,10 @@
   (label "WCB_status" (at 80.01 98.425 180)
     (effects (font (size 1.27 1.27)) (justify right bottom))
     (uuid 5d2a7bdf-4228-4d4a-90d0-aa2b3b69cf7a)
+  )
+  (label "12" (at 88.265 69.85 0)
+    (effects (font (size 1.27 1.27)) (justify left bottom))
+    (uuid 65022878-a9c2-4abd-a6da-0f04e82a86ec)
   )
   (label "CAN_MOSI" (at 72.39 167.64 180)
     (effects (font (size 1.27 1.27)) (justify right bottom))
@@ -2083,6 +2091,10 @@
   (label "R_wheel" (at 244.094 34.798 180)
     (effects (font (size 1.27 1.27)) (justify right bottom))
     (uuid 9a07a0dd-cf91-4e9f-b73e-143c57f0e633)
+  )
+  (label "25" (at 122.555 65.405 0)
+    (effects (font (size 1.27 1.27)) (justify left bottom))
+    (uuid 9ee13087-41b1-4b65-b2e4-ae379b0bcb93)
   )
   (label "L_sus" (at 244.094 55.118 180)
     (effects (font (size 1.27 1.27)) (justify right bottom))
@@ -2185,7 +2197,7 @@
   (symbol (lib_id "Device:R") (at 161.29 83.185 90) (unit 1)
     (in_bom yes) (on_board yes)
     (uuid 06fbdeaa-b06e-4785-9d28-70cfe455cd0c)
-    (property "Reference" "R?" (id 0) (at 165.735 82.55 90))
+    (property "Reference" "R4" (id 0) (at 165.735 82.55 90))
     (property "Value" "100" (id 1) (at 161.29 83.185 90))
     (property "Footprint" "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder" (id 2) (at 161.29 84.963 90)
       (effects (font (size 1.27 1.27)) hide)
@@ -2239,7 +2251,7 @@
     (uuid 12a6a643-8d09-4828-9fdd-0e9da0628c48)
     (property "Reference" "U3" (id 0) (at 122.555 67.9155 0))
     (property "Value" "ESP32-DevKitC" (id 1) (at 122.555 70.6906 0))
-    (property "Footprint" "Espressif:ESP32-DevKitC" (id 2) (at 120.65 128.905 0)
+    (property "Footprint" "AERO_Footprints:ESP32-DEV C" (id 2) (at 120.65 128.905 0)
       (effects (font (size 1.27 1.27)) hide)
     )
     (property "Datasheet" "https://docs.espressif.com/projects/esp-idf/zh_CN/latest/esp32/hw-reference/esp32/get-started-devkitc.html" (id 3) (at 120.65 131.445 0)
@@ -2382,7 +2394,7 @@
   (symbol (lib_id "Power_Protection:SP0503BAHT") (at 57.277 83.185 270) (unit 1)
     (in_bom yes) (on_board yes) (fields_autoplaced)
     (uuid 34a88b8d-2e3c-46eb-aa36-e8e2c7d2ac94)
-    (property "Reference" "D?" (id 0) (at 57.277 72.898 90))
+    (property "Reference" "D3" (id 0) (at 57.277 72.898 90))
     (property "Value" "SP0503BAHT" (id 1) (at 57.277 75.438 90))
     (property "Footprint" "Package_TO_SOT_SMD:SOT-143" (id 2) (at 56.007 88.9 0)
       (effects (font (size 1.27 1.27)) (justify left) hide)
@@ -2556,7 +2568,7 @@
   (symbol (lib_id "power:GND") (at 175.514 93.345 90) (unit 1)
     (in_bom yes) (on_board yes) (fields_autoplaced)
     (uuid 5a8c3aa2-3aae-431c-87f4-45e7159308a3)
-    (property "Reference" "#PWR?" (id 0) (at 181.864 93.345 0)
+    (property "Reference" "#PWR0107" (id 0) (at 181.864 93.345 0)
       (effects (font (size 1.27 1.27)) hide)
     )
     (property "Value" "GND" (id 1) (at 179.07 93.3449 90)
@@ -2656,7 +2668,7 @@
   (symbol (lib_id "power:GND") (at 87.63 108.585 270) (unit 1)
     (in_bom yes) (on_board yes) (fields_autoplaced)
     (uuid 70cbaf16-5cbb-4a69-890d-29f632a2a473)
-    (property "Reference" "#PWR?" (id 0) (at 81.28 108.585 0)
+    (property "Reference" "#PWR0106" (id 0) (at 81.28 108.585 0)
       (effects (font (size 1.27 1.27)) hide)
     )
     (property "Value" "GND" (id 1) (at 83.82 108.5849 90)
@@ -2699,7 +2711,7 @@
   (symbol (lib_id "Device:R") (at 161.29 85.725 270) (unit 1)
     (in_bom yes) (on_board yes)
     (uuid 77c3b29a-e90e-4d6d-b745-ca1a2b623883)
-    (property "Reference" "R?" (id 0) (at 165.735 85.09 90))
+    (property "Reference" "R5" (id 0) (at 165.735 85.09 90))
     (property "Value" "100" (id 1) (at 161.163 85.725 90))
     (property "Footprint" "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder" (id 2) (at 161.29 83.947 90)
       (effects (font (size 1.27 1.27)) hide)
@@ -2783,7 +2795,7 @@
   (symbol (lib_id "Device:R") (at 175.514 97.155 180) (unit 1)
     (in_bom yes) (on_board yes)
     (uuid 96088318-af6c-4fb6-a226-560809efec12)
-    (property "Reference" "R?" (id 0) (at 192.659 93.8531 0)
+    (property "Reference" "R7" (id 0) (at 192.659 93.8531 0)
       (effects (font (size 1.27 1.27)) (justify left))
     )
     (property "Value" "10k" (id 1) (at 175.514 95.631 90)
@@ -2895,7 +2907,7 @@
   (symbol (lib_id "Power_Protection:SP0502BAHT") (at 49.53 95.885 270) (unit 1)
     (in_bom yes) (on_board yes)
     (uuid bcb81d12-5898-4062-b5bd-6f98ce26e1d4)
-    (property "Reference" "D?" (id 0) (at 49.276 95.377 90)
+    (property "Reference" "D5" (id 0) (at 49.276 95.377 90)
       (effects (font (size 1.27 1.27)) (justify left))
     )
     (property "Value" "SP0502BAHT" (id 1) (at 29.464 97.663 90)
@@ -3038,7 +3050,7 @@
   (symbol (lib_id "Power_Protection:SP0502BAHT") (at 38.1 90.805 270) (unit 1)
     (in_bom yes) (on_board yes)
     (uuid d38fc848-abc6-4280-a8af-e8100c684b40)
-    (property "Reference" "D?" (id 0) (at 37.846 90.805 90)
+    (property "Reference" "D4" (id 0) (at 37.846 90.805 90)
       (effects (font (size 1.27 1.27)) (justify left))
     )
     (property "Value" "SP0502BAHT" (id 1) (at 31.877 85.217 90)
@@ -3058,7 +3070,7 @@
   (symbol (lib_id "power:GND") (at 44.45 96.647 0) (unit 1)
     (in_bom yes) (on_board yes)
     (uuid d5c121be-c272-48fa-933d-dabb2c7bb64e)
-    (property "Reference" "#PWR?" (id 0) (at 44.45 102.997 0)
+    (property "Reference" "#PWR0103" (id 0) (at 44.45 102.997 0)
       (effects (font (size 1.27 1.27)) hide)
     )
     (property "Value" "GND" (id 1) (at 44.577 101.0412 0))
@@ -3074,7 +3086,7 @@
   (symbol (lib_id "Device:R") (at 161.29 88.265 90) (unit 1)
     (in_bom yes) (on_board yes)
     (uuid d5ccae90-8112-4571-843d-e47a8652b7f7)
-    (property "Reference" "R?" (id 0) (at 165.735 87.63 90))
+    (property "Reference" "R6" (id 0) (at 165.735 87.63 90))
     (property "Value" "100" (id 1) (at 161.036 88.265 90))
     (property "Footprint" "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder" (id 2) (at 161.29 90.043 90)
       (effects (font (size 1.27 1.27)) hide)
@@ -3089,7 +3101,7 @@
   (symbol (lib_id "Device:R") (at 83.82 98.425 270) (unit 1)
     (in_bom yes) (on_board yes)
     (uuid dc0b0c31-5b87-4205-b880-b273432091b1)
-    (property "Reference" "R?" (id 0) (at 83.82 96.52 90))
+    (property "Reference" "R9" (id 0) (at 83.82 96.52 90))
     (property "Value" "100" (id 1) (at 84.074 98.425 90))
     (property "Footprint" "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder" (id 2) (at 83.82 96.647 90)
       (effects (font (size 1.27 1.27)) hide)
@@ -3242,7 +3254,7 @@
   (symbol (lib_id "power:GND") (at 33.02 90.805 0) (unit 1)
     (in_bom yes) (on_board yes)
     (uuid fe5b05b8-fb72-4cfb-8e4b-c4a4fc5cd6e1)
-    (property "Reference" "#PWR?" (id 0) (at 33.02 97.155 0)
+    (property "Reference" "#PWR0105" (id 0) (at 33.02 97.155 0)
       (effects (font (size 1.27 1.27)) hide)
     )
     (property "Value" "GND" (id 1) (at 33.147 95.1992 0))
@@ -3293,8 +3305,20 @@
     (path "/8d61f227-6e71-48c2-8a52-89d3e1dffb90"
       (reference "#PWR0102") (unit 1) (value "GND") (footprint "")
     )
+    (path "/d5c121be-c272-48fa-933d-dabb2c7bb64e"
+      (reference "#PWR0103") (unit 1) (value "GND") (footprint "")
+    )
     (path "/d04118b8-de4e-49de-9b4a-df42ac0e7d7f"
       (reference "#PWR0104") (unit 1) (value "VDD") (footprint "")
+    )
+    (path "/fe5b05b8-fb72-4cfb-8e4b-c4a4fc5cd6e1"
+      (reference "#PWR0105") (unit 1) (value "GND") (footprint "")
+    )
+    (path "/70cbaf16-5cbb-4a69-890d-29f632a2a473"
+      (reference "#PWR0106") (unit 1) (value "GND") (footprint "")
+    )
+    (path "/5a8c3aa2-3aae-431c-87f4-45e7159308a3"
+      (reference "#PWR0107") (unit 1) (value "GND") (footprint "")
     )
     (path "/ca6ea4fa-a52f-48f1-9bef-7d982ec937fa"
       (reference "#PWR0108") (unit 1) (value "GND") (footprint "")
@@ -3341,18 +3365,6 @@
     (path "/dc72afa0-48a7-439c-8c40-4bb1da48bf28"
       (reference "#PWR0123") (unit 1) (value "VDD") (footprint "")
     )
-    (path "/5a8c3aa2-3aae-431c-87f4-45e7159308a3"
-      (reference "#PWR?") (unit 1) (value "GND") (footprint "")
-    )
-    (path "/70cbaf16-5cbb-4a69-890d-29f632a2a473"
-      (reference "#PWR?") (unit 1) (value "GND") (footprint "")
-    )
-    (path "/d5c121be-c272-48fa-933d-dabb2c7bb64e"
-      (reference "#PWR?") (unit 1) (value "GND") (footprint "")
-    )
-    (path "/fe5b05b8-fb72-4cfb-8e4b-c4a4fc5cd6e1"
-      (reference "#PWR?") (unit 1) (value "GND") (footprint "")
-    )
     (path "/343038a6-50a4-4219-8730-b7d61ad14865"
       (reference "C1") (unit 1) (value "10uF") (footprint "Capacitor_SMD:C_0603_1608Metric_Pad1.08x0.95mm_HandSolder")
     )
@@ -3371,20 +3383,20 @@
     (path "/c9ca5019-c6da-4ca9-8742-26148fa46dec"
       (reference "D2") (unit 1) (value "LED") (footprint "LED_SMD:LED_0603_1608Metric_Pad1.05x0.95mm_HandSolder")
     )
+    (path "/34a88b8d-2e3c-46eb-aa36-e8e2c7d2ac94"
+      (reference "D3") (unit 1) (value "SP0503BAHT") (footprint "Package_TO_SOT_SMD:SOT-143")
+    )
+    (path "/d38fc848-abc6-4280-a8af-e8100c684b40"
+      (reference "D4") (unit 1) (value "SP0502BAHT") (footprint "Package_TO_SOT_SMD:SOT-23")
+    )
+    (path "/bcb81d12-5898-4062-b5bd-6f98ce26e1d4"
+      (reference "D5") (unit 1) (value "SP0502BAHT") (footprint "Package_TO_SOT_SMD:SOT-23")
+    )
     (path "/ebf12d67-427b-419a-b53f-b97981549fad"
       (reference "D6") (unit 1) (value "SP0502BAHT") (footprint "Package_TO_SOT_SMD:SOT-23")
     )
     (path "/e5ecd872-94ce-48a1-8989-aa4190b7b5d3"
       (reference "D7") (unit 1) (value "TS4148C RZG") (footprint "Diode_SMD:D_0603_1608Metric_Pad1.05x0.95mm_HandSolder")
-    )
-    (path "/34a88b8d-2e3c-46eb-aa36-e8e2c7d2ac94"
-      (reference "D?") (unit 1) (value "SP0503BAHT") (footprint "Package_TO_SOT_SMD:SOT-143")
-    )
-    (path "/bcb81d12-5898-4062-b5bd-6f98ce26e1d4"
-      (reference "D?") (unit 1) (value "SP0502BAHT") (footprint "Package_TO_SOT_SMD:SOT-23")
-    )
-    (path "/d38fc848-abc6-4280-a8af-e8100c684b40"
-      (reference "D?") (unit 1) (value "SP0502BAHT") (footprint "Package_TO_SOT_SMD:SOT-23")
     )
     (path "/7108ae2f-4ff3-4cec-a97d-95db10bd7602"
       (reference "J1") (unit 1) (value "Conn_01x08") (footprint "AERO_Footprints:TE_1-776280-1_8pin_Horizontal")
@@ -3404,23 +3416,23 @@
     (path "/b5b7971c-49ea-499f-ad65-9cdfb0ce3057"
       (reference "R3") (unit 1) (value "10k") (footprint "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder")
     )
+    (path "/06fbdeaa-b06e-4785-9d28-70cfe455cd0c"
+      (reference "R4") (unit 1) (value "100") (footprint "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder")
+    )
+    (path "/77c3b29a-e90e-4d6d-b745-ca1a2b623883"
+      (reference "R5") (unit 1) (value "100") (footprint "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder")
+    )
+    (path "/d5ccae90-8112-4571-843d-e47a8652b7f7"
+      (reference "R6") (unit 1) (value "100") (footprint "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder")
+    )
+    (path "/96088318-af6c-4fb6-a226-560809efec12"
+      (reference "R7") (unit 1) (value "10k") (footprint "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder")
+    )
     (path "/37a86f65-5105-4417-af49-367372470746"
       (reference "R8") (unit 1) (value "10k") (footprint "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder")
     )
-    (path "/06fbdeaa-b06e-4785-9d28-70cfe455cd0c"
-      (reference "R?") (unit 1) (value "100") (footprint "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder")
-    )
-    (path "/77c3b29a-e90e-4d6d-b745-ca1a2b623883"
-      (reference "R?") (unit 1) (value "100") (footprint "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder")
-    )
-    (path "/96088318-af6c-4fb6-a226-560809efec12"
-      (reference "R?") (unit 1) (value "10k") (footprint "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder")
-    )
-    (path "/d5ccae90-8112-4571-843d-e47a8652b7f7"
-      (reference "R?") (unit 1) (value "100") (footprint "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder")
-    )
     (path "/dc0b0c31-5b87-4205-b880-b273432091b1"
-      (reference "R?") (unit 1) (value "100") (footprint "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder")
+      (reference "R9") (unit 1) (value "100") (footprint "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder")
     )
     (path "/ab730207-3e21-498c-8728-171202c0082f"
       (reference "U1") (unit 1) (value "MAX33054EASA+T") (footprint "AERO_Footprints:SOIC127P600X175-8N")
@@ -3429,7 +3441,7 @@
       (reference "U2") (unit 1) (value "TS2940CP33 ROG") (footprint "Package_TO_SOT_SMD:TO-252-2")
     )
     (path "/12a6a643-8d09-4828-9fdd-0e9da0628c48"
-      (reference "U3") (unit 1) (value "ESP32-DevKitC") (footprint "Espressif:ESP32-DevKitC")
+      (reference "U3") (unit 1) (value "ESP32-DevKitC") (footprint "AERO_Footprints:ESP32-DEV C")
     )
   )
 )

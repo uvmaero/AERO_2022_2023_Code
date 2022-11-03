@@ -1625,11 +1625,11 @@
 
   (no_connect (at 87.63 121.285) (uuid 2aac4762-23bf-4017-bd47-d405bae262ab))
   (no_connect (at 157.48 118.745) (uuid 4e4b6469-1ec4-47fc-b8d8-d8bdbad9bfad))
-  (no_connect (at 157.48 121.285) (uuid 4e4b6469-1ec4-47fc-b8d8-d8bdbad9bfad))
+  (no_connect (at 157.48 121.285) (uuid 4e4b6469-1ec4-47fc-b8d8-d8bdbad9bfae))
   (no_connect (at 87.63 100.965) (uuid 4ebd877c-6315-4bfb-8203-d0fbef3d1c1f))
-  (no_connect (at 157.48 111.125) (uuid 4ebd877c-6315-4bfb-8203-d0fbef3d1c1f))
+  (no_connect (at 157.48 111.125) (uuid 4ebd877c-6315-4bfb-8203-d0fbef3d1c20))
   (no_connect (at 87.63 113.665) (uuid 61f8946e-16c7-4200-b608-7c6b4e6e4647))
-  (no_connect (at 87.63 116.205) (uuid 61f8946e-16c7-4200-b608-7c6b4e6e4647))
+  (no_connect (at 87.63 116.205) (uuid 61f8946e-16c7-4200-b608-7c6b4e6e4648))
   (no_connect (at 157.48 116.205) (uuid 8bd70d30-e603-4f3a-bf67-cbeef21ca84f))
   (no_connect (at 87.63 118.745) (uuid 94461b2b-2cca-4547-994d-db63a18624c5))
 
@@ -2251,7 +2251,7 @@
     (uuid 12a6a643-8d09-4828-9fdd-0e9da0628c48)
     (property "Reference" "U3" (id 0) (at 122.555 67.9155 0))
     (property "Value" "ESP32-DevKitC" (id 1) (at 122.555 70.6906 0))
-    (property "Footprint" "AERO_Footprints:ESP32-DEV C" (id 2) (at 120.65 128.905 0)
+    (property "Footprint" "esp32:ESP32-DevKitC" (id 2) (at 120.65 128.905 0)
       (effects (font (size 1.27 1.27)) hide)
     )
     (property "Datasheet" "https://docs.espressif.com/projects/esp-idf/zh_CN/latest/esp32/hw-reference/esp32/get-started-devkitc.html" (id 3) (at 120.65 131.445 0)
@@ -3441,7 +3441,7 @@
       (reference "U2") (unit 1) (value "TS2940CP33 ROG") (footprint "Package_TO_SOT_SMD:TO-252-2")
     )
     (path "/12a6a643-8d09-4828-9fdd-0e9da0628c48"
-      (reference "U3") (unit 1) (value "ESP32-DevKitC") (footprint "AERO_Footprints:ESP32-DEV C")
+      (reference "U3") (unit 1) (value "ESP32-DevKitC") (footprint "esp32:ESP32-DevKitC")
     )
   )
 )

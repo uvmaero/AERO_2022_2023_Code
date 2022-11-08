@@ -1499,7 +1499,6 @@
     )
   )
 
-
   (junction (at 49.784 49.022) (diameter 0) (color 0 0 0 0)
     (uuid 0cba82e5-d1e1-437f-82d3-0b9a2b946b20)
   )
@@ -1562,8 +1561,8 @@
   (no_connect (at 157.48 116.205) (uuid 8bd70d30-e603-4f3a-bf67-cbeef21ca84f))
   (no_connect (at 87.63 118.745) (uuid 94461b2b-2cca-4547-994d-db63a18624c5))
   (no_connect (at 254.762 70.866) (uuid dc2df97d-44a1-491f-afcd-42025b03146e))
-  (no_connect (at 254.762 88.646) (uuid dc2df97d-44a1-491f-afcd-42025b03146e))
-  (no_connect (at 254.762 93.726) (uuid dc2df97d-44a1-491f-afcd-42025b03146e))
+  (no_connect (at 254.762 88.646) (uuid dc2df97d-44a1-491f-afcd-42025b03146f))
+  (no_connect (at 254.762 93.726) (uuid dc2df97d-44a1-491f-afcd-42025b031470))
 
   (wire (pts (xy 32.385 162.56) (xy 27.305 162.56))
     (stroke (width 0) (type default) (color 0 0 0 0))
@@ -1917,6 +1916,19 @@
   (text "CAN Transceiver" (at 84.455 146.685 0)
     (effects (font (size 2.0066 2.0066)) (justify left bottom))
     (uuid 37d6a44c-21cd-4039-850d-cfa8e64e7406)
+  )
+  (text "FRONT BOARD" (at 186.436 190.627 0)
+    (effects (font (size 1.27 1.27)) (justify left bottom))
+    (uuid 4e8c5d7d-0b1a-4d49-b10e-0adaa2597218)
+  )
+  (text "C.Grund 22.311" (at 187.706 184.277 0)
+    (effects (font (size 1.27 1.27)) (justify left bottom))
+    (uuid 5b4ab3cf-3531-4695-9b16-4e46af970833)
+  )
+  (text "Front board \n-Sensor input, pedals/wheel speed/suspention/wheel position\n-Wireless communication, Wheel board/LoRa\n-RTD back up / Indicator\n-fault lights\n"
+    (at 177.8 176.657 0)
+    (effects (font (size 1.27 1.27)) (justify left bottom))
+    (uuid f00793b6-9de3-4563-a5dd-8810cad7c60e)
   )
   (text "STBY logic low is normal mode\nlogic high is receive only"
     (at 48.895 193.675 0)

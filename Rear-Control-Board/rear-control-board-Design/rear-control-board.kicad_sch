@@ -2502,6 +2502,9 @@
     (path "/00000000-0000-0000-0000-000061f4d99a/a0d4af2a-5ad8-4ae9-8a99-bcd09d81ac73"
       (reference "#PWR0153") (unit 1) (value "GND") (footprint "")
     )
+    (path "/00000000-0000-0000-0000-000061f4d99a/12f5edad-6e63-4189-a4a9-5a9b8bba9709"
+      (reference "#PWR?") (unit 1) (value "GND") (footprint "")
+    )
     (path "/00000000-0000-0000-0000-000061f4d99a/1c46d95b-6e65-4538-beaf-c69ab0281a72"
       (reference "#PWR?") (unit 1) (value "GND") (footprint "")
     )
@@ -2658,6 +2661,9 @@
     (path "/00000000-0000-0000-0000-000062054c3a/3e3338cf-cf80-4af8-88b2-56ae48f97e0d"
       (reference "Q?") (unit 1) (value "B5584") (footprint "Package_TO_SOT_SMD:SOT-363_SC-70-6")
     )
+    (path "/00000000-0000-0000-0000-000061f4d99a/ec3036f3-ab77-4566-b68e-fc965ec8a8a3"
+      (reference "Q?") (unit 1) (value "PSMN5R2-60YL") (footprint "Package_TO_SOT_SMD:LFPAK56")
+    )
     (path "/00000000-0000-0000-0000-000061f4d99a/324c0c76-58ea-4deb-ae27-182fa8148008"
       (reference "R1") (unit 1) (value "20k") (footprint "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder")
     )
@@ -2708,6 +2714,9 @@
     )
     (path "/00000000-0000-0000-0000-000061f4d99a/9adcaaf9-3cec-4a35-9baa-c1374c92a7f2"
       (reference "R?") (unit 1) (value "10k") (footprint "")
+    )
+    (path "/00000000-0000-0000-0000-000061f4d99a/e56e48c1-a348-4def-b021-30b7c2af0da7"
+      (reference "R?") (unit 1) (value "R") (footprint "")
     )
     (path "/00000000-0000-0000-0000-000062054c3a/ec4b0bef-8187-4d99-b62c-b559b50cd5f8"
       (reference "R?") (unit 1) (value "470") (footprint "")

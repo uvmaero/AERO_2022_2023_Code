@@ -128,7 +128,7 @@
     (uuid 4d967454-338c-4b89-8534-9457e15bf2f2)
   )
 
-  (wire (pts (xy 107.95 82.55) (xy 118.745 82.55))
+  (wire (pts (xy 107.95 82.55) (xy 118.872 82.55))
     (stroke (width 0) (type default) (color 0 0 0 0))
     (uuid 3656bb3f-f8a4-4f3a-8e9a-ec6203c87a56)
   )
@@ -148,7 +148,7 @@
     (stroke (width 0) (type default) (color 0 0 0 0))
     (uuid 961b4579-9ee8-407a-89a7-81f36f1ad865)
   )
-  (wire (pts (xy 118.745 82.55) (xy 118.745 86.36))
+  (wire (pts (xy 118.872 82.55) (xy 118.745 86.36))
     (stroke (width 0) (type default) (color 0 0 0 0))
     (uuid eb6a726e-fed9-4891-95fa-b4d4a5f77b35)
   )
@@ -173,7 +173,7 @@
     (uuid e4a58eb9-9a72-4c12-ba9b-d7c4a557ce0c)
   )
 
-  (label "dcdc_fuse" (at 118.745 82.55 180)
+  (label "dcdc_fuse" (at 118.872 82.55 180)
     (effects (font (size 1.27 1.27)) (justify right bottom))
     (uuid 93d40100-4457-41f0-b5aa-38542b0288bc)
   )

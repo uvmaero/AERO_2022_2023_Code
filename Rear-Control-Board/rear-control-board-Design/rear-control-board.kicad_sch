@@ -1866,7 +1866,7 @@
     (uuid 00000000-0000-0000-0000-000061f130e5)
     (property "Reference" "K1" (id 0) (at 216.535 136.0932 90))
     (property "Value" "T9VV1K15-12S" (id 1) (at 216.535 138.4046 90))
-    (property "Footprint" "AERO-footprints:RELAY_T9VV1K15-12S" (id 2) (at 215.265 139.065 0)
+    (property "Footprint" "AERO_Footprints:RELAY_T9VV1K15-12S" (id 2) (at 215.265 139.065 0)
       (effects (font (size 1.27 1.27)) (justify left) hide)
     )
     (property "Datasheet" "https://www.te.com/commerce/DocumentDelivery/DDEController?Action=srchrtrv&DocNm=Power_PCB_Relay_T9V_Solar&DocType=DS&DocLang=English" (id 3) (at 216.535 147.955 0)
@@ -2195,7 +2195,7 @@
     (uuid c2befb11-636d-44f8-aa20-c1ad551f3b77)
     (property "Reference" "J6" (id 0) (at 65.405 183.388 0))
     (property "Value" "Conn_01x02" (id 1) (at 65.405 185.928 0))
-    (property "Footprint" "" (id 2) (at 65.405 192.659 0)
+    (property "Footprint" "Connector_JST:JST_NV_B02P-NV_1x02_P5.00mm_Vertical" (id 2) (at 65.405 192.659 0)
       (effects (font (size 1.27 1.27)) hide)
     )
     (property "Datasheet" "~" (id 3) (at 65.405 192.659 0)
@@ -2740,13 +2740,13 @@
       (reference "J5") (unit 1) (value "JST-B2B-VERT-2PIN") (footprint "Connector_JST:JST_XH_B2B-XH-AM_1x02_P2.50mm_Vertical")
     )
     (path "/c2befb11-636d-44f8-aa20-c1ad551f3b77"
-      (reference "J6") (unit 1) (value "Conn_01x02") (footprint "")
+      (reference "J6") (unit 1) (value "Conn_01x02") (footprint "Connector_JST:JST_NV_B02P-NV_1x02_P5.00mm_Vertical")
     )
     (path "/00000000-0000-0000-0000-000061ef11ea/b1698c8b-d0cd-4216-a0b5-1b99da8a0202"
       (reference "J7") (unit 1) (value "Micro_SD_Card") (footprint "Connector_Card:microSD_HC_Wuerth_693072010801")
     )
     (path "/00000000-0000-0000-0000-000061f130e5"
-      (reference "K1") (unit 1) (value "T9VV1K15-12S") (footprint "AERO-footprints:RELAY_T9VV1K15-12S")
+      (reference "K1") (unit 1) (value "T9VV1K15-12S") (footprint "AERO_Footprints:RELAY_T9VV1K15-12S")
     )
     (path "/00000000-0000-0000-0000-000062054c3a/00000000-0000-0000-0000-000062055384"
       (reference "K2") (unit 1) (value "G5V-2") (footprint "Relay_THT:Relay_DPDT_Omron_G5V-2")
@@ -2757,14 +2757,14 @@
     (path "/00000000-0000-0000-0000-000062054c3a/3e3338cf-cf80-4af8-88b2-56ae48f97e0d"
       (reference "Q1") (unit 1) (value "B5584") (footprint "Package_TO_SOT_SMD:SOT-363_SC-70-6")
     )
+    (path "/00000000-0000-0000-0000-000061f4d99a/0051d338-4d08-4d10-938a-c63d3458c064"
+      (reference "Q2") (unit 1) (value "PSMN5R2-60YL") (footprint "Package_TO_SOT_SMD:LFPAK56")
+    )
     (path "/00000000-0000-0000-0000-000061f4d99a/51ade803-e43f-415b-acf1-cbe9b60e0555"
       (reference "Q3") (unit 1) (value "PSMN5R2-60YL") (footprint "Package_TO_SOT_SMD:LFPAK56")
     )
     (path "/00000000-0000-0000-0000-000061f4d99a/8c93379b-1a32-47c1-bb56-36d702920175"
       (reference "Q4") (unit 1) (value "PSMN5R2-60YL") (footprint "Package_TO_SOT_SMD:LFPAK56")
-    )
-    (path "/00000000-0000-0000-0000-000061f4d99a/0051d338-4d08-4d10-938a-c63d3458c064"
-      (reference "Q?") (unit 1) (value "PSMN5R2-60YL") (footprint "Package_TO_SOT_SMD:LFPAK56")
     )
     (path "/9cd7a329-be98-4b6f-b451-5a50fe41a385"
       (reference "R2") (unit 1) (value "330") (footprint "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder")
@@ -2788,7 +2788,7 @@
       (reference "R8") (unit 1) (value "2.2K") (footprint "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder")
     )
     (path "/00000000-0000-0000-0000-000062054c3a/ec4b0bef-8187-4d99-b62c-b559b50cd5f8"
-      (reference "R10") (unit 1) (value "470") (footprint "")
+      (reference "R10") (unit 1) (value "470") (footprint "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder")
     )
     (path "/00000000-0000-0000-0000-000061f4d99a/78ff98dc-f3eb-4e0f-a212-b7188cae9868"
       (reference "R11") (unit 1) (value "1.5K") (footprint "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder")
@@ -2800,7 +2800,7 @@
       (reference "R13") (unit 1) (value "1.5K") (footprint "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder")
     )
     (path "/00000000-0000-0000-0000-000061ef11ea/f9f1e0e1-c05e-4068-91f8-67895f3037cb"
-      (reference "U1") (unit 1) (value "Dev_Board_C") (footprint "")
+      (reference "U1") (unit 1) (value "Dev_Board_C") (footprint "esp32:ESP32-DevKitC")
     )
     (path "/dbb94e1e-e341-4f83-bcd9-f51be721f344"
       (reference "U2") (unit 1) (value "TS2940CP33 ROG") (footprint "Package_TO_SOT_SMD:TO-252-2")

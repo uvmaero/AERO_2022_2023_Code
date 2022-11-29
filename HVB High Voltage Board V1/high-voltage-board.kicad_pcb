@@ -83,7 +83,7 @@
       (mirror false)
       (drillshape 0)
       (scaleselection 1)
-      (outputdirectory "High_Voltage_Gerber/")
+      (outputdirectory "../BOARD GERBER/V1/HVB/")
     )
   )
 
@@ -2646,7 +2646,7 @@
   (gr_arc (start 47.483076 40.477125) (mid 48.71705 37.709649) (end 51.674076 37.048125) (layer "Edge.Cuts") (width 0.1) (tstamp 2d31aac4-6719-4a4d-97cf-7a914363fe42))
   (gr_arc (start 146.558 52.197) (mid 141.217488 50.41444) (end 139.065 45.212) (layer "Edge.Cuts") (width 0.1) (tstamp 344ad018-e0c7-4bf2-87dd-1672b6493833))
   (gr_arc (start 49.824325 152.435876) (mid 48.159536 151.687665) (end 47.411325 150.022876) (layer "Edge.Cuts") (width 0.1) (tstamp 3b47fd15-063e-4464-bfeb-b4c74463364c))
-  (gr_arc (start 136.3726 132.4864) (mid 134.25171 134.531549) (end 132.18101 132.4356) (layer "Edge.Cuts") (width 0.1) (tstamp 4516a10d-2c6a-4557-9bb7-ac5b15ce6e91))
+  (gr_arc (start 136.3726 132.4864) (mid 134.251711 134.531549) (end 132.18101 132.4356) (layer "Edge.Cuts") (width 0.1) (tstamp 4516a10d-2c6a-4557-9bb7-ac5b15ce6e91))
   (gr_line (start 161.788974 145.024974) (end 223.037528 145.059528) (layer "Edge.Cuts") (width 0.1) (tstamp 46e9b303-62a0-4ad3-89b9-a19cd58ccc03))
   (gr_arc (start 137.9728 116.4844) (mid 137.786813 116.933413) (end 137.3378 117.1194) (layer "Edge.Cuts") (width 0.1) (tstamp 47d4dcdf-bc35-4ce2-b3a7-defe607d17bb))
   (gr_line (start 132.198813 117.864187) (end 132.18101 132.4356) (layer "Edge.Cuts") (width 0.1) (tstamp 4eb0b2e6-e32b-4135-b904-cb1320331eb6))

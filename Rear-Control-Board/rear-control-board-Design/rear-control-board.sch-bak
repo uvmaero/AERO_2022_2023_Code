@@ -1,0 +1,777 @@
+EESchema Schematic File Version 4
+EELAYER 30 0
+EELAYER END
+$Descr A4 11693 8268
+encoding utf-8
+Sheet 1 5
+Title ""
+Date ""
+Rev ""
+Comp ""
+Comment1 ""
+Comment2 ""
+Comment3 ""
+Comment4 ""
+$EndDescr
+$Comp
+L AERO_Symbols:T9VV1K15-12S K1
+U 1 1 61F130E5
+P 1500 7125
+F 0 "K1" V 1967 7125 50  0000 C CNN
+F 1 "T9VV1K15-12S" V 1876 7125 50  0000 C CNN
+F 2 "AERO_Footprints:RELAY_T9VV1K15-12S" H 1850 7075 50  0001 L CNN
+F 3 "https://www.te.com/commerce/DocumentDelivery/DDEController?Action=srchrtrv&DocNm=Power_PCB_Relay_T9V_Solar&DocType=DS&DocLang=English" H 1500 7125 50  0001 C CNN
+	1    1500 7125
+	0    -1   -1   0   
+$EndComp
+$Comp
+L power:GND #PWR0101
+U 1 1 61EA1840
+P 1100 7325
+F 0 "#PWR0101" H 1100 7075 50  0001 C CNN
+F 1 "GND" H 1105 7152 50  0000 C CNN
+F 2 "" H 1100 7325 50  0001 C CNN
+F 3 "" H 1100 7325 50  0001 C CNN
+	1    1100 7325
+	1    0    0    -1  
+$EndComp
+$Comp
+L power:+12VA #PWR0102
+U 1 1 61EA445F
+P 2200 6925
+F 0 "#PWR0102" H 2200 6775 50  0001 C CNN
+F 1 "+12VA" H 2215 7098 50  0000 C CNN
+F 2 "" H 2200 6925 50  0001 C CNN
+F 3 "" H 2200 6925 50  0001 C CNN
+	1    2200 6925
+	1    0    0    -1  
+$EndComp
+Text Label 2100 6925 2    50   ~ 0
+Battery
+Wire Wire Line
+	2200 6925 1800 6925
+$Comp
+L power:+12V #PWR0105
+U 1 1 61EA80F4
+P 700 6925
+F 0 "#PWR0105" H 700 6775 50  0001 C CNN
+F 1 "+12V" H 715 7098 50  0000 C CNN
+F 2 "" H 700 6925 50  0001 C CNN
+F 3 "" H 700 6925 50  0001 C CNN
+	1    700  6925
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	1100 7325 1200 7325
+Text Label 3925 2400 0    50   ~ 0
+BRB_RTN
+Wire Wire Line
+	2150 7325 1800 7325
+Text Label 800  6925 0    50   ~ 0
+12V_Main
+Wire Wire Line
+	700  6925 1200 6925
+$Sheet
+S 3350 6875 900  500 
+U 61F130EE
+F0 "charge-controller" 50
+F1 "charge-controller.sch" 50
+F2 "DCDC_IN" I L 3350 7250 50 
+F3 "BATTERY_IN" I L 3350 7050 50 
+$EndSheet
+Text Notes 7000 6750 0    50   ~ 0
+Rear Control Board\nFunctions: CAN, Wheel Speed, Dampers, Fan, Pump, Brake, Main Power Fuses, BRB I/O
+Text Notes 8200 7650 0    50   ~ 0
+01/20/2022    |    22.020    |    G.Spearing
+Text Notes 7400 7500 0    50   ~ 0
+Rear Control Board
+Text Notes 10600 7650 0    50   ~ 0
+1.0
+Text Label 9475 1300 0    50   ~ 0
+REAR_12V
+$Comp
+L power:VDD #PWR0106
+U 1 1 61EBC88C
+P 9350 1300
+F 0 "#PWR0106" H 9350 1150 50  0001 C CNN
+F 1 "VDD" H 9365 1473 50  0000 C CNN
+F 2 "" H 9350 1300 50  0001 C CNN
+F 3 "" H 9350 1300 50  0001 C CNN
+	1    9350 1300
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	6800 2225 7150 2225
+Wire Wire Line
+	7150 2325 6800 2325
+Text Notes 1000 775  0    50   ~ 0
+Board Connectors
+$Sheet
+S 4350 2175 1150 575 
+U 62054C3A
+F0 "FAULT_LATCHER" 50
+F1 "FAULT_LATCHER.sch" 50
+F2 "LOOP_IN" I L 4350 2400 50 
+F3 "IMD_FAULT_SIG" I L 4350 2525 50 
+F4 "BMS_FAULT_SIG" I L 4350 2650 50 
+F5 "BMS_IND" O R 5500 2625 50 
+F6 "IMD_IND" O R 5500 2525 50 
+F7 "LOOP_OUT" O R 5500 2400 50 
+$EndSheet
+Wire Wire Line
+	3925 2400 4350 2400
+Text Label 5750 2400 2    50   ~ 0
+SSOK
+Wire Wire Line
+	5750 2400 5500 2400
+Text Label 2150 7325 2    50   ~ 0
+SSOK
+Wire Wire Line
+	5500 2625 5950 2625
+Wire Wire Line
+	5950 2525 5500 2525
+$Comp
+L Connector_Generic:Conn_01x08 J3
+U 1 1 621565E8
+P 2550 4775
+F 0 "J3" H 2468 5292 50  0000 C CNN
+F 1 "Conn_01x08" H 2468 5201 50  0000 C CNN
+F 2 "AERO_Footprints:TE_1-776280-1_8pin_Horizontal" H 2550 4775 50  0001 C CNN
+F 3 "~" H 2550 4775 50  0001 C CNN
+	1    2550 4775
+	-1   0    0    -1  
+$EndComp
+Text Label 1725 1925 2    50   ~ 0
+PUMP_12V
+Wire Wire Line
+	1725 1925 950  1925
+Text Label 1725 2525 2    50   ~ 0
+PUMP_SIG
+Wire Wire Line
+	1725 2525 950  2525
+Text Label 1725 1225 2    50   ~ 0
+FAN_12V
+Wire Wire Line
+	1725 1225 950  1225
+Text Label 1725 1825 2    50   ~ 0
+FAN_SIG
+Wire Wire Line
+	1725 1825 950  1825
+Text Label 1725 1425 2    50   ~ 0
+BRAKE_12V
+Wire Wire Line
+	1725 1425 950  1425
+Text Label 1725 1725 2    50   ~ 0
+BRAKE_SIG
+Wire Wire Line
+	1725 1725 950  1725
+$Sheet
+S 7150 2075 1100 850 
+U 61F4D99A
+F0 "FET_OUTPUT" 50
+F1 "FET_OUTPUT.sch" 50
+F2 "FAN_OUT" I R 8250 2325 50 
+F3 "FAN_CTRL" I L 7150 2325 50 
+F4 "PUMP_OUT" I R 8250 2225 50 
+F5 "PUMP_CTRL" I L 7150 2425 50 
+F6 "BRAKE_OUT" I R 8250 2425 50 
+F7 "BRAKE_CTRL" I L 7150 2225 50 
+$EndSheet
+$Sheet
+S 5950 2025 850  1925
+U 61EF11EA
+F0 "Controller" 50
+F1 "Controller.sch" 50
+F2 "FAN_CTRL" I R 6800 2325 50 
+F3 "PUMP_CTRL" I R 6800 2425 50 
+F4 "BRAKE_CTRL" I R 6800 2225 50 
+F5 "FAULT_IMD" I L 5950 2525 50 
+F6 "FAULT_BMS" I L 5950 2625 50 
+F7 "WHEEL_L" I L 5950 2975 50 
+F8 "WHEEL_R" I L 5950 3075 50 
+F9 "SUSPENSION_L" I L 5950 3175 50 
+F10 "SUSPENSION_R" I L 5950 3275 50 
+F11 "CAN_P" O L 5950 3450 50 
+F12 "CAN_N" O L 5950 3525 50 
+F13 "TEMP_WATER" I L 5950 3650 50 
+$EndSheet
+Wire Wire Line
+	6800 2425 7150 2425
+Text Label 1700 2325 2    50   ~ 0
+DCDC_IN
+$Comp
+L power:GND #PWR0108
+U 1 1 6218B3DC
+P 2025 2925
+F 0 "#PWR0108" H 2025 2675 50  0001 C CNN
+F 1 "GND" H 2030 2752 50  0000 C CNN
+F 2 "" H 2025 2925 50  0001 C CNN
+F 3 "" H 2025 2925 50  0001 C CNN
+	1    2025 2925
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	950  5300 1750 5300
+Wire Wire Line
+	1750 5300 1750 5400
+$Comp
+L Device:Fuse F1
+U 1 1 61F130D9
+P 10025 1300
+F 0 "F1" V 9925 1200 50  0000 C CNN
+F 1 "2A" V 9925 1400 50  0000 C CNN
+F 2 "AERO_Footprints:Fuseholder_Blade_Mini_Keystone_3568" V 9955 1300 50  0001 C CNN
+F 3 "~" H 10025 1300 50  0001 C CNN
+	1    10025 1300
+	0    1    1    0   
+$EndComp
+$Comp
+L Device:Fuse F2
+U 1 1 6219EA6D
+P 10025 1550
+F 0 "F2" V 9925 1450 50  0000 C CNN
+F 1 "10A" V 9925 1650 50  0000 C CNN
+F 2 "AERO_Footprints:Fuseholder_Blade_Mini_Keystone_3568" V 9955 1550 50  0001 C CNN
+F 3 "~" H 10025 1550 50  0001 C CNN
+	1    10025 1550
+	0    1    1    0   
+$EndComp
+$Comp
+L Device:Fuse F3
+U 1 1 6219EA71
+P 10025 1800
+F 0 "F3" V 9925 1700 50  0000 C CNN
+F 1 "15A" V 9925 1900 50  0000 C CNN
+F 2 "AERO_Footprints:Fuseholder_Blade_Mini_Keystone_3568" V 9955 1800 50  0001 C CNN
+F 3 "~" H 10025 1800 50  0001 C CNN
+	1    10025 1800
+	0    1    1    0   
+$EndComp
+$Comp
+L Device:Fuse F4
+U 1 1 6219EA72
+P 10025 2050
+F 0 "F4" V 9925 1950 50  0000 C CNN
+F 1 "2A" V 9925 2150 50  0000 C CNN
+F 2 "AERO_Footprints:Fuseholder_Blade_Mini_Keystone_3568" V 9955 2050 50  0001 C CNN
+F 3 "~" H 10025 2050 50  0001 C CNN
+	1    10025 2050
+	0    1    1    0   
+$EndComp
+$Comp
+L Device:Fuse F5
+U 1 1 61E85F3E
+P 10025 2300
+F 0 "F5" V 9925 2200 50  0000 C CNN
+F 1 "2A" V 9925 2400 50  0000 C CNN
+F 2 "AERO_Footprints:Fuseholder_Blade_Mini_Keystone_3568" V 9955 2300 50  0001 C CNN
+F 3 "~" H 10025 2300 50  0001 C CNN
+	1    10025 2300
+	0    1    1    0   
+$EndComp
+$Comp
+L Device:Fuse F6
+U 1 1 61E87D24
+P 10025 2550
+F 0 "F6" V 9925 2450 50  0000 C CNN
+F 1 "15A" V 9925 2650 50  0000 C CNN
+F 2 "AERO_Footprints:Fuseholder_Blade_Mini_Keystone_3568" V 9955 2550 50  0001 C CNN
+F 3 "~" H 10025 2550 50  0001 C CNN
+	1    10025 2550
+	0    1    1    0   
+$EndComp
+$Comp
+L Device:Fuse F7
+U 1 1 6219EA73
+P 10025 2800
+F 0 "F7" V 9925 2700 50  0000 C CNN
+F 1 "5A" V 9925 2900 50  0000 C CNN
+F 2 "AERO_Footprints:Fuseholder_Blade_Mini_Keystone_3568" V 9955 2800 50  0001 C CNN
+F 3 "~" H 10025 2800 50  0001 C CNN
+	1    10025 2800
+	0    1    1    0   
+$EndComp
+$Comp
+L Device:Fuse F8
+U 1 1 6219EA74
+P 9900 4000
+F 0 "F8" V 9800 3900 50  0000 C CNN
+F 1 "2A" V 9800 4100 50  0000 C CNN
+F 2 "AERO_Footprints:Fuseholder_Blade_Mini_Keystone_3568" V 9830 4000 50  0001 C CNN
+F 3 "~" H 9900 4000 50  0001 C CNN
+	1    9900 4000
+	0    1    1    0   
+$EndComp
+$Comp
+L Device:Fuse F9
+U 1 1 6219EA75
+P 10025 3300
+F 0 "F9" V 9925 3200 50  0000 C CNN
+F 1 "2A" V 9925 3400 50  0000 C CNN
+F 2 "AERO_Footprints:Fuseholder_Blade_Mini_Keystone_3568" V 9955 3300 50  0001 C CNN
+F 3 "~" H 10025 3300 50  0001 C CNN
+	1    10025 3300
+	0    1    1    0   
+$EndComp
+Text Label 9350 3300 0    50   ~ 0
+BRAKE_12V
+Text Label 9325 1550 0    50   ~ 0
+FAN_12V
+Text Label 9325 1800 0    50   ~ 0
+RINEHART
+Text Label 9325 2050 0    50   ~ 0
+DASH
+Text Label 9325 2300 0    50   ~ 0
+HVB_12V
+Text Label 9325 2550 0    50   ~ 0
+PUMP_12V
+Text Label 9325 2800 0    50   ~ 0
+SPARE
+Text Label 9325 4000 0    50   ~ 0
+TSV
+$Comp
+L Device:Fuse F10
+U 1 1 6219EA76
+P 10025 3550
+F 0 "F10" V 9925 3450 50  0000 C CNN
+F 1 "1A" V 9925 3650 50  0000 C CNN
+F 2 "AERO_Footprints:Fuseholder_Blade_Mini_Keystone_3568" V 9955 3550 50  0001 C CNN
+F 3 "~" H 10025 3550 50  0001 C CNN
+	1    10025 3550
+	0    1    1    0   
+$EndComp
+Text Label 9350 3550 0    50   ~ 0
+BRB
+Wire Wire Line
+	9350 3300 9875 3300
+Wire Wire Line
+	9325 1550 9875 1550
+Wire Wire Line
+	9325 1800 9875 1800
+Wire Wire Line
+	9325 2050 9875 2050
+Wire Wire Line
+	9325 2300 9875 2300
+Wire Wire Line
+	9325 2550 9875 2550
+Wire Wire Line
+	9325 2800 9875 2800
+Wire Wire Line
+	9325 4000 9750 4000
+Wire Wire Line
+	10375 3550 10175 3550
+Wire Wire Line
+	10175 3300 10375 3300
+Connection ~ 10375 3300
+Wire Wire Line
+	10375 3300 10375 3550
+Wire Wire Line
+	10050 4000 10375 4000
+Wire Wire Line
+	10175 2800 10375 2800
+Connection ~ 10375 2800
+Wire Wire Line
+	10175 2550 10375 2550
+Connection ~ 10375 2550
+Wire Wire Line
+	10375 2550 10375 2800
+Wire Wire Line
+	10175 2300 10375 2300
+Connection ~ 10375 2300
+Wire Wire Line
+	10375 2300 10375 2550
+Wire Wire Line
+	10175 2050 10375 2050
+Connection ~ 10375 2050
+Wire Wire Line
+	10375 2050 10375 2300
+Wire Wire Line
+	10175 1800 10375 1800
+Connection ~ 10375 1800
+Wire Wire Line
+	10375 1800 10375 2050
+Wire Wire Line
+	10175 1550 10375 1550
+Connection ~ 10375 1550
+Wire Wire Line
+	10375 1550 10375 1800
+Wire Wire Line
+	10175 1300 10375 1300
+Connection ~ 10375 1300
+Wire Wire Line
+	10375 1300 10375 1550
+Wire Wire Line
+	9350 3550 9875 3550
+Wire Wire Line
+	10375 950  10375 1300
+Wire Wire Line
+	9350 1300 9875 1300
+$Comp
+L power:+12V #PWR0109
+U 1 1 621C6E33
+P 10375 950
+F 0 "#PWR0109" H 10375 800 50  0001 C CNN
+F 1 "+12V" H 10390 1123 50  0000 C CNN
+F 2 "" H 10375 950 50  0001 C CNN
+F 3 "" H 10375 950 50  0001 C CNN
+	1    10375 950 
+	1    0    0    -1  
+$EndComp
+Text Label 1725 1125 2    50   ~ 0
+RINEHART
+Wire Wire Line
+	1725 1125 950  1125
+Text Label 1725 2625 2    50   ~ 0
+DASH
+Wire Wire Line
+	1725 2625 950  2625
+Text Label 1725 2725 2    50   ~ 0
+HVB_12V
+Wire Wire Line
+	1725 2725 950  2725
+Text Label 1725 1325 2    50   ~ 0
+SPARE
+Wire Wire Line
+	1725 1325 950  1325
+Text Label 1725 3325 2    50   ~ 0
+TSV
+Wire Wire Line
+	1725 3325 950  3325
+Text Label 1725 2825 2    50   ~ 0
+BRB
+Text Label 1725 2025 2    50   ~ 0
+BRB_RTN
+Wire Wire Line
+	1725 2025 950  2025
+$Comp
+L power:VDD #PWR0110
+U 1 1 6226F925
+P 1925 4200
+F 0 "#PWR0110" H 1925 4050 50  0001 C CNN
+F 1 "VDD" H 1940 4373 50  0000 C CNN
+F 2 "" H 1925 4200 50  0001 C CNN
+F 3 "" H 1925 4200 50  0001 C CNN
+	1    1925 4200
+	-1   0    0    -1  
+$EndComp
+Text Label 1750 4200 2    50   ~ 0
+SENSOR_12V
+Wire Wire Line
+	950  4200 1925 4200
+Wire Wire Line
+	1925 4300 1925 4200
+Connection ~ 1925 4200
+Wire Wire Line
+	950  4300 1925 4300
+Text Label 1725 4000 2    50   ~ 0
+SENSOR_5V
+Wire Wire Line
+	1725 4000 950  4000
+Wire Wire Line
+	950  4100 1725 4100
+Wire Wire Line
+	1725 4100 1725 4000
+Wire Wire Line
+	950  5100 1750 5100
+Wire Wire Line
+	1750 5100 1750 5200
+Connection ~ 1750 5300
+Wire Wire Line
+	950  5200 1750 5200
+Connection ~ 1750 5200
+Wire Wire Line
+	1750 5200 1750 5300
+Text Label 1725 4400 2    50   ~ 0
+WHEEL_L
+Text Label 1725 4500 2    50   ~ 0
+WHEEL_R
+Text Label 1725 4600 2    50   ~ 0
+SUSPENSION_L
+Text Label 1725 4700 2    50   ~ 0
+SUSPENSION_R
+Wire Wire Line
+	1725 4700 950  4700
+Wire Wire Line
+	1725 4600 950  4600
+Wire Wire Line
+	1725 4500 950  4500
+Wire Wire Line
+	1725 4400 950  4400
+$Comp
+L power:+12VA #PWR0111
+U 1 1 622C9A09
+P 2950 7050
+F 0 "#PWR0111" H 2950 6900 50  0001 C CNN
+F 1 "+12VA" H 2965 7223 50  0000 C CNN
+F 2 "" H 2950 7050 50  0001 C CNN
+F 3 "" H 2950 7050 50  0001 C CNN
+	1    2950 7050
+	-1   0    0    -1  
+$EndComp
+Text Label 3050 7050 0    50   ~ 0
+Battery
+Wire Wire Line
+	2950 7050 3350 7050
+Text Label 2975 7250 0    50   ~ 0
+DCDC_IN
+Wire Wire Line
+	2975 7250 3350 7250
+Text Notes 1025 6450 0    50   ~ 0
+Main Relay for all car systems
+Text Label 3150 4875 2    50   ~ 0
+CAN_P
+Text Label 5625 3450 0    50   ~ 0
+CAN_P
+Wire Wire Line
+	5625 3450 5950 3450
+Text Label 5175 2975 0    50   ~ 0
+WHEEL_L
+Text Label 5175 3075 0    50   ~ 0
+WHEEL_R
+Text Label 5175 3175 0    50   ~ 0
+SUSPENSION_L
+Text Label 5175 3275 0    50   ~ 0
+SUSPENSION_R
+Wire Wire Line
+	5175 3275 5950 3275
+Wire Wire Line
+	5175 3175 5950 3175
+Wire Wire Line
+	5175 3075 5950 3075
+Wire Wire Line
+	5175 2975 5950 2975
+Text Label 3150 4575 2    50   ~ 0
+CAN_N
+Wire Wire Line
+	3150 4875 2750 4875
+Wire Wire Line
+	3150 4575 2750 4575
+Text Label 5625 3525 0    50   ~ 0
+CAN_N
+Wire Wire Line
+	5625 3525 5950 3525
+$Comp
+L Regulator_Switching:R-78B5.0-2.0 U3
+U 1 1 623629FD
+P 5700 6975
+F 0 "U3" H 5700 7217 50  0000 C CNN
+F 1 "R-78B5.0-2.0" H 5700 7126 50  0000 C CNN
+F 2 "Converter_DCDC:Converter_DCDC_RECOM_R-78B-2.0_THT" H 5750 6725 50  0001 L CIN
+F 3 "https://www.recom-power.com/pdf/Innoline/R-78Bxx-2.0.pdf" H 5700 6975 50  0001 C CNN
+	1    5700 6975
+	1    0    0    -1  
+$EndComp
+$Comp
+L power:+5V #PWR0112
+U 1 1 623630E3
+P 6175 6975
+F 0 "#PWR0112" H 6175 6825 50  0001 C CNN
+F 1 "+5V" H 6190 7148 50  0000 C CNN
+F 2 "" H 6175 6975 50  0001 C CNN
+F 3 "" H 6175 6975 50  0001 C CNN
+	1    6175 6975
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	6175 6975 6000 6975
+$Comp
+L power:VDD #PWR0113
+U 1 1 62372A5F
+P 4925 6975
+F 0 "#PWR0113" H 4925 6825 50  0001 C CNN
+F 1 "VDD" H 4940 7148 50  0000 C CNN
+F 2 "" H 4925 6975 50  0001 C CNN
+F 3 "" H 4925 6975 50  0001 C CNN
+	1    4925 6975
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	4925 6975 5400 6975
+Text Label 4975 6975 0    50   ~ 0
+REAR_12V
+$Comp
+L power:GND #PWR0114
+U 1 1 6237A65F
+P 5700 7350
+F 0 "#PWR0114" H 5700 7100 50  0001 C CNN
+F 1 "GND" H 5705 7177 50  0000 C CNN
+F 2 "" H 5700 7350 50  0001 C CNN
+F 3 "" H 5700 7350 50  0001 C CNN
+	1    5700 7350
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	5700 7350 5700 7275
+$Comp
+L power:+5V #PWR0115
+U 1 1 623839C0
+P 1925 4000
+F 0 "#PWR0115" H 1925 3850 50  0001 C CNN
+F 1 "+5V" H 1940 4173 50  0000 C CNN
+F 2 "" H 1925 4000 50  0001 C CNN
+F 3 "" H 1925 4000 50  0001 C CNN
+	1    1925 4000
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	1725 4000 1925 4000
+Connection ~ 1725 4000
+Connection ~ 1750 5100
+Wire Wire Line
+	950  5000 1750 5000
+Wire Wire Line
+	1750 5000 1750 5100
+Text Label 1725 3125 2    50   ~ 0
+FAULT_IMD
+Wire Wire Line
+	1725 3125 950  3125
+Text Label 1725 3225 2    50   ~ 0
+FAULT_BMS
+Wire Wire Line
+	1725 3225 950  3225
+Text Label 3925 2650 0    50   ~ 0
+FAULT_IMD
+Wire Wire Line
+	3925 2650 4350 2650
+Text Label 3925 2525 0    50   ~ 0
+FAULT_BMS
+Wire Wire Line
+	3925 2525 4350 2525
+$Comp
+L Connector_Generic:Conn_01x14 J2
+U 1 1 6241AD10
+P 750 4700
+F 0 "J2" H 668 3775 50  0000 C CNN
+F 1 "Conn_01x14" H 668 3866 50  0000 C CNN
+F 2 "AERO_Footprints:TE_1-776266-1_14pin_Horizontal" H 750 4700 50  0001 C CNN
+F 3 "~" H 750 4700 50  0001 C CNN
+	1    750  4700
+	-1   0    0    1   
+$EndComp
+$Comp
+L power:GND #PWR0116
+U 1 1 62446591
+P 1750 5400
+F 0 "#PWR0116" H 1750 5150 50  0001 C CNN
+F 1 "GND" H 1755 5227 50  0000 C CNN
+F 2 "" H 1750 5400 50  0001 C CNN
+F 3 "" H 1750 5400 50  0001 C CNN
+	1    1750 5400
+	1    0    0    -1  
+$EndComp
+Text Label 1750 4800 2    50   ~ 0
+TEMP_WATER
+Wire Wire Line
+	1750 4800 950  4800
+Text Label 5450 3650 0    50   ~ 0
+TEMP_WATER
+Wire Wire Line
+	5450 3650 5950 3650
+Wire Wire Line
+	950  4900 1750 4900
+Wire Wire Line
+	1750 4900 1750 5000
+Connection ~ 1750 5000
+Text Notes 4350 1975 0    50   ~ 0
+Global Nets Connected: \nGND, VDD (12V)
+Text Notes 5925 1800 0    50   ~ 0
+Global Nets Connected: \nGND, VDD (12V)
+Text Notes 7150 1825 0    50   ~ 0
+Global Nets Connected: \nGND
+Text Label 9025 2225 2    50   ~ 0
+PUMP_SIG
+Wire Wire Line
+	9025 2225 8250 2225
+Text Label 9025 2325 2    50   ~ 0
+FAN_SIG
+Wire Wire Line
+	9025 2325 8250 2325
+Text Label 9025 2425 2    50   ~ 0
+BRAKE_SIG
+Wire Wire Line
+	9025 2425 8250 2425
+$Comp
+L Connector_Generic:Conn_01x23 J1
+U 1 1 6250F2E8
+P 750 2225
+F 0 "J1" H 668 3542 50  0000 C CNN
+F 1 "Conn_01x23" H 668 3451 50  0000 C CNN
+F 2 "AERO_Footprints:TE_1-770669-1_23pin_Horizontal" H 750 2225 50  0001 C CNN
+F 3 "~" H 750 2225 50  0001 C CNN
+	1    750  2225
+	-1   0    0    -1  
+$EndComp
+Wire Wire Line
+	10375 2800 10375 3300
+Text Label 10375 4000 2    50   ~ 0
+SSOK
+Wire Wire Line
+	1700 2325 1375 2325
+Wire Wire Line
+	950  2425 1375 2425
+Wire Wire Line
+	1375 2425 1375 2325
+Connection ~ 1375 2325
+Wire Wire Line
+	1375 2325 950  2325
+Text Label 1725 1625 2    50   ~ 0
+DCDC_IN
+Wire Wire Line
+	1725 1625 950  1625
+Text Label 1725 1525 2    50   ~ 0
+Battery
+Text Label 1725 2225 2    50   ~ 0
+Battery
+$Comp
+L power:+12VA #PWR0107
+U 1 1 61F1F158
+P 1850 2225
+F 0 "#PWR0107" H 1850 2075 50  0001 C CNN
+F 1 "+12VA" H 1865 2398 50  0000 C CNN
+F 2 "" H 1850 2225 50  0001 C CNN
+F 3 "" H 1850 2225 50  0001 C CNN
+	1    1850 2225
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	950  2225 1375 2225
+Wire Wire Line
+	950  1525 1850 1525
+$Comp
+L power:+12VA #PWR0138
+U 1 1 61F18DE9
+P 1850 1525
+F 0 "#PWR0138" H 1850 1375 50  0001 C CNN
+F 1 "+12VA" H 1865 1698 50  0000 C CNN
+F 2 "" H 1850 1525 50  0001 C CNN
+F 3 "" H 1850 1525 50  0001 C CNN
+	1    1850 1525
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	950  2125 1375 2125
+Wire Wire Line
+	1375 2125 1375 2225
+Connection ~ 1375 2225
+Wire Wire Line
+	1375 2225 1850 2225
+Wire Wire Line
+	950  2825 1725 2825
+Text Label 3150 4675 2    50   ~ 0
+CAN_P
+Wire Wire Line
+	3150 4675 2750 4675
+Text Label 3150 4775 2    50   ~ 0
+CAN_N
+Wire Wire Line
+	3150 4775 2750 4775
+Wire Wire Line
+	950  2925 1725 2925
+Wire Wire Line
+	950  3025 1725 3025
+Wire Wire Line
+	1725 3025 1725 2925
+Connection ~ 1725 2925
+Wire Wire Line
+	1725 2925 2025 2925
+$EndSCHEMATC

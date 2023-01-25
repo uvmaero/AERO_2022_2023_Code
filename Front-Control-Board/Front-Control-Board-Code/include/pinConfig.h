@@ -20,6 +20,8 @@
 
 #define PEDAL_0_PIN                         12
 #define PEDAL_1_PIN                         13
+#define BRAKE_0_PIN                         23
+#define BRAKE_1_PIN                         22
 
 // Inputs
 #define CAN_MESSAGE_INTERRUPT_PIN           15             

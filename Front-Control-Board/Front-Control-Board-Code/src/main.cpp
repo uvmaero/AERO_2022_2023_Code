@@ -26,7 +26,10 @@
 #define PEDAL_MIN                       128
 #define PEDAL_MAX                       600
 #define TORQUE_DEADBAND                 5
-#define MAX_TORQUE                      220         // MAX TORQUE RINEHART CAN ACCEPT, DO NOT EXCEED (230)
+#define MAX_TORQUE                      225         // MAX TORQUE RINEHART CAN ACCEPT, DO NOT EXCEED 230!!!
+
+#define TESTING                         1
+
 
 // *** global variables *** //
 
@@ -37,6 +40,7 @@ enum DriveModes
   ECO = 10,
   FAST = 20
 };
+
 
 // Car Data Struct
 struct CarData
@@ -103,9 +107,6 @@ struct CarData
 };
 CarData carData;
 
-// ESP-Now Connection
-uint8_t wcbAddress[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
-esp_now_peer_info wcbInfo;
 
 struct WCB_Data
 {
@@ -155,13 +156,14 @@ struct WCB_Data
 };
 WCB_Data wcbData; 
 
+
 // Debug information
 struct Debugger
 {
   // debug toggle
   bool debugEnabled = false;
-  bool CAN_debugEnabled = false;
-  bool WCB_debugEnabled = false;
+  bool CAN_debugEnabled = true;
+  bool WCB_debugEnabled = true;
   bool IO_debugEnabled = false;
 
   // debug data
@@ -175,8 +177,15 @@ struct Debugger
 };
 Debugger debugger;
 
+
+// ESP-Now Connection
+uint8_t wcbAddress[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
+esp_now_peer_info wcbInfo;
+
+
 // CAN
 MCP_CAN CAN0(10);       // set CS pin to 10
+
 
 // Hardware ISR Timers
 hw_timer_t* timer0 = NULL;
@@ -200,18 +209,20 @@ void PrintCANDebug();
 void PrintWCBDebug();
 void PrintIODebug();
 
+
 // *** setup *** //
 void setup()
 {
   // --- initialize serial --- //
   Serial.begin(9600);
+  Serial.print("\n\n|--- STARTING SETUP ---|\n\n");
 
   // --- initialize sensors --- //
-  pinMode(WHEEL_SPEED_FR_SENSOR, INPUT);
-  pinMode(WHEEL_SPEED_FL_SENSOR, INPUT);
-  pinMode(WHEEL_HEIGHT_FR_SENSOR, INPUT);
-  pinMode(WHEEL_HEIGHT_FL_SENSOR, INPUT);
-  pinMode(STEERING_WHEEL_POT, INPUT);
+  // pinMode(WHEEL_SPEED_FR_SENSOR, INPUT);
+  // pinMode(WHEEL_SPEED_FL_SENSOR, INPUT);
+  // pinMode(WHEEL_HEIGHT_FR_SENSOR, INPUT);
+  // pinMode(WHEEL_HEIGHT_FL_SENSOR, INPUT);
+  // pinMode(STEERING_WHEEL_POT, INPUT);
 
   // --- initalize outputs --- //
 
@@ -222,40 +233,48 @@ void setup()
   attachInterrupt(CAN_MESSAGE_INTERRUPT_PIN, CANRead, LOW);
   
   // init CAN
-  if (CAN0.begin(MCP_ANY, CAN_500KBPS, MCP_16MHZ) == CAN_OK)
+  if (CAN0.begin(MCP_ANY, CAN_500KBPS, MCP_16MHZ) == CAN_OK) {
     Serial.println("CAN INIT [ SUCCESS ]");
-  else
+  }
+  else {
     Serial.println("CAN INIT [ FAILED ]");
-  
+  }
+
   // set mode to read and write
   CAN0.setMode(MCP_NORMAL);
 
-  // setup mask and filter
-  CAN0.init_Mask(0, 0, 0xFFFFFFFF);       // check all ID bits, excludes everything except select IDs
-  CAN0.init_Filt(0, 0, 0x100);            // RCB ID 1
-  CAN0.init_Filt(1, 0, 0x101);            // RCB ID 2
-  CAN0.init_Filt(2, 0, 0x102);            // Rinehart ID
+  // // setup mask and filter
+  #if !TESTING
+    CAN0.init_Mask(0, 0, 0xFFFFFFFF);       // check all ID bits, excludes everything except select IDs
+    CAN0.init_Filt(0, 0, 0x100);            // RCB ID 1
+    CAN0.init_Filt(1, 0, 0x101);            // RCB ID 2
+    CAN0.init_Filt(2, 0, 0x102);            // Rinehart ID
+  #endif
 
   // --- initialize ESP-NOW ---//
   // turn on wifi access point 
   WiFi.mode(WIFI_STA);
 
   // init ESP-NOW service
-  if (esp_now_init() != ESP_OK)
+  if (esp_now_init() == ESP_OK) {
     Serial.println("ESP-NOW INIT [ SUCCESS ]");
-  else
+  }
+  else {
     Serial.println("ESP-NOW INIT [ FAILED ]");
-  
+  }
+
   // get peer informtion about WCB
   memcpy(wcbInfo.peer_addr, wcbAddress, sizeof(wcbAddress));
   wcbInfo.channel = 0;
   wcbInfo.encrypt = false;
 
   // add WCB as a peer
-  if (esp_now_add_peer(&wcbInfo) != ESP_OK)
+  if (esp_now_add_peer(&wcbInfo) == ESP_OK) {
     Serial.println("ESP-NOW CONNECTION [ SUCCESS ]");
-  else
+  }
+  else {
     Serial.println("ESP-NOW CONNECTION [ FAILED ]");
+  }
 
   // attach message received callback to the data received function
   esp_now_register_recv_cb(WCBDataReceived);
@@ -283,20 +302,25 @@ void setup()
 
   // --- initialize ARDAN ---//
   // set pins for the radio module
-  LoRa.setPins(ARDAN_SS_PIN, ARDAN_RST_PIN, ARDAN_DIO_PIN);
+  #if !TESTING
+    LoRa.setPins(ARDAN_SS_PIN, ARDAN_RST_PIN, ARDAN_DIO_PIN);
+  #endif
 
   // init LoRa
-  if (!LoRa.begin(915E6))         // 915E6 is for use in North America 
+  if (LoRa.begin(915E6)) {         // 915E6 is for use in North America 
     Serial.println("ARDAN INIT [SUCCESSS ]");
-  else 
+  }
+  else { 
     Serial.println("ARDAN INIT [ FAILED ]");
+  }
 
   // set the sync word so the car and monitoring station can communicate
   LoRa.setSyncWord(0xA1);         // the channel to be transmitting on (range: 0x00 - 0xFF)
 
   // --- End Setup Section in Serial Monitor --- //
-  Serial.print("|--- END SETUP ---|\n\n\n");
+  Serial.print("\n\n|--- END SETUP ---|\n\n\n");
 }
+
 
 // *** loop *** // 
 void loop()
@@ -323,15 +347,20 @@ void PollSensorData()
   WiFi.mode(WIFI_OFF);
 
   // get pedal positions
-  carData.inputs.pedal0 = analogRead(PEDAL_0_PIN);
-  carData.inputs.pedal1 = analogRead(PEDAL_1_PIN);
+  float tmpPedal0 = analogRead(PEDAL_0_PIN);
+  carData.inputs.pedal0 = MapValue(tmpPedal0, 0, 1024, 0, 255);   // starting min and max values must be found via testing!!!
+
+  float tmpPedal1 = analogRead(PEDAL_1_PIN);
+  carData.inputs.pedal1 = MapValue(tmpPedal1, 0, 1024, 0, 255);   // starting min and max values must be found via testing!!!
+
+  // Calculate commanded torque
   GetCommandedTorque();
 
   // update wheel speed values
   carData.sensors.wheelSpeedFR = analogRead(WHEEL_SPEED_FR_SENSOR);
   carData.sensors.wheelSpeedFL = analogRead(WHEEL_HEIGHT_FL_SENSOR);
 
-  // update wheel ride height value s
+  // update wheel ride height values
   carData.sensors.wheelHeightFR = analogRead(WHEEL_HEIGHT_FR_SENSOR);
   carData.sensors.wheelHeightFL = analogRead(WHEEL_HEIGHT_FL_SENSOR);
 
@@ -354,14 +383,22 @@ void PollSensorData()
     }
   }
 
+  // get brake positions
+  float tmpBrake0 = analogRead(BRAKE_0_PIN);
+  carData.inputs.brake0 = MapValue(tmpBrake0, 0, 1024, 0, 255);   // starting min and max values must be found via testing!!!
+
+  float tmpBrake1 = analogRead(BRAKE_1_PIN);
+  carData.inputs.brake1 = MapValue(tmpBrake1, 0, 1024, 0, 255);   // starting min and max values must be found via testing!!!
+
   // brake light logic 
   int brakeAverage = (carData.inputs.brake0 + carData.inputs.brake1) / 2;
-  if (brakeAverage >= BRAKE_LIGHT_THRESHOLD)
+  if (brakeAverage >= BRAKE_LIGHT_THRESHOLD) {
     carData.outputs.brakeLight = true;      // turn it on 
+  }
 
-  else
+  else {
     carData.outputs.brakeLight = false;     // turn it off
-  
+  }
   
   // debugging
   if (debugger.debugEnabled) {
@@ -517,8 +554,6 @@ void UpdateARDAN()
  */
 void GetCommandedTorque()
 {
-  // TODO: ensure the two pedal reads are within margin of error
-
   // get the pedal average
   int pedalAverage = (carData.inputs.pedal0 + carData.inputs.pedal0) / 2;
 
@@ -540,19 +575,30 @@ void GetCommandedTorque()
     // error state, set the mode to ECO
     default:
       // set the state to ECO for next time
-      carData.drivingData.driveMode = SLOW;
+      carData.drivingData.driveMode = ECO;
 
       // we don't want to send a torque if we are in an undefined state
       carData.drivingData.commandedTorque = 0;
     break;
   }
 
+  // calculate rinehart command value
+  carData.drivingData.commandedTorque = map(pedalAverage, PEDAL_DEADBAND, 255, 0, (MAX_TORQUE * 10));   // rinehart expects the value as 10x
+
+
+  // --- safety checks --- //
+
   // for throttle safety, we will have a deadband
   if (carData.drivingData.commandedTorque <= TORQUE_DEADBAND)   // if less than 5% power is requested, just call it 0
   {
     carData.drivingData.commandedTorque = 0;
   }
-}
+
+  // check if ready to drive
+  if (!carData.drivingData.readyToDrive) {
+    carData.drivingData.commandedTorque = 0;    // if not ready to drive then block all torque
+  }
+} 
 
 
 /**

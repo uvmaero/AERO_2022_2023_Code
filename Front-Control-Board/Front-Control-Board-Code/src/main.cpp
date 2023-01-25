@@ -361,6 +361,12 @@ void PollSensorData()
 
   else
     carData.outputs.brakeLight = false;     // turn it off
+  
+  
+  // debugging
+  if (debugger.debugEnabled) {
+    debugger.IO_data = carData;
+  }
 
   // turn wifi back on to re-enable esp-now connection to wheel board
   WiFi.mode(WIFI_STA);
@@ -436,10 +442,13 @@ void CANWrite()
   // send the message and get its sent status
   byte sentStatus = CAN0.sendMsgBuf(0x100, 0, sizeof(outgoingMessage), outgoingMessage);    // (sender address, STD CAN frame, size of message, message)
 
-  // if (sentStatus == CAN_OK)
-  //   Serial.println("CAN Message Sent Status: Success");
-  // else
-  //   Serial.println("CAN Message Sent Status: Failed");
+  // debugging
+  if (debugger.debugEnabled) {
+    debugger.CAN_sentStatus = sentStatus;
+    for (int i = 0; i < 7; ++i) {
+      debugger.CAN_outgoingMessage[i] = outgoingMessage[i];
+    }
+  }
 
   // re-enable interrupts
   portEXIT_CRITICAL_ISR(&timerMux);
@@ -474,10 +483,10 @@ void UpdateWCB()
   // send message
   esp_err_t result = esp_now_send(wcbAddress, (uint8_t *) &wcbData, sizeof(wcbData));
 
-  // if (result == ESP_OK)
-  //   Serial.println("WCB Update: Successful");
-  // else
-  //   Serial.println("WCB Update: Failed");
+  // debugging 
+  if (debugger.debugEnabled) {
+    debugger.WCB_updateResult = result;
+  }
 
   // re-enable interrupts
   portEXIT_CRITICAL_ISR(&timerMux);

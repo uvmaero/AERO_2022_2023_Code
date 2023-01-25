@@ -280,7 +280,7 @@ void setup()
 // *** loop *** // 
 void loop()
 {
-  // everything is on a timer so nothing happens here! 
+  // everything is on timers so nothing happens here! 
 }
 
 
@@ -290,6 +290,9 @@ void loop()
  */
 void PollSensorData()
 {
+  // disable interrupts 
+  portENTER_CRITICAL_ISR(&timerMux);
+
   // turn off wifi for ADC channel 2 to function
   WiFi.mode(WIFI_OFF);
 
@@ -335,6 +338,9 @@ void PollSensorData()
 
   // turn wifi back on to re-enable esp-now connection to wheel board
   WiFi.mode(WIFI_STA);
+
+  // re-enable interrupts
+  portEXIT_CRITICAL_ISR(&timerMux);
 }
 
 
@@ -344,6 +350,9 @@ void PollSensorData()
  */
 void CANRead()
 {
+  // disable interrupts
+  portENTER_CRITICAL_ISR(&timerMux);
+
   // inits
   unsigned long receivingID = 0;
   byte messageLength = 0;
@@ -370,6 +379,9 @@ void CANRead()
     return;
     break;
   }
+
+  // re-enable interrupts
+  portEXIT_CRITICAL_ISR(&timerMux);
 }
 
 
@@ -379,6 +391,9 @@ void CANRead()
  */
 void CANWrite()
 {
+  // disable interrupts
+  portENTER_CRITICAL_ISR(&timerMux);
+
   // inits
   byte outgoingMessage[8];
 
@@ -395,10 +410,13 @@ void CANWrite()
   // send the message and get its sent status
   byte sentStatus = CAN0.sendMsgBuf(0x100, 0, sizeof(outgoingMessage), outgoingMessage);    // (sender address, STD CAN frame, size of message, message)
 
-  if (sentStatus == CAN_OK)
-    Serial.println("CAN Message Sent Status: Success");
-  else
-    Serial.println("CAN Message Sent Status: Failed");
+  // if (sentStatus == CAN_OK)
+  //   Serial.println("CAN Message Sent Status: Success");
+  // else
+  //   Serial.println("CAN Message Sent Status: Failed");
+
+  // re-enable interrupts
+  portEXIT_CRITICAL_ISR(&timerMux);
 }
 
 
@@ -408,6 +426,9 @@ void CANWrite()
  */
 void UpdateWCB()
 {
+  // disable interrupts
+  portENTER_CRITICAL_ISR(&timerMux);
+
   // update battery & electrical data
   wcbData.batteryStatus.batteryChargeState = carData.batteryStatus.batteryChargeState;
   wcbData.batteryStatus.pack1Temp = carData.batteryStatus.pack1Temp;
@@ -427,10 +448,13 @@ void UpdateWCB()
   // send message
   esp_err_t result = esp_now_send(wcbAddress, (uint8_t *) &wcbData, sizeof(wcbData));
 
-  if (result == ESP_OK)
-    Serial.println("WCB Update: Successful");
-  else
-    Serial.println("WCB Update: Failed");
+  // if (result == ESP_OK)
+  //   Serial.println("WCB Update: Successful");
+  // else
+  //   Serial.println("WCB Update: Failed");
+
+  // re-enable interrupts
+  portEXIT_CRITICAL_ISR(&timerMux);
 }
 
 
@@ -440,9 +464,16 @@ void UpdateWCB()
  */
 void UpdateARDAN()
 {
+  // disable interrupts
+  portENTER_CRITICAL_ISR(&timerMux);
+
+  // send LoRa update
   LoRa.beginPacket();
   LoRa.write((uint8_t *) &carData, sizeof(carData));
   LoRa.endPacket();
+
+  // re-enable interrupts
+  portEXIT_CRITICAL_ISR(&timerMux);
 }
 
 
@@ -497,8 +528,15 @@ void GetCommandedTorque()
  */
 void WCBDataSent(const uint8_t* macAddress, esp_now_send_status_t status)
 {
-  Serial.print("Last Packet Send Status: ");
-  Serial.println(status == ESP_NOW_SEND_SUCCESS ? "SUCCESS" : "FAILED");
+  // disable interrupts
+  portENTER_CRITICAL_ISR(&timerMux);
+
+  // print packet status
+  // Serial.print("Last Packet Send Status: ");
+  // Serial.println(status == ESP_NOW_SEND_SUCCESS ? "SUCCESS" : "FAILED");
+
+  // re-enable interrupts
+  portEXIT_CRITICAL_ISR(&timerMux);
 }
 
 
@@ -511,6 +549,9 @@ void WCBDataSent(const uint8_t* macAddress, esp_now_send_status_t status)
  */
 void WCBDataReceived(const uint8_t* mac, const uint8_t* incomingData, int length)
 {
+  // disable interrupts
+  portENTER_CRITICAL_ISR(&timerMux);
+
   // copy data to the wcbData struct 
   memcpy(&wcbData, incomingData, sizeof(wcbData));
 
@@ -521,6 +562,9 @@ void WCBDataReceived(const uint8_t* mac, const uint8_t* incomingData, int length
   carData.inputs.brakeRegen = wcbData.io.brakeRegen;
   carData.outputs.buzzerActive = wcbData.io.buzzerActive;
   carData.drivingData.readyToDrive = wcbData.drivingData.readyToDrive;
+
+  // re-enable interrupts
+  portEXIT_CRITICAL_ISR(&timerMux);
 }
 
 

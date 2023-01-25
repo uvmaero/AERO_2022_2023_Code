@@ -603,6 +603,8 @@ long MapValue(long x, long in_min, long in_max, long out_min, long out_max) {
  * 
  */
 void PrintCANDebug() {
+  Serial.printf("\n--- START CAN DEBUG ---\n");
+
   // sent status
   if (debugger.CAN_sentStatus == CAN_OK) {
     Serial.printf("CAN Message Send Status: Success\n");
@@ -613,8 +615,10 @@ void PrintCANDebug() {
 
   // message
   for (int i = 0; i < 7; ++i) {
-    Serial.printf("CAN Raw Data Byte %d: %d\n", i, debugger.CAN_outgoingMessage[i]);
+    Serial.printf("CAN Raw Data Byte %d: %d\n\n", i, debugger.CAN_outgoingMessage[i]);
   }
+
+  Serial.printf("\n--- END CAN DEBUG ---\n");
 }
 
 

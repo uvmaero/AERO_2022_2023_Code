@@ -29,6 +29,27 @@
 #define MAX_TORQUE                      220         // MAX TORQUE RINEHART CAN ACCEPT, DO NOT EXCEED (230)
 
 // *** global variables *** //
+
+// Debug information
+typedef struct Debugger
+{
+  // debug toggle
+  bool debugEnabled = false;
+  bool CAN_debugEnabled = false;
+  bool WCB_debugEnabled = false;
+  bool IO_debugEnabled = false;
+
+  // debug data
+  byte CAN_sentStatus;
+  byte CAN_outgoingMessage[8];
+
+  esp_err_t WCB_updateResult;
+  WCB_Data WCB_updateMessage;
+
+  CarData IO_data;
+};
+Debugger debugger;
+
 // Drive Mode Enumeration Type
 enum DriveModes
 {
@@ -38,7 +59,7 @@ enum DriveModes
 };
 
 // Car Data Struct
-struct CarData
+typedef struct CarData
 {
   struct DrivingData
   {
@@ -106,7 +127,7 @@ CarData carData;
 uint8_t wcbAddress[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
 esp_now_peer_info wcbInfo;
 
-struct WCB_Data
+typedef struct WCB_Data
 {
   struct DrivingData
   {
@@ -171,10 +192,13 @@ void CANRead();
 void CANWrite();
 void UpdateARDAN();
 void UpdateWCB();
-void WCBDataSent(const uint8_t* macAddress, esp_now_send_status_t status);
 void WCBDataReceived(const uint8_t* mac, const uint8_t* incomingData, int length);
 void GetCommandedTorque();
 long MapValue(long x, long in_min, long in_max, long out_min, long out_max);
+void PrintDebug();
+void PrintCANDebug();
+void PrintWCBDebug();
+void PrintIODebug();
 
 // *** setup *** //
 void setup()
@@ -221,9 +245,6 @@ void setup()
     Serial.println("ESP-NOW INIT [ SUCCESS ]");
   else
     Serial.println("ESP-NOW INIT [ FAILED ]");
-  
-  // attach the data send function to the message sent callback
-  esp_now_register_send_cb(WCBDataSent);
   
   // get peer informtion about WCB
   memcpy(wcbInfo.peer_addr, wcbAddress, sizeof(wcbAddress));
@@ -281,6 +302,11 @@ void setup()
 void loop()
 {
   // everything is on timers so nothing happens here! 
+
+  // debugging
+  if (debugger.debugEnabled) {
+    PrintDebug();
+  }
 }
 
 
@@ -521,26 +547,6 @@ void GetCommandedTorque()
 
 
 /**
- * @brief a callback function for when data is sent to WCB
- * 
- * @param macAddress      the address of the WCB
- * @param status          indicator of successful message sent
- */
-void WCBDataSent(const uint8_t* macAddress, esp_now_send_status_t status)
-{
-  // disable interrupts
-  portENTER_CRITICAL_ISR(&timerMux);
-
-  // print packet status
-  // Serial.print("Last Packet Send Status: ");
-  // Serial.println(status == ESP_NOW_SEND_SUCCESS ? "SUCCESS" : "FAILED");
-
-  // re-enable interrupts
-  portEXIT_CRITICAL_ISR(&timerMux);
-}
-
-
-/**
  * @brief a callback function for when data is received from WCB
  * 
  * @param mac             the address of the WCB
@@ -580,4 +586,53 @@ void WCBDataReceived(const uint8_t* mac, const uint8_t* incomingData, int length
  */
 long MapValue(long x, long in_min, long in_max, long out_min, long out_max) {
   return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+}
+
+
+/**
+ * @brief 
+ * 
+ */
+void PrintCANDebug() {
+
+}
+
+
+/**
+ * @brief 
+ * 
+ */
+void PrintWCBDebug() {
+
+}
+
+
+/**
+ * @brief 
+ * 
+ */
+void PrintIODebug() {
+
+}
+
+
+/**
+ * @brief 
+ * 
+ */
+void PrintDebug() {
+    // CAN
+    if (debugger.CAN_debugEnabled) {
+        PrintCANDebug();
+    }
+
+    // WCB
+    if (debugger.WCB_debugEnabled) {
+      PrintWCBDebug();
+    }
+
+    // IO
+    if (debugger.IO_debugEnabled) {
+      PrintIODebug();
+    }
 }

@@ -606,12 +606,7 @@ void PrintCANDebug() {
   Serial.printf("\n--- START CAN DEBUG ---\n");
 
   // sent status
-  if (debugger.CAN_sentStatus == CAN_OK) {
-    Serial.printf("CAN Message Send Status: Success\n");
-  }
-  else {
-    Serial.printf("CAN Message Send Status: Failed\n");
-  }
+  Serial.printf("CAN Message Send Status: %s\n", debugger.CAN_sentStatus ? "Success" : "Failed");
 
   // message
   for (int i = 0; i < 7; ++i) {
@@ -627,7 +622,16 @@ void PrintCANDebug() {
  * 
  */
 void PrintWCBDebug() {
+  Serial.printf("\n--- START WCB DEBUG ---\n");
 
+  // send status
+  Serial.printf("WCB ESP-NOW Update: %s\n", debugger.WCB_updateResult ? "Success" : "Failed");
+
+
+  // message
+  // TODO: decide what to put here
+
+  Serial.printf("\n--- END WCB DEBUG ---\n");
 }
 
 
@@ -636,7 +640,11 @@ void PrintWCBDebug() {
  * 
  */
 void PrintIODebug() {
+  Serial.printf("\n--- START I/O DEBUG ---\n");
 
+  // 
+
+  Serial.printf("\n--- END I/O DEBUG ---\n");
 }
 
 

@@ -30,26 +30,6 @@
 
 // *** global variables *** //
 
-// Debug information
-typedef struct Debugger
-{
-  // debug toggle
-  bool debugEnabled = false;
-  bool CAN_debugEnabled = false;
-  bool WCB_debugEnabled = false;
-  bool IO_debugEnabled = false;
-
-  // debug data
-  byte CAN_sentStatus;
-  byte CAN_outgoingMessage[8];
-
-  esp_err_t WCB_updateResult;
-  WCB_Data WCB_updateMessage;
-
-  CarData IO_data;
-};
-Debugger debugger;
-
 // Drive Mode Enumeration Type
 enum DriveModes
 {
@@ -59,7 +39,7 @@ enum DriveModes
 };
 
 // Car Data Struct
-typedef struct CarData
+struct CarData
 {
   struct DrivingData
   {
@@ -127,7 +107,7 @@ CarData carData;
 uint8_t wcbAddress[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
 esp_now_peer_info wcbInfo;
 
-typedef struct WCB_Data
+struct WCB_Data
 {
   struct DrivingData
   {
@@ -174,6 +154,26 @@ typedef struct WCB_Data
   } io;
 };
 WCB_Data wcbData; 
+
+// Debug information
+struct Debugger
+{
+  // debug toggle
+  bool debugEnabled = false;
+  bool CAN_debugEnabled = false;
+  bool WCB_debugEnabled = false;
+  bool IO_debugEnabled = false;
+
+  // debug data
+  byte CAN_sentStatus;
+  byte CAN_outgoingMessage[8];
+
+  esp_err_t WCB_updateResult;
+  WCB_Data WCB_updateMessage;
+
+  CarData IO_data;
+};
+Debugger debugger;
 
 // CAN
 MCP_CAN CAN0(10);       // set CS pin to 10
@@ -603,7 +603,18 @@ long MapValue(long x, long in_min, long in_max, long out_min, long out_max) {
  * 
  */
 void PrintCANDebug() {
+  // sent status
+  if (debugger.CAN_sentStatus == CAN_OK) {
+    Serial.printf("CAN Message Send Status: Success\n");
+  }
+  else {
+    Serial.printf("CAN Message Send Status: Failed\n");
+  }
 
+  // message
+  for (int i = 0; i < 7; ++i) {
+    Serial.printf("CAN Raw Data Byte %d: %d\n", i, debugger.CAN_outgoingMessage[i]);
+  }
 }
 
 

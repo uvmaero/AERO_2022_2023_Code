@@ -9,9 +9,13 @@
 // *** includes *** // 
 #include <stdio.h>
 #include <Arduino.h>
-#include <esp_now.h>
+#include "esp_now.h"
+#include "esp_err.h"
 #include <esp_timer.h>
-#include <WiFi.h>
+#include <esp_wifi.h>
+#include "esp_netif.h"
+#include "driver/adc.h"
+#include "esp_adc_cal.h"
 #include <mcp_can.h>
 #include <LoRa.h>
 #include "pinConfig.h"
@@ -19,6 +23,7 @@
 
 // *** defines *** // 
 #define TIMER_INTERRUPT_PRESCALER       80          // this is based off to the clock speed (assuming 80 MHz), gets us to microseconds
+#define GPIO_INPUT_PIN_SELECT           1       
 #define SENSOR_POLL_INTERVAL            100000      // 0.1 seconds in microseconds
 #define CAN_WRITE_INTERVAL              100000      // 0.1 seconds in microseconds
 #define WCB_UPDATE_INTERVAL             150000      // 0.15 seconds in microseconds
@@ -210,42 +215,89 @@ void setup()
 {
   // --- initialize serial --- //
   Serial.begin(9600);
-  ESP_LOGD(TAG, "\n\n|--- STARTING SETUP ---|\n\n");
+  Serial.printf("\n\n|--- STARTING SETUP ---|\n\n");
 
-  // --- initialize sensors --- //
+  // initialize inputs/sensors //
+  gpio_config_t sensor_config = {
+    .pin_bit_mask = GPIO_INPUT_PIN_SELECT,
+    .mode = GPIO_MODE_INPUT,
+    .pull_up_en = GPIO_PULLUP_DISABLE,
+    .pull_down_en = GPIO_PULLDOWN_DISABLE,
+    .intr_type = GPIO_INTR_DISABLE
+  };
+  gpio_config(&sensor_config);
 
-  // --- initalize outputs --- //
+  // setup adc 1
+  adc1_config_width(ADC_WIDTH_BIT_12);
+  adc1_config_channel_atten(ADC1_CHANNEL_0, ADC_ATTEN_0db);
+  adc1_config_channel_atten(ADC1_CHANNEL_1, ADC_ATTEN_0db);
+  adc1_config_channel_atten(ADC1_CHANNEL_2, ADC_ATTEN_0db);
+  adc1_config_channel_atten(ADC1_CHANNEL_3, ADC_ATTEN_0db);
+  adc1_config_channel_atten(ADC1_CHANNEL_4, ADC_ATTEN_0db);
+  adc1_config_channel_atten(ADC1_CHANNEL_5, ADC_ATTEN_0db);
+  adc1_config_channel_atten(ADC1_CHANNEL_6, ADC_ATTEN_0db);
+  adc1_config_channel_atten(ADC1_CHANNEL_7, ADC_ATTEN_0db);
+
+  // setup adc 2
+  adc2_config_channel_atten(ADC2_CHANNEL_0, ADC_ATTEN_0db);
+  adc2_config_channel_atten(ADC2_CHANNEL_1, ADC_ATTEN_0db);
+  adc2_config_channel_atten(ADC2_CHANNEL_2, ADC_ATTEN_0db);
+  adc2_config_channel_atten(ADC2_CHANNEL_3, ADC_ATTEN_0db);
+  adc2_config_channel_atten(ADC2_CHANNEL_4, ADC_ATTEN_0db);
+  adc2_config_channel_atten(ADC2_CHANNEL_5, ADC_ATTEN_0db);
+  adc2_config_channel_atten(ADC2_CHANNEL_6, ADC_ATTEN_0db);
+  adc2_config_channel_atten(ADC2_CHANNEL_7, ADC_ATTEN_0db);
+
+
+  // initalize outputs //
 
 
   // --- initalize CAN --- //  
   if (CAN0.begin(MCP_ANY, CAN_500KBPS, MCP_16MHZ) == CAN_OK) {
-    ESP_LOGI(TAG, "CAN INIT [ SUCCESS ]");
-  }
-  else {
-    ESP_LOGW(TAG, "CAN INIT [ FAILED ]");
-  }
+    Serial.printf("CAN INIT [ SUCCESS ]\n");
 
-  // set mode to read and write
-  CAN0.setMode(MCP_NORMAL);
+    // set mode to read and write
+    CAN0.setMode(MCP_NORMAL);
 
-  // // setup mask and filter
-  #if !TESTING
+    // setup mask and filter
     CAN0.init_Mask(0, 0, 0xFFFFFFFF);       // check all ID bits, excludes everything except select IDs
     CAN0.init_Filt(0, 0, 0x100);            // RCB ID 1
     CAN0.init_Filt(1, 0, 0x101);            // RCB ID 2
     CAN0.init_Filt(2, 0, 0x102);            // Rinehart ID
-  #endif
+  }
+  else {
+    Serial.printf("CAN INIT [ FAILED ]\n");
+  }
+
 
   // --- initialize ESP-NOW ---//
   // turn on wifi access point 
-  WiFi.mode(WIFI_STA);
+  if (esp_netif_init() == ESP_OK) {
+    Serial.printf("TCP/IP INIT: [ SUCCESS ]\n");
+    
+    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
+    if (esp_wifi_init(&cfg) == ESP_OK) {
+      Serial.printf("WIFI INIT: [ SUCCESS ]\n");
 
-  // init ESP-NOW service
-  if (esp_now_init() == ESP_OK) {
-    ESP_LOGI(TAG, "ESP-NOW INIT [ SUCCESS ]");
+      ESP_ERROR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_RAM));
+      ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
+      ESP_ERROR_CHECK(esp_wifi_start());
+      ESP_ERROR_CHECK(esp_wifi_set_channel(1, WIFI_SECOND_CHAN_NONE));
+    }
+    else {
+      Serial.printf("WIFI INIT: [ FAILED ]\n");
+    }
   }
   else {
-    ESP_LOGW(TAG, "ESP-NOW INIT [ FAILED ]");
+    Serial.printf("ESP TCP/IP STATUS: [ FAILED ]\n");
+  }
+  
+  // init ESP-NOW service
+  if (esp_now_init() == ESP_OK) {
+    Serial.printf("ESP-NOW INIT [ SUCCESS ]\n");
+  }
+  else {
+    Serial.printf("ESP-NOW INIT [ FAILED ]\n");
   }
 
   // get peer informtion about WCB
@@ -255,10 +307,10 @@ void setup()
 
   // add WCB as a peer
   if (esp_now_add_peer(&wcbInfo) == ESP_OK) {
-    ESP_LOGI(TAG, "ESP-NOW CONNECTION [ SUCCESS ]");
+    Serial.printf("ESP-NOW CONNECTION [ SUCCESS ]\n");
   }
   else {
-    ESP_LOGW(TAG, "ESP-NOW CONNECTION [ FAILED ]");
+    Serial.printf("ESP-NOW CONNECTION [ FAILED ]\n");
   }
 
   // attach message received callback to the data received function
@@ -302,36 +354,33 @@ void setup()
   ESP_ERROR_CHECK(esp_timer_create(&timer4_args, &timer4));
 
   // start timers
-  ESP_ERROR_CHECK(esp_timer_start_periodic(timer1, SENSOR_POLL_INTERVAL));
-  ESP_ERROR_CHECK(esp_timer_start_periodic(timer2, CAN_WRITE_INTERVAL));
-  ESP_ERROR_CHECK(esp_timer_start_periodic(timer3, ARDAN_UPDATE_INTERVAL));
-  ESP_ERROR_CHECK(esp_timer_start_periodic(timer4, WCB_UPDATE_INTERVAL));
+  // ESP_ERROR_CHECK(esp_timer_start_periodic(timer1, SENSOR_POLL_INTERVAL));
+  // ESP_ERROR_CHECK(esp_timer_start_periodic(timer2, CAN_WRITE_INTERVAL));
+  // ESP_ERROR_CHECK(esp_timer_start_periodic(timer3, ARDAN_UPDATE_INTERVAL));
+  // ESP_ERROR_CHECK(esp_timer_start_periodic(timer4, WCB_UPDATE_INTERVAL));
 
-  ESP_LOGD(TAG, "Timer 1 INIT: %s\n", esp_timer_is_active(timer1) ? "ACTIVE" : "FAILED");
-  ESP_LOGD(TAG, "Timer 2 INIT: %s\n", esp_timer_is_active(timer2) ? "ACTIVE" : "FAILED");
-  ESP_LOGD(TAG, "Timer 3 INIT: %s\n", esp_timer_is_active(timer3) ? "ACTIVE" : "FAILED");
-  ESP_LOGD(TAG, "Timer 4 INIT: %s\n", esp_timer_is_active(timer4) ? "ACTIVE" : "FAILED");
+  Serial.printf("Timer 1 INIT: %s\n", esp_timer_is_active(timer1) ? "ACTIVE" : "FAILED");
+  Serial.printf("Timer 2 INIT: %s\n", esp_timer_is_active(timer2) ? "ACTIVE" : "FAILED");
+  Serial.printf("Timer 3 INIT: %s\n", esp_timer_is_active(timer3) ? "ACTIVE" : "FAILED");
+  Serial.printf("Timer 4 INIT: %s\n", esp_timer_is_active(timer4) ? "ACTIVE" : "FAILED");
 
 
   // --- initialize ARDAN ---//
-  // set pins for the radio module
-  #if !TESTING
-    LoRa.setPins(ARDAN_SS_PIN, ARDAN_RST_PIN, ARDAN_DIO_PIN);
-  #endif
-
-  // init LoRa
   if (LoRa.begin(915E6)) {         // 915E6 is for use in North America 
-    ESP_LOGI(TAG, "ARDAN INIT [SUCCESSS ]");
+    Serial.printf("ARDAN INIT [SUCCESSS ]");
+
+    // init LoRa chip pins
+    LoRa.setPins(ARDAN_SS_PIN, ARDAN_RST_PIN, ARDAN_DIO_PIN);
+
+    // set the sync word so the car and monitoring station can communicate
+    LoRa.setSyncWord(0xA1);         // the channel to be transmitting on (range: 0x00 - 0xFF)
   }
   else { 
-    ESP_LOGW(TAG, "ARDAN INIT [ FAILED ]");
+    Serial.printf("ARDAN INIT [ FAILED ]");
   }
 
-  // set the sync word so the car and monitoring station can communicate
-  LoRa.setSyncWord(0xA1);         // the channel to be transmitting on (range: 0x00 - 0xFF)
-
   // --- End Setup Section in Serial Monitor --- //
-  ESP_LOGD(TAG, "\n\n|--- END SETUP ---|\n\n\n");
+  Serial.printf("\n\n|--- END SETUP ---|\n\n\n");
 }
 
 
@@ -354,39 +403,39 @@ void loop()
 static void PollSensorData(void* arg)
 {
   // turn off wifi for ADC channel 2 to function
-  WiFi.mode(WIFI_OFF);
+  esp_wifi_stop();
 
   // get pedal positions
-  float tmpPedal0 = analogRead(PEDAL_0_PIN);
+  float tmpPedal0 = adc1_get_raw(ADC1_GPIO32_CHANNEL);
   carData.inputs.pedal0 = MapValue(tmpPedal0, 0, 1024, 0, 255);   // starting min and max values must be found via testing!!!
 
-  float tmpPedal1 = analogRead(PEDAL_1_PIN);
+  float tmpPedal1 = adc1_get_raw(PEDAL_1_PIN);
   carData.inputs.pedal1 = MapValue(tmpPedal1, 0, 1024, 0, 255);   // starting min and max values must be found via testing!!!
 
   // Calculate commanded torque
   GetCommandedTorque();
 
   // update wheel speed values
-  carData.sensors.wheelSpeedFR = analogRead(WHEEL_SPEED_FR_SENSOR);
-  carData.sensors.wheelSpeedFL = analogRead(WHEEL_HEIGHT_FL_SENSOR);
+  carData.sensors.wheelSpeedFR = adc1_get_raw(WHEEL_SPEED_FR_SENSOR);
+  carData.sensors.wheelSpeedFL = adc1_get_raw(WHEEL_HEIGHT_FL_SENSOR);
 
   // update wheel ride height values
-  carData.sensors.wheelHeightFR = analogRead(WHEEL_HEIGHT_FR_SENSOR);
-  carData.sensors.wheelHeightFL = analogRead(WHEEL_HEIGHT_FL_SENSOR);
+  carData.sensors.wheelHeightFR = adc1_get_raw(WHEEL_HEIGHT_FR_SENSOR);
+  carData.sensors.wheelHeightFL = adc1_get_raw(WHEEL_HEIGHT_FL_SENSOR);
 
   // update steering wheel position
-  carData.sensors.steeringWheelAngle = analogRead(STEERING_WHEEL_POT);
+  carData.sensors.steeringWheelAngle = adc1_get_raw(STEERING_WHEEL_POT);
 
   // buzzer logic
   if (carData.outputs.buzzerActive)
   {
-    digitalWrite(BUZZER_PIN, carData.outputs.buzzerActive);
+    gpio_set_level((gpio_num_t)BUZZER_PIN, carData.outputs.buzzerActive);
     carData.outputs.buzzerCounter++;
     if (carData.outputs.buzzerCounter >= (2 * (100 / (SENSOR_POLL_INTERVAL / 10000))))    // get 2 seconds worth of interrupt counts
     {
       // update buzzer state and turn off the buzzer
       carData.outputs.buzzerActive = false;
-      digitalWrite(BUZZER_PIN, carData.outputs.buzzerActive);
+      digitalWrite((gpio_num_t)BUZZER_PIN, carData.outputs.buzzerActive);
 
       carData.outputs.buzzerCounter = 0;                        // reset buzzer count
       carData.drivingData.enableInverter = true;                // enable the inverter so that we can tell rinehart to turn inverter on
@@ -394,10 +443,10 @@ static void PollSensorData(void* arg)
   }
 
   // get brake positions
-  float tmpBrake0 = analogRead(BRAKE_0_PIN);
+  float tmpBrake0 = adc1_get_raw(BRAKE_0_PIN);
   carData.inputs.brake0 = MapValue(tmpBrake0, 0, 1024, 0, 255);   // starting min and max values must be found via testing!!!
 
-  float tmpBrake1 = analogRead(BRAKE_1_PIN);
+  float tmpBrake1 = adc1_get_raw(BRAKE_1_PIN);
   carData.inputs.brake1 = MapValue(tmpBrake1, 0, 1024, 0, 255);   // starting min and max values must be found via testing!!!
 
   // brake light logic 
@@ -416,7 +465,7 @@ static void PollSensorData(void* arg)
   }
 
   // turn wifi back on to re-enable esp-now connection to wheel board
-  WiFi.mode(WIFI_STA);
+  esp_wifi_start();
 
   return;
 }

@@ -9,25 +9,29 @@
  * 
  */
 
+
+#include <soc/adc_channel.h>
+
+
 // Sensors
-#define WHEEL_SPEED_FR_SENSOR               1
-#define WHEEL_SPEED_FL_SENSOR               2
+#define WHEEL_SPEED_FR_SENSOR               ADC1_GPIO32_CHANNEL
+#define WHEEL_SPEED_FL_SENSOR               ADC1_GPIO32_CHANNEL
 
-#define WHEEL_HEIGHT_FR_SENSOR              5
-#define WHEEL_HEIGHT_FL_SENSOR              6
+#define WHEEL_HEIGHT_FR_SENSOR              ADC1_GPIO32_CHANNEL
+#define WHEEL_HEIGHT_FL_SENSOR              ADC1_GPIO32_CHANNEL
 
-#define STEERING_WHEEL_POT                  9
+#define STEERING_WHEEL_POT                  ADC1_GPIO32_CHANNEL
 
-#define PEDAL_0_PIN                         12
-#define PEDAL_1_PIN                         13
-#define BRAKE_0_PIN                         23
-#define BRAKE_1_PIN                         22
+#define PEDAL_0_PIN                         ADC1_GPIO32_CHANNEL // use these things to config pins based on gpio #
+#define PEDAL_1_PIN                         ADC1_GPIO32_CHANNEL
+#define BRAKE_0_PIN                         ADC1_GPIO32_CHANNEL
+#define BRAKE_1_PIN                         ADC1_GPIO32_CHANNEL
 
 // Inputs
 #define CAN_MESSAGE_INTERRUPT_PIN           15             
 
 // Outputs
-#define BUZZER_PIN                          16
+#define BUZZER_PIN                          12
 #define ARDAN_SS_PIN                        10
 #define ARDAN_RST_PIN                       11
 #define ARDAN_DIO_PIN                       14

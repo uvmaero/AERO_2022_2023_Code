@@ -8,7 +8,6 @@
 
 // *** includes *** // 
 #include <stdio.h>
-#include <Arduino.h>
 #include "esp_now.h"
 #include "esp_err.h"
 #include <esp_timer.h>
@@ -35,11 +34,12 @@
 #define TORQUE_DEADBAND                 5
 #define MAX_TORQUE                      225         // MAX TORQUE RINEHART CAN ACCEPT, DO NOT EXCEED 230!!!
 
+#define TASK_STACK_SIZE                 2048        // in bytes
+
 #define TESTING                         1
 
 
 // *** global variables *** //
-static const char* TAG = "Front-Board";
 // Drive Mode Enumeration Type
 enum DriveModes
 {
@@ -195,10 +195,15 @@ MCP_CAN CAN0(10);       // set CS pin to 10
 
 
 // *** function declarations *** //
-static void PollSensorData(void* arg);
-static void CANUpdate(void* arg);
-static void UpdateARDAN(void* arg);
-static void UpdateWCB(void* arg);
+void SensorCallback(void* args);
+void CANCallback(void* args);
+void ARDANCallback(void* args);
+void WCBCallback(void* args);
+
+void ReadSensorsTask(void* pvParameters);
+void UpdateCANTask(void* pvParameters);
+void UpdateARDANTask(void* pvParameters);
+void UpdateWCBTask(void* pvParameters);
 
 void WCBDataReceived(const uint8_t* mac, const uint8_t* incomingData, int length);
 
@@ -209,6 +214,10 @@ void PrintCANDebug();
 void PrintWCBDebug();
 void PrintIODebug();
 
+int reads = 0;
+int reads1 = 0;
+int reads2 = 0;
+int reads3 = 0;
 
 // *** setup *** //
 void setup()
@@ -217,7 +226,9 @@ void setup()
   Serial.begin(9600);
   Serial.printf("\n\n|--- STARTING SETUP ---|\n\n");
 
-  // initialize inputs/sensors //
+
+  // --- initialize I/O --- //
+  // inputs / sensors // 
   gpio_config_t sensor_config = {
     .pin_bit_mask = GPIO_INPUT_PIN_SELECT,
     .mode = GPIO_MODE_INPUT,
@@ -249,7 +260,7 @@ void setup()
   adc2_config_channel_atten(ADC2_CHANNEL_7, ADC_ATTEN_0db);
 
 
-  // initalize outputs //
+  // outputs //
 
 
   // --- initalize CAN --- //  
@@ -316,58 +327,10 @@ void setup()
   // attach message received callback to the data received function
   esp_now_register_recv_cb(WCBDataReceived);
 
-  // --- initialize timer interrupts --- //
-  // timer 1 - sensors 
-  const esp_timer_create_args_t timer1_args = {
-    .callback = &PollSensorData,
-    .dispatch_method = ESP_TIMER_TASK,
-    .name = "Sensor Timer"
-  };
-  esp_timer_handle_t timer1;
-  ESP_ERROR_CHECK(esp_timer_create(&timer1_args, &timer1));
-
-  // timer 2 - can write
-  const esp_timer_create_args_t timer2_args = {
-    .callback = CANUpdate,
-    .dispatch_method = ESP_TIMER_TASK,
-    .name = "CAN Write Timer"
-  };
-  esp_timer_handle_t timer2;
-  ESP_ERROR_CHECK(esp_timer_create(&timer2_args, &timer2));
-
-  // timer 3
-  const esp_timer_create_args_t timer3_args = {
-    .callback = UpdateARDAN,
-    .dispatch_method = ESP_TIMER_TASK,
-    .name = "ARDAN Update Timer"
-  };
-  esp_timer_handle_t timer3;
-  ESP_ERROR_CHECK(esp_timer_create(&timer3_args, &timer3));
-
-  // timer 4 - WCB update
-  const esp_timer_create_args_t timer4_args = {
-    .callback = UpdateWCB,
-    .dispatch_method = ESP_TIMER_TASK,
-    .name = "WCB Update Timer"
-  };
-  esp_timer_handle_t timer4;
-  ESP_ERROR_CHECK(esp_timer_create(&timer4_args, &timer4));
-
-  // start timers
-  // ESP_ERROR_CHECK(esp_timer_start_periodic(timer1, SENSOR_POLL_INTERVAL));
-  // ESP_ERROR_CHECK(esp_timer_start_periodic(timer2, CAN_WRITE_INTERVAL));
-  // ESP_ERROR_CHECK(esp_timer_start_periodic(timer3, ARDAN_UPDATE_INTERVAL));
-  // ESP_ERROR_CHECK(esp_timer_start_periodic(timer4, WCB_UPDATE_INTERVAL));
-
-  Serial.printf("Timer 1 INIT: %s\n", esp_timer_is_active(timer1) ? "ACTIVE" : "FAILED");
-  Serial.printf("Timer 2 INIT: %s\n", esp_timer_is_active(timer2) ? "ACTIVE" : "FAILED");
-  Serial.printf("Timer 3 INIT: %s\n", esp_timer_is_active(timer3) ? "ACTIVE" : "FAILED");
-  Serial.printf("Timer 4 INIT: %s\n", esp_timer_is_active(timer4) ? "ACTIVE" : "FAILED");
-
 
   // --- initialize ARDAN ---//
   if (LoRa.begin(915E6)) {         // 915E6 is for use in North America 
-    Serial.printf("ARDAN INIT [SUCCESSS ]");
+    Serial.printf("ARDAN INIT [SUCCESSS ]\n");
 
     // init LoRa chip pins
     LoRa.setPins(ARDAN_SS_PIN, ARDAN_RST_PIN, ARDAN_DIO_PIN);
@@ -376,10 +339,67 @@ void setup()
     LoRa.setSyncWord(0xA1);         // the channel to be transmitting on (range: 0x00 - 0xFF)
   }
   else { 
-    Serial.printf("ARDAN INIT [ FAILED ]");
+    Serial.printf("ARDAN INIT [ FAILED ]\n");
   }
 
+
+      // --- initialize timer interrupts --- //
+  // timer 1 - sensors 
+  const esp_timer_create_args_t timer1_args = {
+    .callback = &SensorCallback,
+    .dispatch_method = ESP_TIMER_TASK,
+    .name = "Sensor Timer"
+  };
+  esp_timer_handle_t timer1;
+  ESP_ERROR_CHECK(esp_timer_create(&timer1_args, &timer1));
+
+  // timer 2 - can write
+  const esp_timer_create_args_t timer2_args = {
+    .callback = &CANCallback,
+    .dispatch_method = ESP_TIMER_TASK,
+    .name = "CAN Write Timer"
+  };
+  esp_timer_handle_t timer2;
+  ESP_ERROR_CHECK(esp_timer_create(&timer2_args, &timer2));
+
+  // timer 3
+  const esp_timer_create_args_t timer3_args = {
+    .callback = &ARDANCallback,
+    .dispatch_method = ESP_TIMER_TASK,
+    .name = "ARDAN Update Timer"
+  };
+  esp_timer_handle_t timer3;
+  ESP_ERROR_CHECK(esp_timer_create(&timer3_args, &timer3));
+
+  // timer 4 - WCB update
+  const esp_timer_create_args_t timer4_args = {
+    .callback = &WCBCallback,
+    .dispatch_method = ESP_TIMER_TASK,
+    .name = "WCB Update Timer"
+  };
+  esp_timer_handle_t timer4;
+  ESP_ERROR_CHECK(esp_timer_create(&timer4_args, &timer4));
+
+  // start timers
+  ESP_ERROR_CHECK(esp_timer_start_periodic(timer1, SENSOR_POLL_INTERVAL));
+  ESP_ERROR_CHECK(esp_timer_start_periodic(timer2, CAN_WRITE_INTERVAL));
+  ESP_ERROR_CHECK(esp_timer_start_periodic(timer3, ARDAN_UPDATE_INTERVAL));
+  ESP_ERROR_CHECK(esp_timer_start_periodic(timer4, WCB_UPDATE_INTERVAL));
+
+  Serial.printf("Timer 1 STATUS: %s\n", esp_timer_is_active(timer1) ? "RUNNING" : "FAILED");
+  Serial.printf("Timer 2 STATUS: %s\n", esp_timer_is_active(timer2) ? "RUNNING" : "FAILED");
+  Serial.printf("Timer 3 STATUS: %s\n", esp_timer_is_active(timer3) ? "RUNNING" : "FAILED");
+  Serial.printf("Timer 4 STATUS: %s\n", esp_timer_is_active(timer4) ? "RUNNING" : "FAILED");
+
+
   // --- End Setup Section in Serial Monitor --- //
+  if (xTaskGetSchedulerState() == 2) {
+    Serial.printf("\nScheduler Status: RUNNING");
+  }
+  else {
+    Serial.printf("\nScheduler STATUS: FAILED\nHALTING OPERATIONS");
+    while (1) {};
+  }
   Serial.printf("\n\n|--- END SETUP ---|\n\n\n");
 }
 
@@ -388,6 +408,8 @@ void setup()
 void loop()
 {
   // everything is on timers so nothing happens here! 
+  Serial.printf("sensor: %d | can: %d | wcb: %d | ardan: %d\n", reads, reads1, reads2, reads3);
+
 
   // debugging
   if (debugger.debugEnabled) {
@@ -397,10 +419,57 @@ void loop()
 
 
 /**
+ * @brief 
+ * 
+ * @param args 
+ */
+void SensorCallback(void* args) {
+  static uint8_t ucParameterToPass;
+  TaskHandle_t xHandle = NULL;
+  xTaskCreate(ReadSensorsTask, "Poll-Senser-Data", TASK_STACK_SIZE, &ucParameterToPass, tskIDLE_PRIORITY, &xHandle);
+}
+
+
+/**
+ * @brief 
+ * 
+ * @param args 
+ */
+void CANCallback(void* args) {
+  static uint8_t ucParameterToPass;
+  TaskHandle_t xHandle = NULL;
+  xTaskCreate(UpdateCANTask, "CAN-Update", TASK_STACK_SIZE, &ucParameterToPass, tskIDLE_PRIORITY, &xHandle);
+}
+
+/**
+ * @brief 
+ * 
+ * @param args 
+ */
+void ARDANCallback(void* args) {
+  static uint8_t ucParameterToPass;
+  TaskHandle_t xHandle = NULL;
+  xTaskCreate(UpdateARDANTask, "ARDAN-Update", TASK_STACK_SIZE, &ucParameterToPass, tskIDLE_PRIORITY, &xHandle);
+}
+
+
+/**
+ * @brief 
+ * 
+ * @param args 
+ */
+void WCBCallback(void* args) {
+  static uint8_t ucParameterToPass;
+  TaskHandle_t xHandle = NULL;
+  xTaskCreate(UpdateWCBTask, "WCB-Update", TASK_STACK_SIZE, &ucParameterToPass, tskIDLE_PRIORITY, &xHandle);
+}
+
+
+/**
  * @brief Interrupt Handler for Timer 0
  * This ISR is for reading sensor data from the car 
  */
-static void PollSensorData(void* arg)
+void ReadSensorsTask(void* pvParameters)
 {
   // turn off wifi for ADC channel 2 to function
   esp_wifi_stop();
@@ -435,7 +504,7 @@ static void PollSensorData(void* arg)
     {
       // update buzzer state and turn off the buzzer
       carData.outputs.buzzerActive = false;
-      digitalWrite((gpio_num_t)BUZZER_PIN, carData.outputs.buzzerActive);
+      gpio_set_level((gpio_num_t)BUZZER_PIN, carData.outputs.buzzerActive);
 
       carData.outputs.buzzerCounter = 0;                        // reset buzzer count
       carData.drivingData.enableInverter = true;                // enable the inverter so that we can tell rinehart to turn inverter on
@@ -467,7 +536,9 @@ static void PollSensorData(void* arg)
   // turn wifi back on to re-enable esp-now connection to wheel board
   esp_wifi_start();
 
-  return;
+  // end task
+  reads++;
+  vTaskDelete(NULL);
 }
 
 
@@ -475,9 +546,9 @@ static void PollSensorData(void* arg)
  * @brief Interrupt Handler for Timer 1
  * This ISR is for reading and writing to the CAN bus
  */
-static void CANUpdate(void* arg)
+void UpdateCANTask(void* pvParameters)
 {
-    // inits
+  // inits
   byte outgoingMessage[8];
   unsigned long receivingID = 0;
   byte messageLength = 0;
@@ -530,7 +601,9 @@ static void CANUpdate(void* arg)
     }
   }
 
-  return;
+  // end task
+  reads1++;
+  vTaskDelete(NULL);
 }
 
 
@@ -538,33 +611,35 @@ static void CANUpdate(void* arg)
  * @brief Interrupt Handler for Timer 3
  * update the car data supplied to the FCB
  */
-static void UpdateWCB(void* arg)
+void UpdateWCBTask(void* pvParameters)
 {
-  // update battery & electrical data
-  wcbData.batteryStatus.batteryChargeState = carData.batteryStatus.batteryChargeState;
-  wcbData.batteryStatus.pack1Temp = carData.batteryStatus.pack1Temp;
-  wcbData.batteryStatus.pack2Temp = carData.batteryStatus.pack2Temp;
+  // // update battery & electrical data
+  // wcbData.batteryStatus.batteryChargeState = carData.batteryStatus.batteryChargeState;
+  // wcbData.batteryStatus.pack1Temp = carData.batteryStatus.pack1Temp;
+  // wcbData.batteryStatus.pack2Temp = carData.batteryStatus.pack2Temp;
 
-  // update sensor data
-  wcbData.sensors.wheelSpeedFR = carData.sensors.wheelSpeedFR;
-  wcbData.sensors.wheelSpeedFR = carData.sensors.wheelSpeedFR;
-  wcbData.sensors.wheelSpeedFR = carData.sensors.wheelSpeedFR;
-  wcbData.sensors.wheelSpeedFR = carData.sensors.wheelSpeedFR;
+  // // update sensor data
+  // wcbData.sensors.wheelSpeedFR = carData.sensors.wheelSpeedFR;
+  // wcbData.sensors.wheelSpeedFR = carData.sensors.wheelSpeedFR;
+  // wcbData.sensors.wheelSpeedFR = carData.sensors.wheelSpeedFR;
+  // wcbData.sensors.wheelSpeedFR = carData.sensors.wheelSpeedFR;
 
-  wcbData.sensors.wheelSpeedFR = carData.sensors.wheelSpeedFR;
-  wcbData.sensors.wheelSpeedFR = carData.sensors.wheelSpeedFR;
-  wcbData.sensors.wheelSpeedFR = carData.sensors.wheelSpeedFR;
-  wcbData.sensors.wheelSpeedFR = carData.sensors.wheelSpeedFR;
+  // wcbData.sensors.wheelSpeedFR = carData.sensors.wheelSpeedFR;
+  // wcbData.sensors.wheelSpeedFR = carData.sensors.wheelSpeedFR;
+  // wcbData.sensors.wheelSpeedFR = carData.sensors.wheelSpeedFR;
+  // wcbData.sensors.wheelSpeedFR = carData.sensors.wheelSpeedFR;
 
-  // send message
-  esp_err_t result = esp_now_send(wcbAddress, (uint8_t *) &wcbData, sizeof(wcbData));
+  // // send message
+  // esp_err_t result = esp_now_send(wcbAddress, (uint8_t *) &wcbData, sizeof(wcbData));
 
-  // debugging 
-  if (debugger.debugEnabled) {
-    debugger.WCB_updateResult = result;
-  }
+  // // debugging 
+  // if (debugger.debugEnabled) {
+  //   debugger.WCB_updateResult = result;
+  // }
 
-  return;
+  // end task
+  reads2++;
+  vTaskDelete(NULL);
 }
 
 
@@ -572,14 +647,16 @@ static void UpdateWCB(void* arg)
  * @brief Interrupt Handler for Timer 4
  * update the ARDAN with live car data
  */
-static void UpdateARDAN(void* arg)
+void UpdateARDANTask(void* pvParameters)
 {
-  // send LoRa update
-  LoRa.beginPacket();
-  LoRa.write((uint8_t *) &carData, sizeof(carData));
-  LoRa.endPacket();
+  // // send LoRa update
+  // LoRa.beginPacket();
+  // LoRa.write((uint8_t *) &carData, sizeof(carData));
+  // LoRa.endPacket();
 
-  return;
+  // end task
+  reads3++;
+  vTaskDelete(NULL);
 }
 
 

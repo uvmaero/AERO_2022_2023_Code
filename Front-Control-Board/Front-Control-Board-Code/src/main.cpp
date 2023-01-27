@@ -227,10 +227,6 @@ void PrintCANDebug();
 void PrintWCBDebug();
 void PrintIODebug();
 
-int reads = 0;
-int reads1 = 0;
-int reads2 = 0;
-int reads3 = 0;
 
 // *** setup *** //
 void setup()
@@ -447,7 +443,7 @@ void setup()
 void loop()
 {
   // everything is on timers so nothing happens here! 
-  Serial.printf("sensor: %d | can: %d | wcb: %d | ardan: %d\n", reads, reads1, reads2, reads3);
+  vTaskDelay(1);    // prevent watchdog from getting upset
 
   // debugging
   if (debugger.debugEnabled) {
@@ -576,7 +572,6 @@ void ReadSensorsTask(void* pvParameters)
   esp_wifi_start();
 
   // end task
-  reads++;
   vTaskDelete(NULL);
 }
 
@@ -642,7 +637,6 @@ void UpdateCANTask(void* pvParameters)
   }
 
   // end task
-  reads1++;
   vTaskDelete(NULL);
 }
 
@@ -682,7 +676,6 @@ void UpdateWCBTask(void* pvParameters)
   #endif
 
   // end task
-  reads2++;
   vTaskDelete(NULL);
 }
 
@@ -702,7 +695,6 @@ void UpdateARDANTask(void* pvParameters)
   #endif
 
   // end task
-  reads3++;
   vTaskDelete(NULL);
 }
 

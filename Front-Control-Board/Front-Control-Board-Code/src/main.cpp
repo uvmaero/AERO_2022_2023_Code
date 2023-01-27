@@ -37,7 +37,7 @@
 
 
 // *** global variables *** //
-
+static const char* TAG = "Front-Board";
 // Drive Mode Enumeration Type
 enum DriveModes
 {
@@ -214,7 +214,7 @@ void setup()
 {
   // --- initialize serial --- //
   Serial.begin(9600);
-  Serial.print("\n\n|--- STARTING SETUP ---|\n\n");
+  ESP_LOGD(TAG, "\n\n|--- STARTING SETUP ---|\n\n");
 
   // --- initialize sensors --- //
 
@@ -228,10 +228,10 @@ void setup()
   
   // init CAN
   if (CAN0.begin(MCP_ANY, CAN_500KBPS, MCP_16MHZ) == CAN_OK) {
-    Serial.println("CAN INIT [ SUCCESS ]");
+    ESP_LOGI(TAG, "CAN INIT [ SUCCESS ]");
   }
   else {
-    Serial.println("CAN INIT [ FAILED ]");
+    ESP_LOGW(TAG, "CAN INIT [ FAILED ]");
   }
 
   // set mode to read and write
@@ -251,10 +251,10 @@ void setup()
 
   // init ESP-NOW service
   if (esp_now_init() == ESP_OK) {
-    Serial.println("ESP-NOW INIT [ SUCCESS ]");
+    ESP_LOGI(TAG, "ESP-NOW INIT [ SUCCESS ]");
   }
   else {
-    Serial.println("ESP-NOW INIT [ FAILED ]");
+    ESP_LOGW(TAG, "ESP-NOW INIT [ FAILED ]");
   }
 
   // get peer informtion about WCB
@@ -264,10 +264,10 @@ void setup()
 
   // add WCB as a peer
   if (esp_now_add_peer(&wcbInfo) == ESP_OK) {
-    Serial.println("ESP-NOW CONNECTION [ SUCCESS ]");
+    ESP_LOGI(TAG, "ESP-NOW CONNECTION [ SUCCESS ]");
   }
   else {
-    Serial.println("ESP-NOW CONNECTION [ FAILED ]");
+    ESP_LOGW(TAG, "ESP-NOW CONNECTION [ FAILED ]");
   }
 
   // attach message received callback to the data received function
@@ -316,6 +316,11 @@ void setup()
   ESP_ERROR_CHECK(esp_timer_start_periodic(timer3, ARDAN_UPDATE_INTERVAL));
   ESP_ERROR_CHECK(esp_timer_start_periodic(timer4, WCB_UPDATE_INTERVAL));
 
+  ESP_LOGD(TAG, "Timer 1 INIT: %s\n", esp_timer_is_active(timer1) ? "ACTIVE" : "FAILED");
+  ESP_LOGD(TAG, "Timer 2 INIT: %s\n", esp_timer_is_active(timer2) ? "ACTIVE" : "FAILED");
+  ESP_LOGD(TAG, "Timer 3 INIT: %s\n", esp_timer_is_active(timer3) ? "ACTIVE" : "FAILED");
+  ESP_LOGD(TAG, "Timer 4 INIT: %s\n", esp_timer_is_active(timer4) ? "ACTIVE" : "FAILED");
+
 
   // --- initialize ARDAN ---//
   // set pins for the radio module
@@ -325,17 +330,17 @@ void setup()
 
   // init LoRa
   if (LoRa.begin(915E6)) {         // 915E6 is for use in North America 
-    Serial.println("ARDAN INIT [SUCCESSS ]");
+    ESP_LOGI(TAG, "ARDAN INIT [SUCCESSS ]");
   }
   else { 
-    Serial.println("ARDAN INIT [ FAILED ]");
+    ESP_LOGW(TAG, "ARDAN INIT [ FAILED ]");
   }
 
   // set the sync word so the car and monitoring station can communicate
   LoRa.setSyncWord(0xA1);         // the channel to be transmitting on (range: 0x00 - 0xFF)
 
   // --- End Setup Section in Serial Monitor --- //
-  Serial.print("\n\n|--- END SETUP ---|\n\n\n");
+  ESP_LOGD(TAG, "\n\n|--- END SETUP ---|\n\n\n");
 }
 
 

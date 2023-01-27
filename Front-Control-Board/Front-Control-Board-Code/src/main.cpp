@@ -7,8 +7,10 @@
  */
 
 // *** includes *** // 
+#include <stdio.h>
 #include <Arduino.h>
 #include <esp_now.h>
+#include <esp_timer.h>
 #include <WiFi.h>
 #include <mcp_can.h>
 #include <LoRa.h>
@@ -17,7 +19,7 @@
 
 // *** defines *** // 
 #define TIMER_INTERRUPT_PRESCALER       80          // this is based off to the clock speed (assuming 80 MHz), gets us to microseconds
-#define SENSOR_POLL_INTERVAL            50000       // 0.05 seconds in microseconds
+#define SENSOR_POLL_INTERVAL            100000      // 0.1 seconds in microseconds
 #define CAN_WRITE_INTERVAL              100000      // 0.1 seconds in microseconds
 #define WCB_UPDATE_INTERVAL             150000      // 0.15 seconds in microseconds
 #define ARDAN_UPDATE_INTERVAL           250000      // 0.25 seconds in microseconds
@@ -27,6 +29,9 @@
 #define PEDAL_MAX                       600
 #define TORQUE_DEADBAND                 5
 #define MAX_TORQUE                      225         // MAX TORQUE RINEHART CAN ACCEPT, DO NOT EXCEED 230!!!
+
+#define TIMER_DIVIDER         (16)  //  Hardware timer clock divider
+#define TIMER_SCALE           (TIMER_BASE_CLK / TIMER_DIVIDER)  // convert counter value to seconds
 
 #define TESTING                         1
 
@@ -187,21 +192,15 @@ esp_now_peer_info wcbInfo;
 MCP_CAN CAN0(10);       // set CS pin to 10
 
 
-// Hardware ISR Timers
-hw_timer_t* timer0 = NULL;
-hw_timer_t* timer1 = NULL;
-hw_timer_t* timer2 = NULL;
-hw_timer_t* timer3 = NULL;
-portMUX_TYPE timerMux = portMUX_INITIALIZER_UNLOCKED;
-
-
 // *** function declarations *** //
-void PollSensorData();
+static void PollSensorData(void* arg);
+static void CANWrite(void* arg);
+static void UpdateARDAN(void* arg);
+static void UpdateWCB(void* arg);
+
 void CANRead();
-void CANWrite();
-void UpdateARDAN();
-void UpdateWCB();
 void WCBDataReceived(const uint8_t* mac, const uint8_t* incomingData, int length);
+
 void GetCommandedTorque();
 long MapValue(long x, long in_min, long in_max, long out_min, long out_max);
 void PrintDebug();
@@ -218,11 +217,6 @@ void setup()
   Serial.print("\n\n|--- STARTING SETUP ---|\n\n");
 
   // --- initialize sensors --- //
-  // pinMode(WHEEL_SPEED_FR_SENSOR, INPUT);
-  // pinMode(WHEEL_SPEED_FL_SENSOR, INPUT);
-  // pinMode(WHEEL_HEIGHT_FR_SENSOR, INPUT);
-  // pinMode(WHEEL_HEIGHT_FL_SENSOR, INPUT);
-  // pinMode(STEERING_WHEEL_POT, INPUT);
 
   // --- initalize outputs --- //
 
@@ -280,25 +274,48 @@ void setup()
   esp_now_register_recv_cb(WCBDataReceived);
 
   // --- initialize timer interrupts --- //
-  timer0 = timerBegin(0, TIMER_INTERRUPT_PRESCALER, true);
-  timerAttachInterrupt(timer0, &PollSensorData, true);
-  timerAlarmWrite(timer0, SENSOR_POLL_INTERVAL, true);
-  timerAlarmEnable(timer0);
+  // timer 1 - sensors 
+  const esp_timer_create_args_t timer1_args = {
+    .callback = &PollSensorData,
+    .dispatch_method = ESP_TIMER_TASK,
+    .name = "Sensor Timer"
+  };
+  esp_timer_handle_t timer1;
+  ESP_ERROR_CHECK(esp_timer_create(&timer1_args, &timer1));
 
-  timer1 = timerBegin(1, TIMER_INTERRUPT_PRESCALER, true);
-  timerAttachInterrupt(timer1, &CANWrite, true);
-  timerAlarmWrite(timer1, CAN_WRITE_INTERVAL, true);
-  timerAlarmEnable(timer1);
+  // timer 2 - can write
+  const esp_timer_create_args_t timer2_args = {
+    .callback = CANWrite,
+    .dispatch_method = ESP_TIMER_TASK,
+    .name = "CAN Write Timer"
+  };
+  esp_timer_handle_t timer2;
+  ESP_ERROR_CHECK(esp_timer_create(&timer2_args, &timer2));
 
-  timer2 = timerBegin(2, TIMER_INTERRUPT_PRESCALER, true);
-  timerAttachInterrupt(timer2, &UpdateWCB, true);
-  timerAlarmWrite(timer2, WCB_UPDATE_INTERVAL, true);
-  timerAlarmEnable(timer2);
+  // timer 3
+  const esp_timer_create_args_t timer3_args = {
+    .callback = UpdateARDAN,
+    .dispatch_method = ESP_TIMER_TASK,
+    .name = "ARDAN Update Timer"
+  };
+  esp_timer_handle_t timer3;
+  ESP_ERROR_CHECK(esp_timer_create(&timer3_args, &timer3));
 
-  timer3 = timerBegin(3, TIMER_INTERRUPT_PRESCALER, true);
-  timerAttachInterrupt(timer3, &UpdateARDAN, true);
-  timerAlarmWrite(timer3, ARDAN_UPDATE_INTERVAL, true);
-  timerAlarmEnable(timer3);
+  // timer 4 - WCB update
+  const esp_timer_create_args_t timer4_args = {
+    .callback = UpdateWCB,
+    .dispatch_method = ESP_TIMER_TASK,
+    .name = "WCB Update Timer"
+  };
+  esp_timer_handle_t timer4;
+  ESP_ERROR_CHECK(esp_timer_create(&timer4_args, &timer4));
+
+  // start timers
+  ESP_ERROR_CHECK(esp_timer_start_periodic(timer1, SENSOR_POLL_INTERVAL));
+  ESP_ERROR_CHECK(esp_timer_start_periodic(timer2, CAN_WRITE_INTERVAL));
+  ESP_ERROR_CHECK(esp_timer_start_periodic(timer3, ARDAN_UPDATE_INTERVAL));
+  ESP_ERROR_CHECK(esp_timer_start_periodic(timer4, WCB_UPDATE_INTERVAL));
+
 
   // --- initialize ARDAN ---//
   // set pins for the radio module
@@ -338,11 +355,8 @@ void loop()
  * @brief Interrupt Handler for Timer 0
  * This ISR is for reading sensor data from the car 
  */
-void PollSensorData()
+static void PollSensorData(void* arg)
 {
-  // disable interrupts 
-  portENTER_CRITICAL_ISR(&timerMux);
-
   // turn off wifi for ADC channel 2 to function
   WiFi.mode(WIFI_OFF);
 
@@ -408,8 +422,7 @@ void PollSensorData()
   // turn wifi back on to re-enable esp-now connection to wheel board
   WiFi.mode(WIFI_STA);
 
-  // re-enable interrupts
-  portEXIT_CRITICAL_ISR(&timerMux);
+  return;
 }
 
 
@@ -419,9 +432,6 @@ void PollSensorData()
  */
 void CANRead()
 {
-  // disable interrupts
-  portENTER_CRITICAL_ISR(&timerMux);
-
   // inits
   unsigned long receivingID = 0;
   byte messageLength = 0;
@@ -449,8 +459,7 @@ void CANRead()
     break;
   }
 
-  // re-enable interrupts
-  portEXIT_CRITICAL_ISR(&timerMux);
+  return;
 }
 
 
@@ -458,11 +467,8 @@ void CANRead()
  * @brief Interrupt Handler for Timer 1
  * This ISR is for reading and writing to the CAN bus
  */
-void CANWrite()
+static void CANWrite(void* arg)
 {
-  // disable interrupts
-  portENTER_CRITICAL_ISR(&timerMux);
-
   // inits
   byte outgoingMessage[8];
 
@@ -487,8 +493,7 @@ void CANWrite()
     }
   }
 
-  // re-enable interrupts
-  portEXIT_CRITICAL_ISR(&timerMux);
+  return;
 }
 
 
@@ -496,11 +501,8 @@ void CANWrite()
  * @brief Interrupt Handler for Timer 3
  * update the car data supplied to the FCB
  */
-void UpdateWCB()
+static void UpdateWCB(void* arg)
 {
-  // disable interrupts
-  portENTER_CRITICAL_ISR(&timerMux);
-
   // update battery & electrical data
   wcbData.batteryStatus.batteryChargeState = carData.batteryStatus.batteryChargeState;
   wcbData.batteryStatus.pack1Temp = carData.batteryStatus.pack1Temp;
@@ -525,8 +527,7 @@ void UpdateWCB()
     debugger.WCB_updateResult = result;
   }
 
-  // re-enable interrupts
-  portEXIT_CRITICAL_ISR(&timerMux);
+  return;
 }
 
 
@@ -534,18 +535,14 @@ void UpdateWCB()
  * @brief Interrupt Handler for Timer 4
  * update the ARDAN with live car data
  */
-void UpdateARDAN()
+static void UpdateARDAN(void* arg)
 {
-  // disable interrupts
-  portENTER_CRITICAL_ISR(&timerMux);
-
   // send LoRa update
   LoRa.beginPacket();
   LoRa.write((uint8_t *) &carData, sizeof(carData));
   LoRa.endPacket();
 
-  // re-enable interrupts
-  portEXIT_CRITICAL_ISR(&timerMux);
+  return;
 }
 
 
@@ -610,9 +607,6 @@ void GetCommandedTorque()
  */
 void WCBDataReceived(const uint8_t* mac, const uint8_t* incomingData, int length)
 {
-  // disable interrupts
-  portENTER_CRITICAL_ISR(&timerMux);
-
   // copy data to the wcbData struct 
   memcpy(&wcbData, incomingData, sizeof(wcbData));
 
@@ -624,8 +618,7 @@ void WCBDataReceived(const uint8_t* mac, const uint8_t* incomingData, int length
   carData.outputs.buzzerActive = wcbData.io.buzzerActive;
   carData.drivingData.readyToDrive = wcbData.drivingData.readyToDrive;
 
-  // re-enable interrupts
-  portEXIT_CRITICAL_ISR(&timerMux);
+  return;
 }
 
 

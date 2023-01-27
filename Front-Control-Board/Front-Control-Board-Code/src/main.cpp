@@ -41,10 +41,7 @@
 
 // debug
 #define TESTING                         true
-#define ENABLE_DEBUG                    false       // master debug message control
-#define ENABLE_CAN_DEBUG                false
-#define ENABLE_IO_DEBUG                 false
-#define ENABLE_WCB_DEBUG                false
+#define ENABLE_DEBUG                    true       // master debug message control
 
 
 // *** global variables *** //
@@ -177,9 +174,10 @@ struct Debugger
 {
   // debug toggle
   bool debugEnabled = ENABLE_DEBUG;
-  bool CAN_debugEnabled = true;
-  bool WCB_debugEnabled = true;
+  bool CAN_debugEnabled = false;
+  bool WCB_debugEnabled = false;
   bool IO_debugEnabled = false;
+  bool scheduler_debugEnable = true;
 
   // debug data
   byte CAN_sentStatus;
@@ -189,6 +187,12 @@ struct Debugger
   WCB_Data WCB_updateMessage;
 
   CarData IO_data;
+
+  // scheduler data
+  int sensorTaskCount = 0;
+  int canTaskCount = 0;
+  int ardanTaskCount = 0;
+  int wcbTaskCount = 0;
 };
 Debugger debugger;
 
@@ -566,6 +570,7 @@ void ReadSensorsTask(void* pvParameters)
   // debugging
   if (debugger.debugEnabled) {
     debugger.IO_data = carData;
+    debugger.sensorTaskCount++;
   }
 
   // turn wifi back on to re-enable esp-now connection to wheel board
@@ -634,6 +639,7 @@ void UpdateCANTask(void* pvParameters)
     for (int i = 0; i < 7; ++i) {
       debugger.CAN_outgoingMessage[i] = outgoingMessage[i];
     }
+    debugger.canTaskCount++;
   }
 
   // end task
@@ -668,12 +674,16 @@ void UpdateWCBTask(void* pvParameters)
   // send message
   esp_err_t result = esp_now_send(wcbAddress, (uint8_t *) &wcbData, sizeof(wcbData));
 
+  #endif
+
   // debugging 
   if (debugger.debugEnabled) {
-    debugger.WCB_updateResult = result;
+    // debugger.WCB_updateResult = result;
+    debugger.wcbTaskCount++;
   }
 
-  #endif
+
+
 
   // end task
   vTaskDelete(NULL);
@@ -693,6 +703,10 @@ void UpdateARDANTask(void* pvParameters)
   LoRa.write((uint8_t *) &carData, sizeof(carData));
   LoRa.endPacket();
   #endif
+
+  if (debugger.debugEnabled) {
+    debugger.ardanTaskCount++;
+  }
 
   // end task
   vTaskDelete(NULL);
@@ -845,18 +859,23 @@ void PrintIODebug() {
  * 
  */
 void PrintDebug() {
-    // CAN
-    if (debugger.CAN_debugEnabled) {
-        PrintCANDebug();
-    }
+  // CAN
+  if (debugger.CAN_debugEnabled) {
+      PrintCANDebug();
+  }
 
-    // WCB
-    if (debugger.WCB_debugEnabled) {
-      PrintWCBDebug();
-    }
+  // WCB
+  if (debugger.WCB_debugEnabled) {
+    PrintWCBDebug();
+  }
 
-    // I/O
-    if (debugger.IO_debugEnabled) {
-      PrintIODebug();
-    }
+  // I/O
+  if (debugger.IO_debugEnabled) {
+    PrintIODebug();
+  }
+
+  // Scheduler
+  if (debugger.scheduler_debugEnable) {
+    Serial.printf("sensor: %d | can: %d | wcb: %d | ardan: %d\n", debugger.sensorTaskCount, debugger.canTaskCount, debugger.wcbTaskCount, debugger.ardanTaskCount);
+  }
 }

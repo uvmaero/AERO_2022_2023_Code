@@ -30,9 +30,6 @@
 #define TORQUE_DEADBAND                 5
 #define MAX_TORQUE                      225         // MAX TORQUE RINEHART CAN ACCEPT, DO NOT EXCEED 230!!!
 
-#define TIMER_DIVIDER         (16)  //  Hardware timer clock divider
-#define TIMER_SCALE           (TIMER_BASE_CLK / TIMER_DIVIDER)  // convert counter value to seconds
-
 #define TESTING                         1
 
 

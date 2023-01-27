@@ -191,11 +191,10 @@ MCP_CAN CAN0(10);       // set CS pin to 10
 
 // *** function declarations *** //
 static void PollSensorData(void* arg);
-static void CANWrite(void* arg);
+static void CANUpdate(void* arg);
 static void UpdateARDAN(void* arg);
 static void UpdateWCB(void* arg);
 
-void CANRead();
 void WCBDataReceived(const uint8_t* mac, const uint8_t* incomingData, int length);
 
 void GetCommandedTorque();
@@ -218,12 +217,7 @@ void setup()
   // --- initalize outputs --- //
 
 
-  // --- initalize CAN --- //
-  pinMode(CAN_MESSAGE_INTERRUPT_PIN, INPUT);
-  // create interrupt when the message arrived pin is pulled low
-  attachInterrupt(CAN_MESSAGE_INTERRUPT_PIN, CANRead, LOW);
-  
-  // init CAN
+  // --- initalize CAN --- //  
   if (CAN0.begin(MCP_ANY, CAN_500KBPS, MCP_16MHZ) == CAN_OK) {
     ESP_LOGI(TAG, "CAN INIT [ SUCCESS ]");
   }
@@ -282,7 +276,7 @@ void setup()
 
   // timer 2 - can write
   const esp_timer_create_args_t timer2_args = {
-    .callback = CANWrite,
+    .callback = CANUpdate,
     .dispatch_method = ESP_TIMER_TASK,
     .name = "CAN Write Timer"
   };
@@ -429,51 +423,43 @@ static void PollSensorData(void* arg)
 
 
 /**
- * @brief Interrupt Handler for on CAN Message Received
- * This ISR is for reading an incoming message from the CAN bus
+ * @brief Interrupt Handler for Timer 1
+ * This ISR is for reading and writing to the CAN bus
  */
-void CANRead()
+static void CANUpdate(void* arg)
 {
-  // inits
+    // inits
+  byte outgoingMessage[8];
   unsigned long receivingID = 0;
   byte messageLength = 0;
   byte receivingBuffer[8];
 
-  // read the message
-  CAN0.readMsgBuf(&receivingID, &messageLength, receivingBuffer);
+  // --- receive messages --- //
+  // check for new messages in the CAN buffer
+  if (CAN0.checkReceive() == CAN_MSGAVAIL) {
+    CAN0.readMsgBuf(&receivingID, &messageLength, receivingBuffer);
 
-  // filter for only the IDs we are interested in
-  switch (receivingID)
-  {
-    // message from RCB: Sensor Data
-    case 0x100:
-    // do stuff with the data in the message
-    break;
+    // filter for only the IDs we are interested in
+    switch (receivingID)
+    {
+      // message from RCB: Sensor Data
+      case 0x100:
+      // do stuff with the data in the message
+      break;
 
-    // message from RCB: BMS and electrical data
-    case 0x101:
-    // do stuff with the data in the message
-    break;
+      // message from RCB: BMS and electrical data
+      case 0x101:
+      // do stuff with the data in the message
+      break;
 
-    default:
-    // do nothing because we didn't get any messages of interest
-    return;
-    break;
+      default:
+      // do nothing because we didn't get any messages of interest
+      return;
+      break;
+    }
   }
 
-  return;
-}
-
-
-/**
- * @brief Interrupt Handler for Timer 1
- * This ISR is for reading and writing to the CAN bus
- */
-static void CANWrite(void* arg)
-{
-  // inits
-  byte outgoingMessage[8];
-
+  // --- send message --- // 
   // build message
   outgoingMessage[0] = 0x00;
   outgoingMessage[1] = 0x01;

@@ -17,14 +17,16 @@
 #include "esp_adc_cal.h"
 #include <mcp_can.h>
 #include <LoRa.h>
+
+#include "debugger.h"
 #include "pinConfig.h"
 
 
 // *** defines *** // 
-// gpio
+// GPIO
 #define GPIO_INPUT_PIN_SELECT           1       
 
-// macros
+// definitions
 #define BRAKE_LIGHT_THRESHOLD           10
 #define PEDAL_DEADBAND                  10
 #define PEDAL_MIN                       128
@@ -40,161 +42,95 @@
 #define TASK_STACK_SIZE                 3500        // in bytes
 
 // debug
-#define TESTING                         true
-#define ENABLE_DEBUG                    true       // master debug message control
+#define ENABLE_DEBUG                    false       // master debug message control
 
 
 // *** global variables *** //
-// Drive Mode Enumeration Type
-enum DriveModes
-{
-  SLOW = 0,
-  ECO = 10,
-  FAST = 20
-};
 
-
-// Car Data Struct
-struct CarData
-{
-  struct DrivingData
-  {
-    bool readyToDrive = false;
-    bool enableInverter = false;
-
-    bool imdFault = false;
-    bool bmsFault = false;
-
-    uint16_t commandedTorque = 0;
-    float currentSpeed = 0.0f;
-    bool driveDirection = true;             // true = forward | false = reverse
-    DriveModes driveMode = ECO;
-  } drivingData;
-  
-  struct BatteryStatus
-  {
-    uint16_t batteryChargeState = 0;
-    int16_t busVoltage = 0;
-    int16_t rinehartVoltage = 0;
-    float pack1Temp = 0.0f;
-    float pack2Temp = 0.0f;
-  } batteryStatus;
-
-  struct Sensors
-  {
-    uint16_t wheelSpeedFR = 0;
-    uint16_t wheelSpeedFL = 0;
-    uint16_t wheelSpeedBR = 0;
-    uint16_t wheelSpeedBL = 0;
-
-    uint16_t wheelHeightFR = 0;
-    uint16_t wheelHeightFL = 0;
-    uint16_t wheelHeightBR = 0;
-    uint16_t wheelHeightBL = 0;
-
-    uint16_t steeringWheelAngle = 0;
-  } sensors;
-
-  struct Inputs
-  {
-    uint16_t pedal0 = 0;
-    uint16_t pedal1 = 0;
-    uint16_t brake0 = 0;
-    uint16_t brake1 = 0;
-    uint16_t brakeRegen = 0;
-    uint16_t coastRegen = 0;
-
-    float vicoreTemp = 0.0f;
-    float pumpTempIn = 0.0f;
-    float pimpTempOut = 0.0f;
-  } inputs;
-
-  struct Outputs
-  {
-    bool buzzerActive = false;
-    uint8_t buzzerCounter = 0;
-    bool brakeLight = false;
-  } outputs;
-  
-};
-CarData carData;
-
-
-struct WCB_Data
-{
-  struct DrivingData
-  {
-    bool readyToDrive = false;
-
-    bool imdFault = false;
-    bool bmsFault = false;
-
-    bool driveDirection = true;             // true = forward | false = reverse
-    DriveModes driveMode = ECO;
-  } drivingData;
-  
-  struct BatteryStatus
-  {
-    uint16_t batteryChargeState = 0;
-    int16_t busVoltage = 0;
-    int16_t rinehartVoltage = 0;
-
-    float pack1Temp = 0;
-    float pack2Temp = 0;
-  } batteryStatus;
-
-    struct Sensors
-  {
-    uint16_t wheelSpeedFR = 0;
-    uint16_t wheelSpeedFL = 0;
-    uint16_t wheelSpeedBR = 0;
-    uint16_t wheelSpeedBL = 0;
-
-    uint16_t wheelHeightFR = 0;
-    uint16_t wheelHeightFL = 0;
-    uint16_t wheelHeightBR = 0;
-    uint16_t wheelHeightBL = 0;
-  } sensors;
-
-  struct IO
-  {
-    // inputs
-    uint8_t brakeRegen = 0;
-    uint8_t coastRegen = 0;
-
-    // outputs
-    bool buzzerActive = false;
-  } io;
-};
-WCB_Data wcbData; 
-
-
-// Debug information
-struct Debugger
-{
+// debug information
+Debugger debugger = {
   // debug toggle
-  bool debugEnabled = ENABLE_DEBUG;
-  bool CAN_debugEnabled = false;
-  bool WCB_debugEnabled = false;
-  bool IO_debugEnabled = false;
-  bool scheduler_debugEnable = true;
+  .debugEnabled = ENABLE_DEBUG,
+  .CAN_debugEnabled = false,
+  .WCB_debugEnabled = false,
+  .IO_debugEnabled = false,
+  .scheduler_debugEnable = true,
 
   // debug data
-  byte CAN_sentStatus;
-  byte CAN_outgoingMessage[8];
+  .CAN_sentStatus = 0,
+  .CAN_outgoingMessage = {},
 
-  esp_err_t WCB_updateResult;
-  WCB_Data WCB_updateMessage;
+  .WCB_updateResult = ESP_OK,
+  .WCB_updateMessage = {},
 
-  CarData IO_data;
+  .IO_data = {},
 
   // scheduler data
-  int sensorTaskCount = 0;
-  int canTaskCount = 0;
-  int ardanTaskCount = 0;
-  int wcbTaskCount = 0;
+  .sensorTaskCount = 0,
+  .canTaskCount = 0,
+  .ardanTaskCount = 0,
+  .wcbTaskCount = 0,
 };
-Debugger debugger;
+
+CarData carData = {
+  // driving data
+  .drivingData = {
+    .readyToDrive = false,
+    .enableInverter = false,
+
+    .imdFault = false,
+    .bmsFault = false,
+
+    .commandedTorque = 0,
+    .currentSpeed = 0.0f,
+    .driveDirection = true,
+    .driveMode = ECO, 
+  },
+
+  // Battery Status
+  .batteryStatus = {
+    .batteryChargeState = 0,
+    .busVoltage = 0,
+    .rinehartVoltage = 0,
+    .pack1Temp = 0.0f,
+    .pack2Temp = 0.0f,
+  },
+
+  // Sensors
+  .sensors = {
+    .wheelSpeedFR = 0,
+    .wheelSpeedFL = 0,
+    .wheelSpeedBR = 0,
+    .wheelSpeedBL = 0,
+    .wheelHeightFR = 0,
+    .wheelHeightFL = 0,
+    .wheelHeightBR = 0,
+    .wheelHeightBL = 0,
+
+    .steeringWheelAngle = 0,
+  },
+
+  // Inputs
+  .inputs = {
+    .pedal0 = 0,
+    .pedal1 = 0,
+    .brake0 = 0,
+    .brake1 = 0,
+    .brakeRegen = 0,
+    .coastRegen = 0,
+
+    .vicoreTemp = 0.0f,
+    .pumpTempIn = 0.0f,
+    .pimpTempOut = 0.0f,
+  },
+
+  // Outputs
+  .outputs = {
+    .buzzerActive = false,
+    .buzzerCounter = 0,
+    .brakeLight = false,
+  }
+};
 
 
 // ESP-Now Connection
@@ -213,7 +149,6 @@ void CANCallback(void* args);
 void ARDANCallback(void* args);
 void WCBCallback(void* args);
 
-
 // tasks
 void ReadSensorsTask(void* pvParameters);
 void UpdateCANTask(void* pvParameters);
@@ -226,10 +161,6 @@ void WCBDataReceived(const uint8_t* mac, const uint8_t* incomingData, int length
 // helpers
 void GetCommandedTorque();
 long MapValue(long x, long in_min, long in_max, long out_min, long out_max);
-void PrintDebug();
-void PrintCANDebug();
-void PrintWCBDebug();
-void PrintIODebug();
 
 
 // *** setup *** //
@@ -515,6 +446,7 @@ void ReadSensorsTask(void* pvParameters)
 
   // get pedal positions
   float tmpPedal0 = adc1_get_raw(ADC1_GPIO32_CHANNEL);
+  carData.drivingData.bmsFault = true;
   carData.inputs.pedal0 = MapValue(tmpPedal0, 0, 1024, 0, 255);   // starting min and max values must be found via testing!!!
 
   float tmpPedal1 = adc1_get_raw(PEDAL_1_PIN);
@@ -654,36 +586,33 @@ void UpdateCANTask(void* pvParameters)
  */
 void UpdateWCBTask(void* pvParameters)
 {
-  #if !TESTING
+  // inits
+  CarData tmp;
+
   // update battery & electrical data
-  wcbData.batteryStatus.batteryChargeState = carData.batteryStatus.batteryChargeState;
-  wcbData.batteryStatus.pack1Temp = carData.batteryStatus.pack1Temp;
-  wcbData.batteryStatus.pack2Temp = carData.batteryStatus.pack2Temp;
+  tmp.batteryStatus.batteryChargeState = carData.batteryStatus.batteryChargeState;
+  tmp.batteryStatus.pack1Temp = carData.batteryStatus.pack1Temp;
+  tmp.batteryStatus.pack2Temp = carData.batteryStatus.pack2Temp;
 
   // update sensor data
-  wcbData.sensors.wheelSpeedFR = carData.sensors.wheelSpeedFR;
-  wcbData.sensors.wheelSpeedFR = carData.sensors.wheelSpeedFR;
-  wcbData.sensors.wheelSpeedFR = carData.sensors.wheelSpeedFR;
-  wcbData.sensors.wheelSpeedFR = carData.sensors.wheelSpeedFR;
+  tmp.sensors.wheelSpeedFR = carData.sensors.wheelSpeedFR;
+  tmp.sensors.wheelSpeedFR = carData.sensors.wheelSpeedFR;
+  tmp.sensors.wheelSpeedFR = carData.sensors.wheelSpeedFR;
+  tmp.sensors.wheelSpeedFR = carData.sensors.wheelSpeedFR;
 
-  wcbData.sensors.wheelSpeedFR = carData.sensors.wheelSpeedFR;
-  wcbData.sensors.wheelSpeedFR = carData.sensors.wheelSpeedFR;
-  wcbData.sensors.wheelSpeedFR = carData.sensors.wheelSpeedFR;
-  wcbData.sensors.wheelSpeedFR = carData.sensors.wheelSpeedFR;
+  tmp.sensors.wheelSpeedFR = carData.sensors.wheelSpeedFR;
+  tmp.sensors.wheelSpeedFR = carData.sensors.wheelSpeedFR;
+  tmp.sensors.wheelSpeedFR = carData.sensors.wheelSpeedFR;
+  tmp.sensors.wheelSpeedFR = carData.sensors.wheelSpeedFR;
 
   // send message
-  esp_err_t result = esp_now_send(wcbAddress, (uint8_t *) &wcbData, sizeof(wcbData));
-
-  #endif
+  esp_err_t result = esp_now_send(wcbAddress, (uint8_t *) &tmp, sizeof(tmp));
 
   // debugging 
   if (debugger.debugEnabled) {
     // debugger.WCB_updateResult = result;
     debugger.wcbTaskCount++;
   }
-
-
-
 
   // end task
   vTaskDelete(NULL);
@@ -774,16 +703,19 @@ void GetCommandedTorque()
  */
 void WCBDataReceived(const uint8_t* mac, const uint8_t* incomingData, int length)
 {
+  // inits
+  CarData tmp;
+
   // copy data to the wcbData struct 
-  memcpy(&wcbData, incomingData, sizeof(wcbData));
+  memcpy(&tmp, incomingData, sizeof(tmp));
 
   // get updated WCB data
-  carData.drivingData.driveDirection = wcbData.drivingData.driveDirection;
-  carData.drivingData.driveMode = wcbData.drivingData.driveMode;
-  carData.inputs.coastRegen = wcbData.io.coastRegen;
-  carData.inputs.brakeRegen = wcbData.io.brakeRegen;
-  carData.outputs.buzzerActive = wcbData.io.buzzerActive;
-  carData.drivingData.readyToDrive = wcbData.drivingData.readyToDrive;
+  carData.drivingData.driveDirection = tmp.drivingData.driveDirection;
+  carData.drivingData.driveMode = tmp.drivingData.driveMode;
+  carData.inputs.coastRegen = tmp.inputs.coastRegen;
+  carData.inputs.brakeRegen = tmp.inputs.brakeRegen;
+  carData.outputs.buzzerActive = tmp.outputs.buzzerActive;
+  carData.drivingData.readyToDrive = tmp.drivingData.readyToDrive;
 
   return;
 }
@@ -802,6 +734,14 @@ void WCBDataReceived(const uint8_t* mac, const uint8_t* incomingData, int length
 long MapValue(long x, long in_min, long in_max, long out_min, long out_max) {
   return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
 }
+
+
+/* ================================================================================================
+ * 
+ * DEBUG FUNCTIONS
+ * 
+ * ================================================================================================
+ */
 
 
 /**

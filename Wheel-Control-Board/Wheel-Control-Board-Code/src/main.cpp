@@ -339,9 +339,9 @@ void setup()
   if (setup.fcbActive)
     ESP_ERROR_CHECK(esp_timer_start_periodic(timer3, FCB_UPDATE_INTERVAL));
 
-  Serial.printf("Timer 1 STATUS: %s\n", esp_timer_is_active(timer1) ? "RUNNING" : "FAILED");
-  Serial.printf("Timer 2 STATUS: %s\n", esp_timer_is_active(timer2) ? "RUNNING" : "FAILED");
-  Serial.printf("Timer 3 STATUS: %s\n", esp_timer_is_active(timer3) ? "RUNNING" : "FAILED");
+  Serial.printf("TIMER 1 STATUS: %s\n", esp_timer_is_active(timer1) ? "RUNNING" : "FAILED");
+  Serial.printf("TIMER 2 STATUS: %s\n", esp_timer_is_active(timer2) ? "RUNNING" : "FAILED");
+  Serial.printf("TIMER 3 STATUS: %s\n", esp_timer_is_active(timer3) ? "RUNNING" : "FAILED");
   // ----------------------------------------------------------------------------------------- //
 
 
@@ -355,7 +355,7 @@ void setup()
     Serial.printf("CPU Frequency: %dMHz\n", conf.freq_mhz);
   }
   else {
-    Serial.printf("\nScheduler STATUS: FAILED\nHALTING OPERATIONS");
+    Serial.printf("\nScheduler STATUS: FAILED\nHALTING OPERATIONS!");
     while (1) {};
   }
   Serial.printf("\n\n|--- END SETUP ---|\n\n\n");

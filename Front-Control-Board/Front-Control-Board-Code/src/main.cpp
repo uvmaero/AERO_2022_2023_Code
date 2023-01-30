@@ -361,6 +361,7 @@ void setup()
   Serial.printf("Timer 4 STATUS: %s\n", esp_timer_is_active(timer4) ? "RUNNING" : "FAILED");
   // ----------------------------------------------------------------------------------------- //
 
+
   // --- End Setup Section in Serial Monitor --- //
   if (xTaskGetSchedulerState() == 2) {
     Serial.printf("\nScheduler Status: RUNNING");
@@ -374,17 +375,11 @@ void setup()
 }
 
 
-// *** loop *** // 
-void loop()
-{
-  // everything is on timers so nothing happens here! 
-  vTaskDelay(1);    // prevent watchdog from getting upset
-
-  // debugging
-  if (debugger.debugEnabled) {
-    PrintDebug();
-  }
-}
+/*
+===============================================================================================
+                                    Callback Functions
+===============================================================================================
+*/
 
 
 /**
@@ -432,6 +427,40 @@ void WCBCallback(void* args) {
   TaskHandle_t xHandle = NULL;
   xTaskCreate(UpdateWCBTask, "WCB-Update", TASK_STACK_SIZE, &ucParameterToPass, tskIDLE_PRIORITY, &xHandle);
 }
+
+
+/**
+ * @brief a callback function for when data is received from WCB
+ * 
+ * @param mac             the address of the WCB
+ * @param incomingData    the structure of incoming data
+ * @param length          size of the incoming data
+ */
+void WCBDataReceived(const uint8_t* mac, const uint8_t* incomingData, int length)
+{
+  // inits
+  CarData tmp;
+
+  // copy data to the wcbData struct 
+  memcpy(&tmp, incomingData, sizeof(tmp));
+
+  // get updated WCB data
+  carData.drivingData.driveDirection = tmp.drivingData.driveDirection;
+  carData.drivingData.driveMode = tmp.drivingData.driveMode;
+  carData.inputs.coastRegen = tmp.inputs.coastRegen;
+  carData.inputs.brakeRegen = tmp.inputs.brakeRegen;
+  carData.outputs.buzzerActive = tmp.outputs.buzzerActive;
+  carData.drivingData.readyToDrive = tmp.drivingData.readyToDrive;
+
+  return;
+}
+
+
+/*
+===============================================================================================
+                                FreeRTOS Task Functions
+===============================================================================================
+*/
 
 
 /**
@@ -642,6 +671,29 @@ void UpdateARDANTask(void* pvParameters)
 }
 
 
+/*
+===============================================================================================
+                                    Main Loop
+===============================================================================================
+*/
+
+
+/**
+ * @brief 
+ * 
+ */
+void loop()
+{
+  // everything is on timers so nothing happens here! 
+  vTaskDelay(1);    // prevent watchdog from getting upset
+
+  // debugging
+  if (debugger.debugEnabled) {
+    PrintDebug();
+  }
+}
+
+
 /**
  * @brief Get the Commanded Torque from pedal values
  */
@@ -692,33 +744,6 @@ void GetCommandedTorque()
     carData.drivingData.commandedTorque = 0;    // if not ready to drive then block all torque
   }
 } 
-
-
-/**
- * @brief a callback function for when data is received from WCB
- * 
- * @param mac             the address of the WCB
- * @param incomingData    the structure of incoming data
- * @param length          size of the incoming data
- */
-void WCBDataReceived(const uint8_t* mac, const uint8_t* incomingData, int length)
-{
-  // inits
-  CarData tmp;
-
-  // copy data to the wcbData struct 
-  memcpy(&tmp, incomingData, sizeof(tmp));
-
-  // get updated WCB data
-  carData.drivingData.driveDirection = tmp.drivingData.driveDirection;
-  carData.drivingData.driveMode = tmp.drivingData.driveMode;
-  carData.inputs.coastRegen = tmp.inputs.coastRegen;
-  carData.inputs.brakeRegen = tmp.inputs.brakeRegen;
-  carData.outputs.buzzerActive = tmp.outputs.buzzerActive;
-  carData.drivingData.readyToDrive = tmp.drivingData.readyToDrive;
-
-  return;
-}
 
 
 /**

@@ -25,6 +25,7 @@
 #include "pinConfig.h"
 
 
+
 // *** defines *** // 
 // GPIO
 #define GPIO_INPUT_PIN_SELECT           1       
@@ -137,7 +138,6 @@ CarData carData = {
 
 
 // ESP-Now Connection
-uint8_t wcbAddress[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
 esp_now_peer_info wcbInfo;
 
 
@@ -274,7 +274,11 @@ void setup()
   // init ESP-NOW service
   if (esp_now_init() == ESP_OK) {
     Serial.printf("ESP-NOW INIT [ SUCCESS ]\n");
-
+    
+    if (esp_wifi_set_mac(WIFI_IF_STA, deviceAddress) == ESP_OK) {
+      Serial.printf("MAC ADDRESS UPDATE: [ SUCCESS ]\n");
+      Serial.printf("Address: %x\n", deviceAddress);
+    }
   }
   else {
     Serial.printf("ESP-NOW INIT [ FAILED ]\n");

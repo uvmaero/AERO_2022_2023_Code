@@ -11,6 +11,7 @@
                                     Includes 
 ===============================================================================================
 */
+// standard includes 
 #include <stdio.h>
 #include "esp_now.h"
 #include "esp_err.h"
@@ -54,7 +55,7 @@
 #define TASK_STACK_SIZE                 3500        // in bytes
 
 // debug
-#define ENABLE_DEBUG                    false       // master debug message control
+#define ENABLE_DEBUG                    true       // master debug message control
 
 
 /*

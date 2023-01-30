@@ -1,495 +1,626 @@
 /**
  * @file main.cpp
- * @author dominic gasperini
+ * @author Dominic Gasperini - UVM '23
  * @brief this drives the wheel control board on clean speed 5.5
- * @version 0.7
- * @date 2022-08-04
+ * @version 0.9
+ * @date 2023-01-30
  */
 
+/*
+===============================================================================================
+                                    Includes 
+===============================================================================================
+*/
+// standard includes 
+#include <stdio.h>
+#include "esp_now.h"
+#include "esp_err.h"
+#include "esp_pm.h"
+#include "rtc.h"
+#include "rtc_clk_common.h"
+#include <esp_timer.h>
+#include <esp_wifi.h>
+#include "esp_netif.h"
+#include "driver/adc.h"
+#include "esp_adc_cal.h"
 
-// *** includes *** // 
-#include <Arduino.h>
-#include <esp_now.h>
-#include <WiFi.h>
-#include "TFT_eSPI.h"
+// custom includes
+#include "debugger.h"
 #include "pinConfig.h"
 
 
-// *** defines *** // 
-#define TIMER_INTERRUPT_PRESCALER       80          // this is based off to the clock speed (assuming 80 MHz), gets us to microseconds
+/*
+===============================================================================================
+                                    Definitions
+===============================================================================================
+*/
+// GPIO
+#define GPIO_INPUT_PIN_SELECT           1       
+
+// definitions
+
+
+// tasks & timers
 #define SENSOR_POLL_INTERVAL            100000      // 0.1 seconds in microseconds
-#define FCB_UPDATE_INTERVAL             125000      // 0.125 seconds in microseconds
+#define DISPLAY_UPDATE_INTERVAL           250000      // 0.25 seconds in microseconds
+#define FCB_UPDATE_INTERVAL             200000      // 0.2 seconds in microseconds
+#define TASK_STACK_SIZE                 3500        // in bytes
+
+// debug
+#define ENABLE_DEBUG                    true       // master debug message control
 
 
-// *** global variables *** //
-// Drive Mode Enumeration
-enum DriveModes
-{
-  SLOW = 0,
-  ECO = 10,
-  FAST = 20
+/*
+===============================================================================================
+                                  Global Variables
+===============================================================================================
+*/
+
+
+/**
+ * @brief debugger structure used for organizing debug information
+ * 
+ */
+Debugger debugger = {
+  // debug toggle
+  .debugEnabled = ENABLE_DEBUG,
+  .display_debugEnabled = false,
+  .FCB_debugEnabled = false,
+  .IO_debugEnabled = false,
+  .scheduler_debugEnable = true,
+
+  // debug data
+  .FCB_updateResult = ESP_OK,
+  .FCB_updateMessage = {},
+
+  .IO_data = {},
+
+  // scheduler data
+  .sensorTaskCount = 0,
+  .displayTaskCount = 0,
+  .fcbTaskCount = 0,
 };
 
-// ESP-NOW Connection
-uint8_t fcbAddress[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
 
-// ESP-NOW data transfer struct
-struct FCB_Data
-{
-  struct DrivingData
-  {
-    bool readyToDrive = false;
+/**
+ * @brief the dataframe that describes the entire state of the car
+ * 
+ */
+CarData carData = {
+  // driving data
+  .drivingData = {
+    .readyToDrive = false,
+    .enableInverter = false,
 
-    bool imdFault = false;
-    bool bmsFault = false;
+    .imdFault = false,
+    .bmsFault = false,
 
-    bool driveDirection = true;             // true = forward | false = reverse
-    DriveModes driveMode = ECO;
+    .commandedTorque = 0,
+    .currentSpeed = 0.0f,
+    .driveDirection = true,
+    .driveMode = ECO, 
+  },
 
-    uint8_t currentSpeed = 0;
-  } drivingData;
-  
-  struct BatteryStatus
-  {
-    uint16_t batteryChargeState = 0;
-    int16_t busVoltage = 0;
-    int16_t rinehartVoltage = 0;
+  // Battery Status
+  .batteryStatus = {
+    .batteryChargeState = 0,
+    .busVoltage = 0,
+    .rinehartVoltage = 0,
+    .pack1Temp = 0.0f,
+    .pack2Temp = 0.0f,
+  },
 
-    float pack1Temp = 0;
-    float pack2Temp = 0;
-  } batteryStatus;
+  // Sensors
+  .sensors = {
+    .wheelSpeedFR = 0,
+    .wheelSpeedFL = 0,
+    .wheelSpeedBR = 0,
+    .wheelSpeedBL = 0,
+    .wheelHeightFR = 0,
+    .wheelHeightFL = 0,
+    .wheelHeightBR = 0,
+    .wheelHeightBL = 0,
 
-    struct Sensors
-  {
-    uint16_t wheelSpeedFR = 0;
-    uint16_t wheelSpeedFL = 0;
-    uint16_t wheelSpeedBR = 0;
-    uint16_t wheelSpeedBL = 0;
+    .steeringWheelAngle = 0,
+  },
 
-    uint16_t wheelHeightFR = 0;
-    uint16_t wheelHeightFL = 0;
-    uint16_t wheelHeightBR = 0;
-    uint16_t wheelHeightBL = 0;
-  } sensors;
+  // Inputs
+  .inputs = {
+    .pedal0 = 0,
+    .pedal1 = 0,
+    .brake0 = 0,
+    .brake1 = 0,
+    .brakeRegen = 0,
+    .coastRegen = 0,
 
-  struct IO
-  {
-    // inputs
-    uint8_t brakeRegen = 0;
-    uint8_t coastRegen = 0;
+    .vicoreTemp = 0.0f,
+    .pumpTempIn = 0.0f,
+    .pimpTempOut = 0.0f,
+  },
 
-    // outputs
-    bool buzzerActive = false;
-  } io;
+  // Outputs
+  .outputs = {
+    .buzzerActive = false,
+    .buzzerCounter = 0,
+    .brakeLight = false,
+  }
 };
-FCB_Data fcbData; 
-
-// Car Data Struct
-struct DashData
-{
-  struct DrivingData
-  {
-    bool readyToDrive = false;
-    bool enableInverter = false;
-
-    bool imdFault = false;
-    bool bmsFault = false;
-
-    uint16_t commandedTorque = 0;
-    float currentSpeed = 0.0f;
-    bool driveDirection = true;             // true = forward | false = reverse
-    DriveModes driveMode = ECO;
-  } drivingData;
-  
-  struct BatteryStatus
-  {
-    uint16_t batteryChargeState = 0;
-    int16_t busVoltage = 0;
-    int16_t rinehartVoltage = 0;
-    float pack1Temp = 0.0f;
-    float pack2Temp = 0.0f;
-  } batteryStatus;
-
-  struct Sensors
-  {
-    uint16_t wheelSpeedFR = 0;
-    uint16_t wheelSpeedFL = 0;
-    uint16_t wheelSpeedBR = 0;
-    uint16_t wheelSpeedBL = 0;
-
-    uint16_t wheelHeightFR = 0;
-    uint16_t wheelHeightFL = 0;
-    uint16_t wheelHeightBR = 0;
-    uint16_t wheelHeightBL = 0;
-
-    uint16_t steeringWheelAngle = 0;
-  } sensors;
-
-  struct Inputs
-  {
-    uint16_t pedal0 = 0;
-    uint16_t pedal1 = 0;
-    uint16_t brake0 = 0;
-    uint16_t brake1 = 0;
-    uint16_t brakeRegen = 0;
-    uint16_t coastRegen = 0;
-
-    float vicoreTemp = 0.0f;
-    float pumpTempIn = 0.0f;
-    float pimpTempOut = 0.0f;
-  } inputs;
-
-  struct Outputs
-  {
-    bool buzzerActive = false;
-    uint8_t buzzerCounter = 0;
-    bool brakeLight = false;
-  } outputs;
-};
-DashData dashData;
-
-// Hardware ISR Timers
-hw_timer_t* timer0 = NULL;
-hw_timer_t* timer1 = NULL;
-portMUX_TYPE timerMux = portMUX_INITIALIZER_UNLOCKED;
-
-// LCD 
-TFT_eSPI display = TFT_eSPI();
-enum LCDMode
-{
-  RACE_MODE = 0,
-  ELECTRICAL_MODE = 10,
-  MECHANICAL_MODE = 20
-};
-LCDMode lcdMode = RACE_MODE;
-LCDMode previousLcdMode = lcdMode;
 
 
-// *** function declarations *** //
-void PollInputData();
-void UpdateFCB();
+// ESP-Now Connection
+esp_now_peer_info fcbInfo;
+
+
+/*
+===============================================================================================
+                                    Function Declarations 
+===============================================================================================
+*/
+
+
+// callbacks
+void SensorCallback(void* args);
+void DisplayCallback(void* args);
+void FCBCallback(void* args);
+
+// tasks
+void ReadSensorsTask(void* pvParameters);
+void UpdateDisplayTask(void* pvParameters);
+void UpdateFCBTask(void* pvParameters);
+
+// ISRs
 void FCBDataReceived(const uint8_t* mac, const uint8_t* incomingData, int length);
-void AfterInitLCD();
-void UpdateLCD();
-void DisplayRaceMode();
-void DisplayElectricalMode();
-void DisplayMechanicalMode();
-void LCDButtonInterrupt();
-void ReadyToDriveButtonInterrupt();
-void DriveModeButtonInterrupt();
 
 
-// *** setup *** //
+/*
+===============================================================================================
+                                            Setup 
+===============================================================================================
+*/
+
+
 void setup()
 {
-  // --- initialize serial --- //
+  // set power configuration
+  esp_pm_configure(&power_configuration);
+
+  // -------------------------- initialize serial connection ------------------------ //
   Serial.begin(9600);
+  Serial.printf("\n\n|--- STARTING SETUP ---|\n\n");
 
-  // --- initialize inputs --- //
-  pinMode(COAST_REGEN, INPUT);
-  pinMode(BRAKE_REGEN, INPUT);
-  pinMode(READY_TO_DRIVE_BUTTON, INPUT);
-  pinMode(DRIVE_DIRECTION_SWITCH, INPUT);
-  pinMode(DRIVE_MODE_BUTTON, INPUT);
-  pinMode(LCD_BUTTON, INPUT);
-
-  // --- initalize outputs --- //
-  pinMode(IMD_FAULT_LED, OUTPUT);
-  pinMode(BMS_FAULT_LED, OUTPUT);
-  pinMode(READY_TO_DRIVE_LED, OUTPUT);
-
-  // --- initialize LCD --- //
-  display.init();
-  display.setRotation(2);
-  AfterInitLCD();
-
-  // --- initialize ESP-NOW ---//
-  // turn on wifi access point 
-  WiFi.mode(WIFI_STA);
-  Serial.printf("DEVICE MAC ADDRESS: %s\n", WiFi.macAddress());
-
-  // init ESP-NOW service
-  if (esp_now_init() != ESP_OK)
-    Serial.println("ESP-NOW INIT [ SUCCESS ]");
-  else
-    Serial.println("ESP-NOW INIT [ FAILED ]");
-
-  // attach message received callback to the data received function
-  esp_now_register_recv_cb(FCBDataReceived);
-
-  // --- initialize timer interrupts --- //
-  timer0 = timerBegin(0, TIMER_INTERRUPT_PRESCALER, true);
-  timerAttachInterrupt(timer0, &PollInputData, true);
-  timerAlarmWrite(timer0, SENSOR_POLL_INTERVAL, true);
-  timerAlarmEnable(timer0);
-
-  timer1 = timerBegin(1, TIMER_INTERRUPT_PRESCALER, true);
-  timerAttachInterrupt(timer1, &UpdateFCB, true);
-  timerAlarmWrite(timer1, FCB_UPDATE_INTERVAL, true);
-  timerAlarmEnable(timer1);
-
-  // --- initialize hardware interrupts --- //
-  attachInterrupt(LCD_BUTTON, &LCDButtonInterrupt, LOW);
-  attachInterrupt(DRIVE_MODE_BUTTON, &DriveModeButtonInterrupt, LOW);
-  attachInterrupt(READY_TO_DRIVE_BUTTON, &ReadyToDriveButtonInterrupt, LOW);
-}
-
-
-// *** loop *** // 
-void loop()
-{ 
-  // update LEDs
-  digitalWrite(IMD_FAULT_LED, dashData.drivingData.imdFault);
-  digitalWrite(BMS_FAULT_LED, dashData.drivingData.bmsFault);
-
-  // update wheel dash LCD
-  UpdateLCD();
-}
-
-
-/**
- * @brief poll the sensors to see if there have been updates from the driver
- * 
- */
-void PollInputData()
-{
-  // disable interrupts
-  portENTER_CRITICAL_ISR(&timerMux);
-
-  // regen knobs
-  dashData.inputs.brakeRegen = analogRead(BRAKE_REGEN);
-  dashData.inputs.coastRegen = analogRead(COAST_REGEN);
-
-  // re-enable interrupts
-  portEXIT_CRITICAL_ISR(&timerMux);
-}
-
-
-/**
- * @brief send out a broadcast of ESP-NOW that updates FCB 
- * with data from the wheel 
- * 
- */
-void UpdateFCB()
-{
-  // disable interrupts
-  portENTER_CRITICAL_ISR(&timerMux);
-
-  // get peer information
-  esp_now_peer_info_t fcbInfo = {};
-  memcpy(&fcbInfo.peer_addr, fcbAddress, 6);
-  if (!esp_now_is_peer_exist(fcbAddress))
+  // setup managment struct
+  struct setup
   {
-    esp_now_add_peer(&fcbInfo);
+    bool ioActive = false;
+    bool displayActive = false;
+    bool fcbActive = false;
+  };
+  setup setup;
+
+  // -------------------------- initialize GPIO ------------------------------------- //
+
+  // inputs / sensors // 
+  gpio_config_t sensor_config = {
+    .pin_bit_mask = GPIO_INPUT_PIN_SELECT,
+    .mode = GPIO_MODE_INPUT,
+    .pull_up_en = GPIO_PULLUP_DISABLE,
+    .pull_down_en = GPIO_PULLDOWN_DISABLE,
+    .intr_type = GPIO_INTR_DISABLE
+  };
+  ESP_ERROR_CHECK(gpio_config(&sensor_config));
+
+  // setup adc 1
+  ESP_ERROR_CHECK(adc1_config_width(ADC_WIDTH_BIT_12));
+  ESP_ERROR_CHECK(adc1_config_channel_atten(ADC1_CHANNEL_0, ADC_ATTEN_0db));
+  ESP_ERROR_CHECK(adc1_config_channel_atten(ADC1_CHANNEL_1, ADC_ATTEN_0db));
+  ESP_ERROR_CHECK(adc1_config_channel_atten(ADC1_CHANNEL_2, ADC_ATTEN_0db));
+  ESP_ERROR_CHECK(adc1_config_channel_atten(ADC1_CHANNEL_3, ADC_ATTEN_0db));
+  ESP_ERROR_CHECK(adc1_config_channel_atten(ADC1_CHANNEL_4, ADC_ATTEN_0db));
+  ESP_ERROR_CHECK(adc1_config_channel_atten(ADC1_CHANNEL_5, ADC_ATTEN_0db));
+  ESP_ERROR_CHECK(adc1_config_channel_atten(ADC1_CHANNEL_6, ADC_ATTEN_0db));
+  ESP_ERROR_CHECK(adc1_config_channel_atten(ADC1_CHANNEL_7, ADC_ATTEN_0db));
+
+  // setup adc 2
+  ESP_ERROR_CHECK(adc2_config_channel_atten(ADC2_CHANNEL_0, ADC_ATTEN_0db));
+  ESP_ERROR_CHECK(adc2_config_channel_atten(ADC2_CHANNEL_1, ADC_ATTEN_0db));
+  ESP_ERROR_CHECK(adc2_config_channel_atten(ADC2_CHANNEL_2, ADC_ATTEN_0db));
+  ESP_ERROR_CHECK(adc2_config_channel_atten(ADC2_CHANNEL_3, ADC_ATTEN_0db));
+  ESP_ERROR_CHECK(adc2_config_channel_atten(ADC2_CHANNEL_4, ADC_ATTEN_0db));
+  ESP_ERROR_CHECK(adc2_config_channel_atten(ADC2_CHANNEL_5, ADC_ATTEN_0db));
+  ESP_ERROR_CHECK(adc2_config_channel_atten(ADC2_CHANNEL_6, ADC_ATTEN_0db));
+  ESP_ERROR_CHECK(adc2_config_channel_atten(ADC2_CHANNEL_7, ADC_ATTEN_0db));
+
+
+  // outputs //
+
+  setup.ioActive = true;
+  // --------------------------------------------------------------------------- //
+
+
+  // -------------------------- initialize Display  ---------------------------- //
+
+
+
+
+
+  // --------------------------------------------------------------------------- //
+
+
+  // -------------------------- initialize ESP-NOW  ---------------------------- //
+  // turn on wifi access point 
+  if (esp_netif_init() == ESP_OK) {
+    Serial.printf("TCP/IP INIT: [ SUCCESS ]\n");
+    
+    // init wifi and config
+    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
+    if (esp_wifi_init(&cfg) == ESP_OK) {
+      Serial.printf("WIFI INIT: [ SUCCESS ]\n");
+
+      ESP_ERROR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_RAM));
+      ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
+      ESP_ERROR_CHECK(esp_wifi_start());
+      ESP_ERROR_CHECK(esp_wifi_set_channel(1, WIFI_SECOND_CHAN_NONE));
+    }
+    else {
+      Serial.printf("WIFI INIT: [ FAILED ]\n");
+    }
+  }
+  else {
+    Serial.printf("ESP TCP/IP STATUS: [ FAILED ]\n");
+  }
+  
+  // init ESP-NOW service
+  if (esp_now_init() == ESP_OK) {
+    Serial.printf("ESP-NOW INIT [ SUCCESS ]\n");
+    
+    if (esp_wifi_set_mac(WIFI_IF_STA, deviceAddress) == ESP_OK) {
+      Serial.printf("MAC ADDRESS UPDATE: [ SUCCESS ]\n");
+      Serial.printf("Address: %x\n", deviceAddress);
+    }
+  }
+  else {
+    Serial.printf("ESP-NOW INIT [ FAILED ]\n");
   }
 
-  // update input data
-  fcbData.drivingData.readyToDrive = dashData.drivingData.readyToDrive;
-  fcbData.drivingData.driveDirection = dashData.drivingData.driveDirection;
-  fcbData.io.brakeRegen = dashData.inputs.brakeRegen;
-  fcbData.io.coastRegen = dashData.inputs.coastRegen;
-  fcbData.io.buzzerActive = dashData.outputs.buzzerActive;
+  // get peer informtion about WCB
+  memcpy(fcbInfo.peer_addr, fcbAddress, sizeof(fcbAddress));
+  fcbInfo.channel = 0;
+  fcbInfo.encrypt = false;
 
-  // send mesasge
-  esp_err_t result = esp_now_send(fcbAddress, (uint8_t *) &fcbData, sizeof(fcbData));
+  // add WCB as a peer
+  if (esp_now_add_peer(&fcbInfo) == ESP_OK) {
+    Serial.printf("ESP-NOW CONNECTION [ SUCCESS ]\n");
 
-  // re-enable interrupts
-  portEXIT_CRITICAL_ISR(&timerMux);
+    setup.fcbActive = true;
+  }
+  else {
+    Serial.printf("ESP-NOW CONNECTION [ FAILED ]\n");
+  }
+
+  // attach message received ISR to the data received function
+  esp_now_register_recv_cb(FCBDataReceived);
+  // ------------------------------------------------------------------------ //
+
+
+  // ---------------------- initialize timer interrupts ---------------------- //
+  // timer 1 - Read Sensors 
+  const esp_timer_create_args_t timer1_args = {
+    .callback = &SensorCallback,
+    .dispatch_method = ESP_TIMER_TASK,
+    .name = "Sensor Timer"
+  };
+  esp_timer_handle_t timer1;
+  ESP_ERROR_CHECK(esp_timer_create(&timer1_args, &timer1));
+
+  // timer 2 - Display Update
+  const esp_timer_create_args_t timer2_args = {
+    .callback = &DisplayCallback,
+    .dispatch_method = ESP_TIMER_TASK,
+    .name = "Display Update Timer"
+  };
+  esp_timer_handle_t timer2;
+  ESP_ERROR_CHECK(esp_timer_create(&timer2_args, &timer2));
+
+  // timer 3 - FCB Update
+  const esp_timer_create_args_t timer3_args = {
+    .callback = &FCBCallback,
+    .dispatch_method = ESP_TIMER_TASK,
+    .name = "FCB Update Timer"
+  };
+  esp_timer_handle_t timer3;
+  ESP_ERROR_CHECK(esp_timer_create(&timer3_args, &timer3));
+
+
+  // start timers
+  if (setup.ioActive)
+    ESP_ERROR_CHECK(esp_timer_start_periodic(timer1, SENSOR_POLL_INTERVAL));
+  if (setup.displayActive)
+    ESP_ERROR_CHECK(esp_timer_start_periodic(timer2, DISPLAY_UPDATE_INTERVAL));
+  if (setup.fcbActive)
+    ESP_ERROR_CHECK(esp_timer_start_periodic(timer3, FCB_UPDATE_INTERVAL));
+
+  Serial.printf("Timer 1 STATUS: %s\n", esp_timer_is_active(timer1) ? "RUNNING" : "FAILED");
+  Serial.printf("Timer 2 STATUS: %s\n", esp_timer_is_active(timer2) ? "RUNNING" : "FAILED");
+  Serial.printf("Timer 3 STATUS: %s\n", esp_timer_is_active(timer3) ? "RUNNING" : "FAILED");
+  // ----------------------------------------------------------------------------------------- //
+
+
+  // ------------------- End Setup Section in Serial Monitor --------------------------------- //
+  if (xTaskGetSchedulerState() == 2) {
+    Serial.printf("\nScheduler Status: RUNNING\n");
+
+    // clock frequency
+    rtc_cpu_freq_config_t conf;
+    rtc_clk_cpu_freq_get_config(&conf);
+    Serial.printf("CPU Frequency: %dMHz\n", conf.freq_mhz);
+  }
+  else {
+    Serial.printf("\nScheduler STATUS: FAILED\nHALTING OPERATIONS");
+    while (1) {};
+  }
+  Serial.printf("\n\n|--- END SETUP ---|\n\n\n");
+  // ---------------------------------------------------------------------------------------- //
+}
+
+
+/*
+===============================================================================================
+                                    Callback Functions
+===============================================================================================
+*/
+
+
+/**
+ * @brief callback function for creating a new sensor poll task
+ * 
+ * @param args arguments to be passed to the task
+ */
+void SensorCallback(void* args) {
+  static uint8_t ucParameterToPass;
+  TaskHandle_t xHandle = NULL;
+  xTaskCreate(ReadSensorsTask, "Poll-Senser-Data", TASK_STACK_SIZE, &ucParameterToPass, tskIDLE_PRIORITY, &xHandle);
+}
+
+
+/**
+ * @brief callback function for creating a new Display Update task
+ * 
+ * @param args arguments to be passed to the task
+ */
+void DisplayCallback(void* args) {
+  static uint8_t ucParameterToPass;
+  TaskHandle_t xHandle = NULL;
+  xTaskCreate(UpdateDisplayTask, "Display-Update", TASK_STACK_SIZE, &ucParameterToPass, tskIDLE_PRIORITY, &xHandle);
+}
+
+
+/**
+ * @brief callback function for creating a new WCB Update task
+ * 
+ * @param args arguments to be passed to the task
+ */
+void FCBCallback(void* args) {
+  static uint8_t ucParameterToPass;
+  TaskHandle_t xHandle = NULL;
+  xTaskCreate(UpdateFCBTask, "WCB-Update", TASK_STACK_SIZE, &ucParameterToPass, tskIDLE_PRIORITY, &xHandle);
 }
 
 
 /**
  * @brief a callback function for when data is received from FCB
  * 
- * @param mac             the address of the FCB
+ * @param mac             the address of the WCB
  * @param incomingData    the structure of incoming data
  * @param length          size of the incoming data
  */
 void FCBDataReceived(const uint8_t* mac, const uint8_t* incomingData, int length)
 {
-  // re-enable interrupts
-  portENTER_CRITICAL_ISR(&timerMux);
+  // inits
+  CarData tmp;
 
-  Serial.println("message received from front control board");
+  // copy data to the wcbData struct 
+  memcpy(&tmp, incomingData, sizeof(tmp));
 
-  // copy data to the fcbData struct 
-  memcpy(&fcbData, incomingData, sizeof(fcbData));
+  // get updated WCB data
+  carData.drivingData.driveDirection = tmp.drivingData.driveDirection;
+  carData.drivingData.driveMode = tmp.drivingData.driveMode;
+  carData.inputs.coastRegen = tmp.inputs.coastRegen;
+  carData.inputs.brakeRegen = tmp.inputs.brakeRegen;
+  carData.outputs.buzzerActive = tmp.outputs.buzzerActive;
+  carData.drivingData.readyToDrive = tmp.drivingData.readyToDrive;
 
-  // updated mechanical data
-  dashData.drivingData.currentSpeed = fcbData.drivingData.currentSpeed;
+  return;
+}
+
+
+/*
+===============================================================================================
+                                FreeRTOS Task Functions
+===============================================================================================
+*/
+
+
+/**
+ * @brief reads sensors and updates car data 
+ * 
+ * @param pvParameters parameters passed to task
+ */
+void ReadSensorsTask(void* pvParameters)
+{
+  // turn off wifi for ADC channel 2 to function
+  esp_wifi_stop();
+
+  // TODO: read sensors
+  
+  // debugging
+  if (debugger.debugEnabled) {
+    debugger.IO_data = carData;
+    debugger.sensorTaskCount++;
+  }
+
+  // turn wifi back on to re-enable esp-now connection to wheel board
+  esp_wifi_start();
+
+  // end task
+  vTaskDelete(NULL);
+}
+
+
+/**
+ * @brief updates FCB with car data
+ * 
+ * @param pvParameters parameters passed to task
+ */
+void UpdateFCBTask(void* pvParameters)
+{
+  // inits
+  CarData tmp;
 
   // update battery & electrical data
-  dashData.batteryStatus.batteryChargeState = fcbData.batteryStatus.batteryChargeState;
-  dashData.batteryStatus.busVoltage = fcbData.batteryStatus.busVoltage;
-  dashData.batteryStatus.rinehartVoltage = fcbData.batteryStatus.rinehartVoltage;
-  dashData.batteryStatus.pack1Temp = fcbData.batteryStatus.pack1Temp;
-  dashData.batteryStatus.pack2Temp = fcbData.batteryStatus.pack2Temp;
+  tmp.batteryStatus.batteryChargeState = carData.batteryStatus.batteryChargeState;
+  tmp.batteryStatus.pack1Temp = carData.batteryStatus.pack1Temp;
+  tmp.batteryStatus.pack2Temp = carData.batteryStatus.pack2Temp;
 
   // update sensor data
-  dashData.sensors.wheelSpeedFR = fcbData.sensors.wheelSpeedFR;
-  dashData.sensors.wheelSpeedFR = fcbData.sensors.wheelSpeedFL;
-  dashData.sensors.wheelSpeedFR = fcbData.sensors.wheelSpeedBR;
-  dashData.sensors.wheelSpeedFR = fcbData.sensors.wheelSpeedBL;
-  dashData.sensors.wheelSpeedFR = fcbData.sensors.wheelSpeedFR;
-  dashData.sensors.wheelSpeedFR = fcbData.sensors.wheelSpeedFL;
-  dashData.sensors.wheelSpeedFR = fcbData.sensors.wheelSpeedBR;
-  dashData.sensors.wheelSpeedFR = fcbData.sensors.wheelSpeedBL;
+  tmp.sensors.wheelSpeedFR = carData.sensors.wheelSpeedFR;
+  tmp.sensors.wheelSpeedFR = carData.sensors.wheelSpeedFR;
+  tmp.sensors.wheelSpeedFR = carData.sensors.wheelSpeedFR;
+  tmp.sensors.wheelSpeedFR = carData.sensors.wheelSpeedFR;
 
-  // re-enable interrupts
-  portEXIT_CRITICAL_ISR(&timerMux);
-}
+  tmp.sensors.wheelSpeedFR = carData.sensors.wheelSpeedFR;
+  tmp.sensors.wheelSpeedFR = carData.sensors.wheelSpeedFR;
+  tmp.sensors.wheelSpeedFR = carData.sensors.wheelSpeedFR;
+  tmp.sensors.wheelSpeedFR = carData.sensors.wheelSpeedFR;
 
+  // send message
+  esp_err_t result = esp_now_send(fcbAddress, (uint8_t *) &tmp, sizeof(tmp));
 
-/**
- * @brief button interrupt for the ready to drive button
- * 
- */
-void ReadyToDriveButtonInterrupt()
-{
-  // re-enable interrupts
-  portENTER_CRITICAL_ISR(&timerMux);
-
-  // update ready to drive status
-  dashData.drivingData.readyToDrive = true;
-
-  // update buzzer status
-  dashData.outputs.buzzerActive = true;
-
-  // re-enable interrupts
-  portEXIT_CRITICAL_ISR(&timerMux);
-}
-
-
-/**
- * @brief button interrupt for changing the drive mode of the car 
- * 
- */
-void DriveModeButtonInterrupt()
-{
-  // re-enable interrupts
-  portENTER_CRITICAL_ISR(&timerMux);
-
-  int mode = dashData.drivingData.driveMode;
-
-  // increment mode
-  mode += 10;
-
-  // make sure we aren't out of bounds
-  if (mode > 20)
-  {
-    mode = 0;     // loop back around to start
+  // debugging 
+  if (debugger.debugEnabled) {
+    debugger.FCB_updateResult = result;
+    debugger.fcbTaskCount++;
   }
 
-  dashData.drivingData.driveMode = (DriveModes)mode;
-
-  // re-enable interrupts
-  portEXIT_CRITICAL_ISR(&timerMux);
+  // end task
+  vTaskDelete(NULL);
 }
 
 
 /**
- * @brief button interrupt for changing the mode of the LCD
+ * @brief updates the display 
  * 
+ * @param pvParameters parameters passed to task
  */
-void LCDButtonInterrupt()
+void UpdateDisplayTask(void* pvParameters)
 {
-  // re-enable interrupts
-  portENTER_CRITICAL_ISR(&timerMux);
+  // TODO: update the display
 
-  int mode = lcdMode;
-
-  // increment mode
-  mode += 10;
-
-  // make sure we aren't out of bounds
-  if (mode > 20)
-  {
-    mode = 0;       // loop back around to start
+  // debugging
+  if (debugger.debugEnabled) {
+    debugger.displayTaskCount++;
   }
 
-  lcdMode = (LCDMode)mode;
-
-  // re-enable interrupts
-  portEXIT_CRITICAL_ISR(&timerMux);
+  // end task
+  vTaskDelete(NULL);
 }
 
 
-/**
- * @brief update the current screen that the LCD is showing
- * also detect if there was a change and clear it 
- * 
- */
-void UpdateLCD()
-{
-  // check to see if the display mode has changed
-  if (lcdMode != previousLcdMode) {
-    // lcd.clear();
-  }
-
-  // update the values on the display
-  switch (lcdMode)
-  {
-    case RACE_MODE:
-    previousLcdMode = lcdMode;
-    DisplayRaceMode();
-    break;
-
-    case ELECTRICAL_MODE:
-    previousLcdMode = lcdMode;
-    DisplayElectricalMode();
-    break;
-
-    case MECHANICAL_MODE:
-    previousLcdMode = lcdMode;
-    DisplayMechanicalMode();
-    break;
-
-    default:
-    lcdMode = RACE_MODE;
-    break;
-  }
-}
-
-
-/**
- * @brief content to be displayed during the boot sequence
- * 
- */
-void AfterInitLCD()
-{
-  display.fillScreen(random(0xFFFF));
-  display.setCursor(0, 0);
-  display.setTextColor(TFT_WHITE, TFT_BLACK);
-  display.setTextSize(2);
-  display.print("Welcome AERO Driver");
-}
-
-
-/**
- * @brief LCD display setup for when the car is being driven
- * 
- */
-void DisplayRaceMode()
-{
-
-}
+/*
+===============================================================================================
+                                    Main Loop
+===============================================================================================
+*/
 
 
 /**
  * @brief 
  * 
  */
-void DisplayElectricalMode()
+void loop()
 {
+  // everything is managed by RTOS, so nothing really happens here!
+  vTaskDelay(1);    // prevent watchdog from getting upset
 
+  // debugging
+  if (debugger.debugEnabled) {
+    PrintDebug();
+  }
 }
+
+
+/* 
+===============================================================================================
+                                    DEBUG FUNCTIONS
+================================================================================================
+*/
 
 
 /**
  * @brief 
  * 
  */
-void DisplayMechanicalMode()
-{
+void PrintDisplayDebug() {
+  Serial.printf("\n--- START DISPLAY DEBUG ---\n");
 
+  // TODO: add debug features
+
+  Serial.printf("\n--- END DISPLAY DEBUG ---\n");
+}
+
+
+/**
+ * @brief some nice in-depth debugging for WCB updates
+ * 
+ */
+void PrintFCBDebug() {
+  Serial.printf("\n--- START WCB DEBUG ---\n");
+
+  // send status
+  Serial.printf("WCB ESP-NOW Update: %s\n", debugger.FCB_updateResult ? "Success" : "Failed");
+
+
+  // message
+  // TODO: decide what to put here
+
+  Serial.printf("\n--- END WCB DEBUG ---\n");
+}
+
+
+/**
+ * @brief some nice in-depth debugging for I/O
+ * 
+ */
+void PrintIODebug() {
+  Serial.printf("\n--- START I/O DEBUG ---\n");
+
+  // 
+
+  Serial.printf("\n--- END I/O DEBUG ---\n");
+}
+
+
+/**
+ * @brief manages toggle-able debug settings
+ * 
+ */
+void PrintDebug() {
+  // CAN
+  if (debugger.display_debugEnabled) {
+      PrintDisplayDebug();
+  }
+
+  // WCB
+  if (debugger.FCB_debugEnabled) {
+    PrintFCBDebug();
+  }
+
+  // I/O
+  if (debugger.IO_debugEnabled) {
+    PrintIODebug();
+  }
+
+  // Scheduler
+  if (debugger.scheduler_debugEnable) {
+    Serial.printf("sensor: %d | display: %d | wfcb: %d\n", debugger.sensorTaskCount, debugger.displayTaskCount, debugger.fcbTaskCount);
+  }
 }

@@ -166,7 +166,8 @@ long MapValue(long x, long in_min, long in_max, long out_min, long out_max);
 // *** setup *** //
 void setup()
 {
-  // --- initialize serial --- //
+  // -------------------------- initialize serial connection ------------------------ //
+
   Serial.begin(9600);
   Serial.printf("\n\n|--- STARTING SETUP ---|\n\n");
 
@@ -179,7 +180,8 @@ void setup()
   };
   setup setup;
 
-  // --- initialize I/O --- //
+  // -------------------------- initialize GPIO ------------------------------------- //
+
   // inputs / sensors // 
   gpio_config_t sensor_config = {
     .pin_bit_mask = GPIO_INPUT_PIN_SELECT,
@@ -218,7 +220,8 @@ void setup()
   // -------------------------------------------------------------------------- //
 
 
-  // --- initalize CAN --- //  
+  // --------------------- initialize CAN Connection -------------------------- //
+ 
   if (CAN0.begin(MCP_ANY, CAN_500KBPS, MCP_16MHZ) == CAN_OK) {
     Serial.printf("CAN INIT [ SUCCESS ]\n");
 
@@ -239,7 +242,7 @@ void setup()
   // --------------------------------------------------------------------------- //
 
 
-  // --- initialize ESP-NOW ---//
+  // -------------------------- initialize ESP-NOW  ---------------------------- //
   // turn on wifi access point 
   if (esp_netif_init() == ESP_OK) {
     Serial.printf("TCP/IP INIT: [ SUCCESS ]\n");
@@ -287,10 +290,10 @@ void setup()
 
   // attach message received ISR to the data received function
   esp_now_register_recv_cb(WCBDataReceived);
-  // ------------------------------------------------------------------- //
+  // ------------------------------------------------------------------------ //
 
 
-  // --- initialize ARDAN ---//
+  // ------------------- initialize ARDAN Connection ------------------------ //
   if (LoRa.begin(915E6)) {         // 915E6 is for use in North America 
     Serial.printf("ARDAN INIT [SUCCESSS ]\n");
 
@@ -305,10 +308,10 @@ void setup()
   else { 
     Serial.printf("ARDAN INIT [ FAILED ]\n");
   }
-  // -------------------------------------------------------------------------------------------- //
+  // ------------------------------------------------------------------------- //
 
 
-  // --- initialize timer interrupts --- //
+  // ---------------------- initialize timer interrupts ---------------------- //
   // timer 1 - Read Sensors 
   const esp_timer_create_args_t timer1_args = {
     .callback = &SensorCallback,
@@ -362,7 +365,7 @@ void setup()
   // ----------------------------------------------------------------------------------------- //
 
 
-  // --- End Setup Section in Serial Monitor --- //
+  // ------------------- End Setup Section in Serial Monitor --------------------------------- //
   if (xTaskGetSchedulerState() == 2) {
     Serial.printf("\nScheduler Status: RUNNING");
   }
@@ -655,13 +658,12 @@ void UpdateWCBTask(void* pvParameters)
  */
 void UpdateARDANTask(void* pvParameters)
 {
-  #if !TESTING
   // send LoRa update
   LoRa.beginPacket();
   LoRa.write((uint8_t *) &carData, sizeof(carData));
   LoRa.endPacket();
-  #endif
 
+  // debugging
   if (debugger.debugEnabled) {
     debugger.ardanTaskCount++;
   }
@@ -684,7 +686,7 @@ void UpdateARDANTask(void* pvParameters)
  */
 void loop()
 {
-  // everything is on timers so nothing happens here! 
+  // everything is managed by RTOS, so nothing really happens here!
   vTaskDelay(1);    // prevent watchdog from getting upset
 
   // debugging
@@ -761,12 +763,11 @@ long MapValue(long x, long in_min, long in_max, long out_min, long out_max) {
 }
 
 
-/* ================================================================================================
- * 
- * DEBUG FUNCTIONS
- * 
- * ================================================================================================
- */
+/* 
+===============================================================================================
+                                    DEBUG FUNCTIONS
+================================================================================================
+*/
 
 
 /**

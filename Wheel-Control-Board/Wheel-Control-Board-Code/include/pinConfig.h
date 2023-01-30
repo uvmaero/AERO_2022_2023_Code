@@ -1,6 +1,6 @@
 /**
  * @file pinConfig.h
- * @author dominic gasperini 
+ * @author Dominic Gasperini 
  * @brief this file holds the pin layout for the board I/O
  * @version 0.1
  * @date 2022-07-27
@@ -63,7 +63,3 @@ uint8_t deviceAddress[] = {0x1a, 0x1a, 0x1a, 0x1a, 0x1a, 0x1a};
 #define CAN_MESSAGE_INTERRUPT_PIN           15             
 
 // Outputs
-#define BUZZER_PIN                          12
-#define ARDAN_SS_PIN                        10
-#define ARDAN_RST_PIN                       11
-#define ARDAN_DIO_PIN                       14

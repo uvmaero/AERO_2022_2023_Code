@@ -1,6 +1,6 @@
 /**
  * @file debugger.h
- * @author your name (you@domain.com)
+ * @author Dominic Gasperini
  * @brief 
  * @version 0.1
  * @date 2023-01-29
@@ -17,7 +17,7 @@
 // Debug information
 typedef struct Debugger
 {
-  // debug toggle
+  // debug toggles
   bool debugEnabled;
   bool display_debugEnabled;
   bool FCB_debugEnabled;

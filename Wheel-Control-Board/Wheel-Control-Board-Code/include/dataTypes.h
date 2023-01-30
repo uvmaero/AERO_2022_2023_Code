@@ -1,6 +1,6 @@
 /**
  * @file dataTypes.h
- * @author your name (you@domain.com)
+ * @author Dominic Gasperini
  * @brief 
  * @version 0.1
  * @date 2023-01-29
@@ -85,3 +85,12 @@ typedef struct CarData
   } outputs;
 
 } CarData;
+
+
+/**
+ * @brief 
+ * 
+ */
+typedef struct WheelData {
+
+} WheelData;

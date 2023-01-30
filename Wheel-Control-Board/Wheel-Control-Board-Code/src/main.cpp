@@ -42,7 +42,7 @@
 
 // tasks & timers
 #define SENSOR_POLL_INTERVAL            100000      // 0.1 seconds in microseconds
-#define DISPLAY_UPDATE_INTERVAL           250000      // 0.25 seconds in microseconds
+#define DISPLAY_UPDATE_INTERVAL         250000      // 0.25 seconds in microseconds
 #define FCB_UPDATE_INTERVAL             200000      // 0.2 seconds in microseconds
 #define TASK_STACK_SIZE                 3500        // in bytes
 
@@ -467,6 +467,25 @@ void ReadSensorsTask(void* pvParameters)
 
 
 /**
+ * @brief updates the display 
+ * 
+ * @param pvParameters parameters passed to task
+ */
+void UpdateDisplayTask(void* pvParameters)
+{
+  // TODO: update the display
+
+  // debugging
+  if (debugger.debugEnabled) {
+    debugger.displayTaskCount++;
+  }
+
+  // end task
+  vTaskDelete(NULL);
+}
+
+
+/**
  * @brief updates FCB with car data
  * 
  * @param pvParameters parameters passed to task
@@ -506,25 +525,6 @@ void UpdateFCBTask(void* pvParameters)
 }
 
 
-/**
- * @brief updates the display 
- * 
- * @param pvParameters parameters passed to task
- */
-void UpdateDisplayTask(void* pvParameters)
-{
-  // TODO: update the display
-
-  // debugging
-  if (debugger.debugEnabled) {
-    debugger.displayTaskCount++;
-  }
-
-  // end task
-  vTaskDelete(NULL);
-}
-
-
 /*
 ===============================================================================================
                                     Main Loop
@@ -533,7 +533,7 @@ void UpdateDisplayTask(void* pvParameters)
 
 
 /**
- * @brief 
+ * @brief main loop!
  * 
  */
 void loop()
@@ -556,7 +556,7 @@ void loop()
 
 
 /**
- * @brief 
+ * @brief a nice interface for debugging display data
  * 
  */
 void PrintDisplayDebug() {
@@ -569,7 +569,7 @@ void PrintDisplayDebug() {
 
 
 /**
- * @brief some nice in-depth debugging for WCB updates
+ * @brief some nice in-depth debugging for FCB updates
  * 
  */
 void PrintFCBDebug() {

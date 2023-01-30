@@ -33,6 +33,7 @@ esp_pm_config_esp32_t power_configuration {
 ===========================================================
 */
 
+
 uint8_t wcbAddress[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
 uint8_t deviceAddress[] = {0x1a, 0x1a, 0x1a, 0x1a, 0x1a, 0x1a};
 

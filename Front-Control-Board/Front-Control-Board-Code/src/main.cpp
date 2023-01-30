@@ -10,6 +10,9 @@
 #include <stdio.h>
 #include "esp_now.h"
 #include "esp_err.h"
+#include "esp_pm.h"
+#include "rtc.h"
+#include "rtc_clk_common.h"
 #include <esp_timer.h>
 #include <esp_wifi.h>
 #include "esp_netif.h"
@@ -166,11 +169,14 @@ long MapValue(long x, long in_min, long in_max, long out_min, long out_max);
 // *** setup *** //
 void setup()
 {
-  // -------------------------- initialize serial connection ------------------------ //
+  // set power configuration
+  esp_pm_configure(&power_configuration);
 
+  // -------------------------- initialize serial connection ------------------------ //
   Serial.begin(9600);
   Serial.printf("\n\n|--- STARTING SETUP ---|\n\n");
 
+  // setup managment struct
   struct setup
   {
     bool ioActive = false;
@@ -268,6 +274,7 @@ void setup()
   // init ESP-NOW service
   if (esp_now_init() == ESP_OK) {
     Serial.printf("ESP-NOW INIT [ SUCCESS ]\n");
+
   }
   else {
     Serial.printf("ESP-NOW INIT [ FAILED ]\n");
@@ -367,7 +374,12 @@ void setup()
 
   // ------------------- End Setup Section in Serial Monitor --------------------------------- //
   if (xTaskGetSchedulerState() == 2) {
-    Serial.printf("\nScheduler Status: RUNNING");
+    Serial.printf("\nScheduler Status: RUNNING\n");
+
+    // clock frequency
+    rtc_cpu_freq_config_t conf;
+    rtc_clk_cpu_freq_get_config(&conf);
+    Serial.printf("CPU Frequency: %dMHz\n", conf.freq_mhz);
   }
   else {
     Serial.printf("\nScheduler STATUS: FAILED\nHALTING OPERATIONS");
@@ -407,6 +419,7 @@ void CANCallback(void* args) {
   TaskHandle_t xHandle = NULL;
   xTaskCreate(UpdateCANTask, "CAN-Update", TASK_STACK_SIZE, &ucParameterToPass, tskIDLE_PRIORITY, &xHandle);
 }
+
 
 /**
  * @brief callback function for creating a new ARDAN Update task

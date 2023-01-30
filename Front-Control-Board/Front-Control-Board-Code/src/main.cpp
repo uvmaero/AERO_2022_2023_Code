@@ -529,7 +529,6 @@ void ReadSensorsTask(void* pvParameters)
 
   // get pedal positions
   float tmpPedal0 = adc1_get_raw(ADC1_GPIO32_CHANNEL);
-  carData.drivingData.bmsFault = true;
   carData.inputs.pedal0 = MapValue(tmpPedal0, 0, 1024, 0, 255);   // starting min and max values must be found via testing!!!
 
   float tmpPedal1 = adc1_get_raw(PEDAL_1_PIN);

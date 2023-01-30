@@ -147,6 +147,19 @@ CarData carData = {
 };
 
 
+WheelData wheelData {
+  // LCD
+  .lcd = {
+
+  },
+
+  // Outputs
+  .outputs = {
+    .fcbConnected = false,
+  },
+};
+
+
 // ESP-Now Connection
 esp_now_peer_info fcbInfo;
 
@@ -170,6 +183,9 @@ void UpdateFCBTask(void* pvParameters);
 
 // ISRs
 void FCBDataReceived(const uint8_t* mac, const uint8_t* incomingData, int length);
+
+// helpers
+long MapValue(long x, long in_min, long in_max, long out_min, long out_max);
 
 
 /*
@@ -409,7 +425,7 @@ void FCBCallback(void* args) {
 /**
  * @brief a callback function for when data is received from FCB
  * 
- * @param mac             the address of the WCB
+ * @param mac             the address of the FCB
  * @param incomingData    the structure of incoming data
  * @param length          size of the incoming data
  */
@@ -450,8 +466,15 @@ void ReadSensorsTask(void* pvParameters)
   // turn off wifi for ADC channel 2 to function
   esp_wifi_stop();
 
-  // TODO: read sensors
-  
+  // read regen knobs
+  float coastRegenTmp = adc1_get_raw(COAST_REGEN_KNOB);
+  carData.inputs.coastRegen = MapValue(coastRegenTmp, 0, 1024, 0, 255);    // get values through testing
+  float brakeRegenTmp = adc1_get_raw(BRAKE_REGEN_KNOB);
+  carData.inputs.brakeRegen = MapValue(brakeRegenTmp, 0, 1024, 0, 255);    // get values through testing
+
+  // update FCB connection status LED
+  gpio_set_level((gpio_num_t)FCB_CONNECTION_STATUS_LED, wheelData.outputs.fcbConnected);
+
   // debugging
   if (debugger.debugEnabled) {
     debugger.IO_data = carData;
@@ -494,9 +517,16 @@ void UpdateFCBTask(void* pvParameters)
 {
   // TODO: update car data struct with wheel information
 
-
   // send message
   esp_err_t result = esp_now_send(fcbAddress, (uint8_t *) &carData, sizeof(carData));
+
+  // update connection status
+  if (result == ESP_OK) {
+    wheelData.outputs.fcbConnected = true;
+  }
+  else {
+    wheelData.outputs.fcbConnected = false;
+  }
 
   // debugging 
   if (debugger.debugEnabled) {
@@ -529,6 +559,21 @@ void loop()
   if (debugger.debugEnabled) {
     PrintDebug();
   }
+}
+
+
+/**
+ * @brief scale a value inside a range of values to a new range of values
+ * 
+ * @param x             input value to be re-mapped
+ * @param in_min        input value min of range
+ * @param in_max        input value max of range
+ * @param out_min       output value min of range
+ * @param out_max       output value max of range
+ * @return              the remapped value
+ */
+long MapValue(long x, long in_min, long in_max, long out_min, long out_max) {
+  return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
 }
 
 

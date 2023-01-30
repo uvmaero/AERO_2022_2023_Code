@@ -92,5 +92,12 @@ typedef struct CarData
  * 
  */
 typedef struct WheelData {
+  struct LCD {
+
+  } lcd;
+
+  struct Outputs {
+    bool fcbConnected;
+  } outputs;
 
 } WheelData;

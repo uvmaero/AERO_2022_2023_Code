@@ -418,10 +418,10 @@ void FCBDataReceived(const uint8_t* mac, const uint8_t* incomingData, int length
   // inits
   CarData tmp;
 
-  // copy data to the wcbData struct 
+  // copy data to the fcbData struct 
   memcpy(&tmp, incomingData, sizeof(tmp));
 
-  // get updated WCB data
+  // get updated FCB data
   carData.drivingData.driveDirection = tmp.drivingData.driveDirection;
   carData.drivingData.driveMode = tmp.drivingData.driveMode;
   carData.inputs.coastRegen = tmp.inputs.coastRegen;
@@ -458,7 +458,7 @@ void ReadSensorsTask(void* pvParameters)
     debugger.sensorTaskCount++;
   }
 
-  // turn wifi back on to re-enable esp-now connection to wheel board
+  // turn wifi back on to re-enable esp-now connection to front board
   esp_wifi_start();
 
   // end task
@@ -492,27 +492,11 @@ void UpdateDisplayTask(void* pvParameters)
  */
 void UpdateFCBTask(void* pvParameters)
 {
-  // inits
-  CarData tmp;
+  // TODO: update car data struct with wheel information
 
-  // update battery & electrical data
-  tmp.batteryStatus.batteryChargeState = carData.batteryStatus.batteryChargeState;
-  tmp.batteryStatus.pack1Temp = carData.batteryStatus.pack1Temp;
-  tmp.batteryStatus.pack2Temp = carData.batteryStatus.pack2Temp;
-
-  // update sensor data
-  tmp.sensors.wheelSpeedFR = carData.sensors.wheelSpeedFR;
-  tmp.sensors.wheelSpeedFR = carData.sensors.wheelSpeedFR;
-  tmp.sensors.wheelSpeedFR = carData.sensors.wheelSpeedFR;
-  tmp.sensors.wheelSpeedFR = carData.sensors.wheelSpeedFR;
-
-  tmp.sensors.wheelSpeedFR = carData.sensors.wheelSpeedFR;
-  tmp.sensors.wheelSpeedFR = carData.sensors.wheelSpeedFR;
-  tmp.sensors.wheelSpeedFR = carData.sensors.wheelSpeedFR;
-  tmp.sensors.wheelSpeedFR = carData.sensors.wheelSpeedFR;
 
   // send message
-  esp_err_t result = esp_now_send(fcbAddress, (uint8_t *) &tmp, sizeof(tmp));
+  esp_err_t result = esp_now_send(fcbAddress, (uint8_t *) &carData, sizeof(carData));
 
   // debugging 
   if (debugger.debugEnabled) {

@@ -6,7 +6,11 @@
  * @date 2023-01-27
  */
 
-// *** includes *** // 
+/*
+===============================================================================================
+                                    Includes 
+===============================================================================================
+*/
 #include <stdio.h>
 #include "esp_now.h"
 #include "esp_err.h"
@@ -18,15 +22,19 @@
 #include "esp_netif.h"
 #include "driver/adc.h"
 #include "esp_adc_cal.h"
+
+// custom includes
 #include <mcp_can.h>
 #include <LoRa.h>
-
 #include "debugger.h"
 #include "pinConfig.h"
 
 
-
-// *** defines *** // 
+/*
+===============================================================================================
+                                    Definitions
+===============================================================================================
+*/
 // GPIO
 #define GPIO_INPUT_PIN_SELECT           1       
 
@@ -49,9 +57,17 @@
 #define ENABLE_DEBUG                    false       // master debug message control
 
 
-// *** global variables *** //
+/*
+===============================================================================================
+                                  Global Variables
+===============================================================================================
+*/
 
-// debug information
+
+/**
+ * @brief debugger structure used for organizing debug information
+ * 
+ */
 Debugger debugger = {
   // debug toggle
   .debugEnabled = ENABLE_DEBUG,
@@ -76,6 +92,11 @@ Debugger debugger = {
   .wcbTaskCount = 0,
 };
 
+
+/**
+ * @brief the dataframe that describes the entire state of the car
+ * 
+ */
 CarData carData = {
   // driving data
   .drivingData = {
@@ -145,7 +166,13 @@ esp_now_peer_info wcbInfo;
 MCP_CAN CAN0(10);       // set CS pin to 10
 
 
-// *** function declarations *** //
+/*
+===============================================================================================
+                                    Function Declarations 
+===============================================================================================
+*/
+
+
 // callbacks
 void SensorCallback(void* args);
 void CANCallback(void* args);
@@ -166,7 +193,13 @@ void GetCommandedTorque();
 long MapValue(long x, long in_min, long in_max, long out_min, long out_max);
 
 
-// *** setup *** //
+/*
+===============================================================================================
+                                            Setup 
+===============================================================================================
+*/
+
+
 void setup()
 {
   // set power configuration

@@ -40,7 +40,9 @@
 #define GPIO_INPUT_PIN_SELECT           1       
 
 // definitions
-#define BRAKE_LIGHT_THRESHOLD           10
+#define TIRE_DIAMETER                   20.0        // diameter of the vehicle's tires in inches
+#define WHEEL_RPM_CALC_THRESHOLD        100         // the number of times the hall effect sensor is tripped before calculating vehicle speed
+#define BRAKE_LIGHT_THRESHOLD           10          // 
 #define PEDAL_DEADBAND                  10
 #define PEDAL_MIN                       128
 #define PEDAL_MAX                       600
@@ -124,14 +126,24 @@ CarData carData = {
 
   // Sensors
   .sensors = {
-    .wheelSpeedFR = 0,
-    .wheelSpeedFL = 0,
-    .wheelSpeedBR = 0,
-    .wheelSpeedBL = 0,
-    .wheelHeightFR = 0,
-    .wheelHeightFL = 0,
-    .wheelHeightBR = 0,
-    .wheelHeightBL = 0,
+    .rpmCounterFR = 0,
+    .rpmCounterFL = 0,
+    .rpmCounterBR = 0,
+    .rpmCounterBL = 0,
+    .rpmTimeFR = 0,
+    .rpmTimeFL = 0,
+    .rpmTimeBR = 0,
+    .rpmTimeBL = 0,
+
+    .wheelSpeedFR = 0.0f,
+    .wheelSpeedFL = 0.0f,
+    .wheelSpeedBR = 0.0f,
+    .wheelSpeedBL = 0.0f,
+
+    .wheelHeightFR = 0.0f,
+    .wheelHeightFL = 0.0f,
+    .wheelHeightBR = 0.0f,
+    .wheelHeightBL = 0.0f,
 
     .steeringWheelAngle = 0,
   },
@@ -225,14 +237,24 @@ void setup()
   // -------------------------- initialize GPIO ------------------------------------- //
 
   // inputs / sensors // 
-  gpio_config_t sensor_config = {
-    .pin_bit_mask = GPIO_INPUT_PIN_SELECT,
-    .mode = GPIO_MODE_INPUT,
-    .pull_up_en = GPIO_PULLUP_DISABLE,
-    .pull_down_en = GPIO_PULLDOWN_DISABLE,
-    .intr_type = GPIO_INTR_DISABLE
-  };
-  ESP_ERROR_CHECK(gpio_config(&sensor_config));
+  // gpio_config_t sensor_config = {
+  //   .pin_bit_mask = GPIO_INPUT_PIN_SELECT,
+  //   .mode = GPIO_MODE_INPUT,
+  //   .pull_up_en = GPIO_PULLUP_DISABLE,
+  //   .pull_down_en = GPIO_PULLDOWN_DISABLE,
+  //   .intr_type = GPIO_INTR_HIGH_LEVEL,
+  // };
+  // ESP_ERROR_CHECK(gpio_config(&sensor_config));
+
+  // setup front right wheel speed sensor
+  gpio_set_direction((gpio_num_t)WHEEL_HEIGHT_FR_SENSOR, GPIO_MODE_INPUT);
+  gpio_set_intr_type((gpio_num_t)WHEEL_HEIGHT_FR_SENSOR, GPIO_INTR_HIGH_LEVEL);
+  gpio_isr_handler_add((gpio_num_t)WHEEL_HEIGHT_FR_SENSOR, FRWheelSensorCallback, (void*) (gpio_num_t)WHEEL_HEIGHT_FR_SENSOR);
+  
+  // setup front left wheel speed sensor
+  gpio_set_direction((gpio_num_t)WHEEL_HEIGHT_FL_SENSOR, GPIO_MODE_INPUT);
+  gpio_set_intr_type((gpio_num_t)WHEEL_HEIGHT_FL_SENSOR, GPIO_INTR_HIGH_LEVEL);
+  gpio_isr_handler_add((gpio_num_t)WHEEL_HEIGHT_FL_SENSOR, FLWheelSensorCallback, (void*) (gpio_num_t)WHEEL_HEIGHT_FL_SENSOR);
 
   // setup adc 1
   ESP_ERROR_CHECK(adc1_config_width(ADC_WIDTH_BIT_12));
@@ -507,6 +529,56 @@ void WCBDataReceived(const uint8_t* mac, const uint8_t* incomingData, int length
   carData.inputs.brakeRegen = tmp.inputs.brakeRegen;
   carData.outputs.buzzerActive = tmp.outputs.buzzerActive;
   carData.drivingData.readyToDrive = tmp.drivingData.readyToDrive;
+
+  return;
+}
+
+
+/**
+ * @brief callback function for when the hall effect sensor fires on front right wheel
+ * 
+ * @param args 
+ */
+void FRWheelSensorCallback(void* args) {
+  // increment pass counter
+  carData.sensors.rpmCounterFR++;
+
+  // calculate wheel rpm
+  if (carData.sensors.rpmCounterFR > WHEEL_RPM_CALC_THRESHOLD) {
+    // get time difference
+    int64_t timeDiff = esp_timer_get_time() - (int64_t)carData.sensors.rpmTimeFR;
+
+    // get rpm
+    carData.sensors.wheelSpeedFR = (carData.sensors.rpmCounterFR / timeDiff) * 60.0;
+
+    // update time keeping
+    carData.sensors.rpmTimeFR = esp_timer_get_time();
+  }
+
+  return;
+}
+
+
+/**
+ * @brief callback function for when the hall effect sensor fires on front left wheel
+ * 
+ * @param args 
+ */
+void FLWheelSensorCallback(void* args) {
+  // increment pass counter
+  carData.sensors.rpmCounterFL++;
+
+  // calculate wheel rpm
+  if (carData.sensors.rpmCounterFL > WHEEL_RPM_CALC_THRESHOLD) {
+    // get time difference
+    int64_t timeDiff = esp_timer_get_time() - (int64_t)carData.sensors.rpmTimeFL;
+
+    // get rpm
+    carData.sensors.wheelSpeedFL = (carData.sensors.rpmCounterFL / timeDiff) * 60.0;
+
+    // update time keeping
+    carData.sensors.rpmTimeFL = esp_timer_get_time();
+  }
 
   return;
 }

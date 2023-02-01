@@ -24,7 +24,9 @@
 #include "driver/adc.h"
 #include "esp_adc_cal.h"
 
+
 // custom includes
+#include "displayDriver.h"
 #include "debugger.h"
 #include "pinConfig.h"
 
@@ -164,6 +166,11 @@ WheelData wheelData {
 esp_now_peer_info fcbInfo;
 
 
+// Display Information
+TFT_eSPI    tft = TFT_eSPI();         // Create object "tft"
+TFT_eSprite img = TFT_eSprite(&tft);  // Create Sprite object "img" with pointer to "tft" object
+
+
 /*
 ===============================================================================================
                                     Function Declarations 
@@ -255,10 +262,15 @@ void setup()
 
   // -------------------------- initialize Display  ---------------------------- //
 
+  // inits and general setup
+  tft.init();
+  tft.setRotation(0);
+
+  // show boot screen
+  Display_BootScreen(INIT_DISPLAY);
 
 
-
-
+  setup.displayActive = true;
   // --------------------------------------------------------------------------- //
 
 

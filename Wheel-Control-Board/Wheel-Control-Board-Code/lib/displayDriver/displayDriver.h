@@ -1,7 +1,7 @@
 /**
  * @file displayDriver.h
- * @author your name (you@domain.com)
- * @brief 
+ * @author Dominic Gasperini
+ * @brief this is a custom library designed to interface with a display via the TFT_eSPI library 
  * @version 0.1
  * @date 2023-02-01
  * 

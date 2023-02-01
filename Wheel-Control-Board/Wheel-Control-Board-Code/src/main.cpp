@@ -220,6 +220,21 @@ void setup()
   };
   setup setup;
 
+
+  // -------------------------- initialize Display  ---------------------------- //
+
+  // inits and general setup
+  tft.init();
+  tft.setRotation(0);
+
+  // show boot screen
+  Display_BootScreen(INIT_DISPLAY);
+
+
+  setup.displayActive = true;
+  // --------------------------------------------------------------------------- //
+
+
   // -------------------------- initialize GPIO ------------------------------------- //
 
   // inputs / sensors // 
@@ -256,21 +271,9 @@ void setup()
 
   // outputs //
 
+
+  Display_BootScreen(INIT_SENSORS);
   setup.ioActive = true;
-  // --------------------------------------------------------------------------- //
-
-
-  // -------------------------- initialize Display  ---------------------------- //
-
-  // inits and general setup
-  tft.init();
-  tft.setRotation(0);
-
-  // show boot screen
-  Display_BootScreen(INIT_DISPLAY);
-
-
-  setup.displayActive = true;
   // --------------------------------------------------------------------------- //
 
 
@@ -319,6 +322,7 @@ void setup()
   if (esp_now_add_peer(&fcbInfo) == ESP_OK) {
     Serial.printf("ESP-NOW CONNECTION [ SUCCESS ]\n");
 
+    Display_BootScreen(INIT_ESP_NOW);
     setup.fcbActive = true;
   }
   else {

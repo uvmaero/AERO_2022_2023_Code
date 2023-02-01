@@ -63,6 +63,7 @@ uint8_t deviceAddress[] = {0x1a, 0x1a, 0x1a, 0x1a, 0x1a, 0x1a};
 #define CAN_MESSAGE_INTERRUPT_PIN           15             
 
 // Outputs
+#define WCB_CONNECTION_LED                  19
 #define BUZZER_PIN                          12
 #define ARDAN_SS_PIN                        10
 #define ARDAN_RST_PIN                       11

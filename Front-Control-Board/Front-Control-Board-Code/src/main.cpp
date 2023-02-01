@@ -179,6 +179,8 @@ void SensorCallback(void* args);
 void CANCallback(void* args);
 void ARDANCallback(void* args);
 void WCBCallback(void* args);
+void FRWheelSensorCallback(void* args);
+void FLWheelSensorCallback(void* args);
 
 // tasks
 void ReadSensorsTask(void* pvParameters);
@@ -851,7 +853,8 @@ void PrintWCBDebug() {
 
 
   // message
-  // TODO: decide what to put here
+  Serial.printf("ready to drive status: %d\n", debugger.WCB_updateMessage.drivingData.readyToDrive);
+  
 
   Serial.printf("\n--- END WCB DEBUG ---\n");
 }

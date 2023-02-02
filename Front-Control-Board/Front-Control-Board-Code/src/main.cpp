@@ -40,25 +40,25 @@
 #define GPIO_INPUT_PIN_SELECT           1       
 
 // definitions
-#define TIRE_DIAMETER                   20.0                      // diameter of the vehicle's tires in inches
-#define WHEEL_RPM_CALC_THRESHOLD        100                       // the number of times the hall effect sensor is tripped before calculating vehicle speed
-#define BRAKE_LIGHT_THRESHOLD           10                        // 
+#define TIRE_DIAMETER                   20.0        // diameter of the vehicle's tires in inches
+#define WHEEL_RPM_CALC_THRESHOLD        100         // the number of times the hall effect sensor is tripped before calculating vehicle speed
+#define BRAKE_LIGHT_THRESHOLD           10          // 
 #define PEDAL_DEADBAND                  10
 #define PEDAL_MIN                       128
 #define PEDAL_MAX                       600
 #define TORQUE_DEADBAND                 5
-#define MAX_TORQUE                      225                       // MAX TORQUE RINEHART CAN ACCEPT, DO NOT EXCEED 230!!!
+#define MAX_TORQUE                      225         // MAX TORQUE RINEHART CAN ACCEPT, DO NOT EXCEED 230!!!
 
 // tasks & timers
-#define SENSOR_POLL_INTERVAL            100000 * TIMER_MULTI      // 0.1 seconds in microseconds
-#define CAN_WRITE_INTERVAL              100000 * TIMER_MULTI      // 0.1 seconds in microseconds
-#define ARDAN_UPDATE_INTERVAL           250000 * TIMER_MULTI      // 0.25 seconds in microseconds
-#define WCB_UPDATE_INTERVAL             200000 * TIMER_MULTI      // 0.2 seconds in microseconds
-#define TASK_STACK_SIZE                 3500                      // in bytes
+#define SENSOR_POLL_INTERVAL            100000      // 0.1 seconds in microseconds
+#define CAN_WRITE_INTERVAL              100000      // 0.1 seconds in microseconds
+#define ARDAN_UPDATE_INTERVAL           250000      // 0.25 seconds in microseconds
+#define WCB_UPDATE_INTERVAL             200000      // 0.2 seconds in microseconds
+#define TASK_STACK_SIZE                 3500        // in bytes
 
 // debug
-#define ENABLE_DEBUG                    true                      // master debug message control
-#define TIMER_MULTI                     5.0                       // timer multiplier
+#define ENABLE_DEBUG                    true        // master debug message control
+#define MAIN_LOOP_DELAY                 1000           // timer multiplier
 
 
 /*
@@ -736,6 +736,7 @@ void UpdateCANTask(void* pvParameters)
  */
 void UpdateWCBTask(void* pvParameters)
 {
+  // FOR TESTING 
   carData.drivingData.readyToDrive = !carData.drivingData.readyToDrive;
 
   // send message
@@ -789,7 +790,7 @@ void UpdateARDANTask(void* pvParameters)
 void loop()
 {
   // everything is managed by RTOS, so nothing really happens here!
-  vTaskDelay(1);    // prevent watchdog from getting upset
+  vTaskDelay(MAIN_LOOP_DELAY);    // prevent watchdog from getting upset
 
   // debugging
   if (debugger.debugEnabled) {

@@ -510,19 +510,8 @@ void WCBCallback(void* args) {
  */
 void WCBDataReceived(const uint8_t* mac, const uint8_t* incomingData, int length)
 {
-  // inits
-  CarData tmp;
-
   // copy data to the wcbData struct 
-  memcpy(&tmp, incomingData, sizeof(tmp));
-
-  // get updated WCB data
-  carData.drivingData.driveDirection = tmp.drivingData.driveDirection;
-  carData.drivingData.driveMode = tmp.drivingData.driveMode;
-  carData.inputs.coastRegen = tmp.inputs.coastRegen;
-  carData.inputs.brakeRegen = tmp.inputs.brakeRegen;
-  carData.outputs.buzzerActive = tmp.outputs.buzzerActive;
-  carData.drivingData.readyToDrive = tmp.drivingData.readyToDrive;
+  memcpy(&carData, incomingData, sizeof(carData));
 
   return;
 }

@@ -40,24 +40,25 @@
 #define GPIO_INPUT_PIN_SELECT           1       
 
 // definitions
-#define TIRE_DIAMETER                   20.0        // diameter of the vehicle's tires in inches
-#define WHEEL_RPM_CALC_THRESHOLD        100         // the number of times the hall effect sensor is tripped before calculating vehicle speed
-#define BRAKE_LIGHT_THRESHOLD           10          // 
+#define TIRE_DIAMETER                   20.0                      // diameter of the vehicle's tires in inches
+#define WHEEL_RPM_CALC_THRESHOLD        100                       // the number of times the hall effect sensor is tripped before calculating vehicle speed
+#define BRAKE_LIGHT_THRESHOLD           10                        // 
 #define PEDAL_DEADBAND                  10
 #define PEDAL_MIN                       128
 #define PEDAL_MAX                       600
 #define TORQUE_DEADBAND                 5
-#define MAX_TORQUE                      225         // MAX TORQUE RINEHART CAN ACCEPT, DO NOT EXCEED 230!!!
+#define MAX_TORQUE                      225                       // MAX TORQUE RINEHART CAN ACCEPT, DO NOT EXCEED 230!!!
 
 // tasks & timers
-#define SENSOR_POLL_INTERVAL            100000      // 0.1 seconds in microseconds
-#define CAN_WRITE_INTERVAL              100000      // 0.1 seconds in microseconds
-#define ARDAN_UPDATE_INTERVAL           250000      // 0.25 seconds in microseconds
-#define WCB_UPDATE_INTERVAL             200000      // 0.2 seconds in microseconds
-#define TASK_STACK_SIZE                 3500        // in bytes
+#define SENSOR_POLL_INTERVAL            100000 * TIMER_MULTI      // 0.1 seconds in microseconds
+#define CAN_WRITE_INTERVAL              100000 * TIMER_MULTI      // 0.1 seconds in microseconds
+#define ARDAN_UPDATE_INTERVAL           250000 * TIMER_MULTI      // 0.25 seconds in microseconds
+#define WCB_UPDATE_INTERVAL             200000 * TIMER_MULTI      // 0.2 seconds in microseconds
+#define TASK_STACK_SIZE                 3500                      // in bytes
 
 // debug
-#define ENABLE_DEBUG                    true       // master debug message control
+#define ENABLE_DEBUG                    true                      // master debug message control
+#define TIMER_MULTI                     5.0                       // timer multiplier
 
 
 /*
@@ -75,9 +76,9 @@ Debugger debugger = {
   // debug toggle
   .debugEnabled = ENABLE_DEBUG,
   .CAN_debugEnabled = false,
-  .WCB_debugEnabled = false,
+  .WCB_debugEnabled = true,
   .IO_debugEnabled = false,
-  .scheduler_debugEnable = true,
+  .scheduler_debugEnable = false,
 
   // debug data
   .CAN_sentStatus = 0,
@@ -735,31 +736,15 @@ void UpdateCANTask(void* pvParameters)
  */
 void UpdateWCBTask(void* pvParameters)
 {
-  // inits
-  CarData tmp;
-
-  // update battery & electrical data
-  tmp.batteryStatus.batteryChargeState = carData.batteryStatus.batteryChargeState;
-  tmp.batteryStatus.pack1Temp = carData.batteryStatus.pack1Temp;
-  tmp.batteryStatus.pack2Temp = carData.batteryStatus.pack2Temp;
-
-  // update sensor data
-  tmp.sensors.wheelSpeedFR = carData.sensors.wheelSpeedFR;
-  tmp.sensors.wheelSpeedFR = carData.sensors.wheelSpeedFR;
-  tmp.sensors.wheelSpeedFR = carData.sensors.wheelSpeedFR;
-  tmp.sensors.wheelSpeedFR = carData.sensors.wheelSpeedFR;
-
-  tmp.sensors.wheelSpeedFR = carData.sensors.wheelSpeedFR;
-  tmp.sensors.wheelSpeedFR = carData.sensors.wheelSpeedFR;
-  tmp.sensors.wheelSpeedFR = carData.sensors.wheelSpeedFR;
-  tmp.sensors.wheelSpeedFR = carData.sensors.wheelSpeedFR;
+  carData.drivingData.readyToDrive = !carData.drivingData.readyToDrive;
 
   // send message
-  esp_err_t result = esp_now_send(wcbAddress, (uint8_t *) &tmp, sizeof(tmp));
+  esp_err_t result = esp_now_send(wcbAddress, (uint8_t *) &carData, sizeof(carData));
 
   // debugging 
   if (debugger.debugEnabled) {
-    // debugger.WCB_updateResult = result;
+    debugger.WCB_updateMessage = carData;
+    debugger.WCB_updateResult = result;
     debugger.wcbTaskCount++;
   }
 

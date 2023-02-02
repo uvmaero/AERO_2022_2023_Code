@@ -41,24 +41,33 @@ typedef struct CarData
   
   struct BatteryStatus
   {
-    uint16_t batteryChargeState;
-    int16_t busVoltage;
-    int16_t rinehartVoltage;
+    float batteryChargeState;
+    float busVoltage;
+    float rinehartVoltage;
     float pack1Temp;
     float pack2Temp;
   } batteryStatus;
 
   struct Sensors
   {
-    uint16_t wheelSpeedFR;
-    uint16_t wheelSpeedFL;
-    uint16_t wheelSpeedBR;
-    uint16_t wheelSpeedBL;
+    uint8_t rpmCounterFR;
+    uint8_t rpmCounterFL;
+    uint8_t rpmCounterBR;
+    uint8_t rpmCounterBL;
+    uint16_t rpmTimeFR;     // the last time in microseconds that the wheel rpm was calculated at
+    uint16_t rpmTimeFL;
+    uint16_t rpmTimeBR;
+    uint16_t rpmTimeBL;
 
-    uint16_t wheelHeightFR;
-    uint16_t wheelHeightFL;
-    uint16_t wheelHeightBR;
-    uint16_t wheelHeightBL;
+    float wheelSpeedFR;
+    float wheelSpeedFL;
+    float wheelSpeedBR;
+    float wheelSpeedBL;
+
+    float wheelHeightFR;
+    float wheelHeightFL;
+    float wheelHeightBR;
+    float wheelHeightBL;
 
     uint16_t steeringWheelAngle;
   } sensors;

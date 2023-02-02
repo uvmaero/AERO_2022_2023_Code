@@ -115,14 +115,24 @@ CarData carData = {
 
   // Sensors
   .sensors = {
-    .wheelSpeedFR = 0,
-    .wheelSpeedFL = 0,
-    .wheelSpeedBR = 0,
-    .wheelSpeedBL = 0,
-    .wheelHeightFR = 0,
-    .wheelHeightFL = 0,
-    .wheelHeightBR = 0,
-    .wheelHeightBL = 0,
+    .rpmCounterFR = 0,
+    .rpmCounterFL = 0,
+    .rpmCounterBR = 0,
+    .rpmCounterBL = 0,
+    .rpmTimeFR = 0,
+    .rpmTimeFL = 0,
+    .rpmTimeBR = 0,
+    .rpmTimeBL = 0,
+
+    .wheelSpeedFR = 0.0f,
+    .wheelSpeedFL = 0.0f,
+    .wheelSpeedBR = 0.0f,
+    .wheelSpeedBL = 0.0f,
+
+    .wheelHeightFR = 0.0f,
+    .wheelHeightFL = 0.0f,
+    .wheelHeightBR = 0.0f,
+    .wheelHeightBL = 0.0f,
 
     .steeringWheelAngle = 0,
   },
@@ -149,23 +159,10 @@ CarData carData = {
   }
 };
 
-
-WheelData wheelData {
-  // LCD
-  .lcd = {
-
-  },
-
-  // Outputs
-  .outputs = {
-    .fcbConnected = false,
-  },
-};
-
-
 // ESP-Now Connection
 esp_now_peer_info fcbInfo;
 
+int counter = 0;
 
 // Display Information
 TFT_eSPI    tft = TFT_eSPI();         // Create object "tft"
@@ -451,6 +448,8 @@ void FCBDataReceived(const uint8_t* mac, const uint8_t* incomingData, int length
   // copy data to the fcbData struct 
   memcpy(&carData, incomingData, sizeof(carData));
 
+  counter++;
+
   return;
 }
 
@@ -477,9 +476,6 @@ void ReadSensorsTask(void* pvParameters)
   carData.inputs.coastRegen = MapValue(coastRegenTmp, 0, 1024, 0, 255);    // get values through testing
   float brakeRegenTmp = adc1_get_raw(BRAKE_REGEN_KNOB);
   carData.inputs.brakeRegen = MapValue(brakeRegenTmp, 0, 1024, 0, 255);    // get values through testing
-
-  // update FCB connection status LED
-  gpio_set_level((gpio_num_t)FCB_CONNECTION_STATUS_LED, wheelData.outputs.fcbConnected);
 
   // debugging
   if (debugger.debugEnabled) {
@@ -521,18 +517,8 @@ void UpdateDisplayTask(void* pvParameters)
  */
 void UpdateFCBTask(void* pvParameters)
 {
-  // TODO: update car data struct with wheel information
-
   // send message
   esp_err_t result = esp_now_send(fcbAddress, (uint8_t *) &carData, sizeof(carData));
-
-  // update connection status
-  if (result == ESP_OK) {
-    wheelData.outputs.fcbConnected = true;
-  }
-  else {
-    wheelData.outputs.fcbConnected = false;
-  }
 
   // debugging 
   if (debugger.debugEnabled) {
@@ -616,6 +602,7 @@ void PrintFCBDebug() {
 
   // message
   Serial.printf("FCB rtd status: %d\n", carData.drivingData.readyToDrive);
+  Serial.printf("message rec count: %d\n", counter);
 
   Serial.printf("\n--- END WCB DEBUG ---\n");
 }

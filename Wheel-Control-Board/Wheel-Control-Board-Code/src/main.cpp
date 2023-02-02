@@ -615,7 +615,7 @@ void PrintFCBDebug() {
 
 
   // message
-  Serial.printf("FCB rtd status: %d\n", debugger.FCB_updateMessage.drivingData.readyToDrive);
+  Serial.printf("FCB rtd status: %d\n", carData.drivingData.readyToDrive);
 
   Serial.printf("\n--- END WCB DEBUG ---\n");
 }

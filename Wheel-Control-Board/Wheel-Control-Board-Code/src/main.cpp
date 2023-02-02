@@ -49,7 +49,8 @@
 #define TASK_STACK_SIZE                 3500        // in bytes
 
 // debug
-#define ENABLE_DEBUG                    true       // master debug message control
+#define ENABLE_DEBUG                    true        // master debug message control
+#define MAIN_LOOP_DELAY                 1000        // in milliseconds
 
 
 /*
@@ -67,7 +68,7 @@ Debugger debugger = {
   // debug toggle
   .debugEnabled = ENABLE_DEBUG,
   .display_debugEnabled = false,
-  .FCB_debugEnabled = false,
+  .FCB_debugEnabled = true,
   .IO_debugEnabled = false,
   .scheduler_debugEnable = true,
 
@@ -447,19 +448,8 @@ void FCBCallback(void* args) {
  */
 void FCBDataReceived(const uint8_t* mac, const uint8_t* incomingData, int length)
 {
-  // inits
-  CarData tmp;
-
   // copy data to the fcbData struct 
-  memcpy(&tmp, incomingData, sizeof(tmp));
-
-  // get updated FCB data
-  carData.drivingData.driveDirection = tmp.drivingData.driveDirection;
-  carData.drivingData.driveMode = tmp.drivingData.driveMode;
-  carData.inputs.coastRegen = tmp.inputs.coastRegen;
-  carData.inputs.brakeRegen = tmp.inputs.brakeRegen;
-  carData.outputs.buzzerActive = tmp.outputs.buzzerActive;
-  carData.drivingData.readyToDrive = tmp.drivingData.readyToDrive;
+  memcpy(&carData, incomingData, sizeof(carData));
 
   return;
 }
@@ -569,7 +559,7 @@ void UpdateFCBTask(void* pvParameters)
 void loop()
 {
   // everything is managed by RTOS, so nothing really happens here!
-  vTaskDelay(1);    // prevent watchdog from getting upset
+  vTaskDelay(MAIN_LOOP_DELAY);    // prevent watchdog from getting upset
 
   // debugging
   if (debugger.debugEnabled) {
@@ -625,7 +615,7 @@ void PrintFCBDebug() {
 
 
   // message
-  // TODO: decide what to put here
+  Serial.printf("FCB rtd status: %d\n", debugger.FCB_updateMessage.drivingData.readyToDrive);
 
   Serial.printf("\n--- END WCB DEBUG ---\n");
 }

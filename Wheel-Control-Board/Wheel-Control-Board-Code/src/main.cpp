@@ -311,12 +311,12 @@ void setup()
     Serial.printf("ESP-NOW INIT [ FAILED ]\n");
   }
 
-  // get peer informtion about WCB
+  // get peer informtion about FCB
   memcpy(fcbInfo.peer_addr, fcbAddress, sizeof(fcbAddress));
   fcbInfo.channel = 0;
   fcbInfo.encrypt = false;
 
-  // add WCB as a peer
+  // add FCB as a peer
   if (esp_now_add_peer(&fcbInfo) == ESP_OK) {
     Serial.printf("ESP-NOW CONNECTION [ SUCCESS ]\n");
 

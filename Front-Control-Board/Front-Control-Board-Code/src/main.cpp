@@ -520,13 +520,16 @@ void FRWheelSensorCallback(void* args) {
   // calculate wheel rpm
   if (carData.sensors.rpmCounterFR > WHEEL_RPM_CALC_THRESHOLD) {
     // get time difference
-    int64_t timeDiff = esp_timer_get_time() - (int64_t)carData.sensors.rpmTimeFR;
+    float timeDiff = (float)esp_timer_get_time() - (float)carData.sensors.rpmTimeFR;
 
     // get rpm
-    carData.sensors.wheelSpeedFR = (carData.sensors.rpmCounterFR / timeDiff) * 60.0;
+    carData.sensors.wheelSpeedFR = ((float)carData.sensors.rpmCounterFR / (timeDiff / 1000000.0)) * 60.0;
 
     // update time keeping
     carData.sensors.rpmTimeFR = esp_timer_get_time();
+
+    // reset counter
+    carData.sensors.rpmCounterFR = 0;
   }
 
   return;
@@ -545,13 +548,16 @@ void FLWheelSensorCallback(void* args) {
   // calculate wheel rpm
   if (carData.sensors.rpmCounterFL > WHEEL_RPM_CALC_THRESHOLD) {
     // get time difference
-    int64_t timeDiff = esp_timer_get_time() - (int64_t)carData.sensors.rpmTimeFL;
+    float timeDiff = (float)esp_timer_get_time() - (float)carData.sensors.rpmTimeFL;
 
     // get rpm
-    carData.sensors.wheelSpeedFL = (carData.sensors.rpmCounterFL / timeDiff) * 60.0;
+    carData.sensors.wheelSpeedFL = ((float)carData.sensors.rpmCounterFL / (timeDiff / 1000000.0)) * 60.0;
 
     // update time keeping
     carData.sensors.rpmTimeFL = esp_timer_get_time();
+
+    // reset counter
+    carData.sensors.rpmCounterFL = 0;
   }
 
   return;

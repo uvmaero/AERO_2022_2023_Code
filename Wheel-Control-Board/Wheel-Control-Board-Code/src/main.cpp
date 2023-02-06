@@ -425,14 +425,14 @@ void DisplayCallback(void* args) {
 
 
 /**
- * @brief callback function for creating a new WCB Update task
+ * @brief callback function for creating a new FCB Update task
  * 
  * @param args arguments to be passed to the task
  */
 void FCBCallback(void* args) {
   static uint8_t ucParameterToPass;
   TaskHandle_t xHandle = NULL;
-  xTaskCreate(UpdateFCBTask, "WCB-Update", TASK_STACK_SIZE, &ucParameterToPass, tskIDLE_PRIORITY, &xHandle);
+  xTaskCreate(UpdateFCBTask, "FCB-Update", TASK_STACK_SIZE, &ucParameterToPass, tskIDLE_PRIORITY, &xHandle);
 }
 
 
@@ -446,7 +446,7 @@ void FCBCallback(void* args) {
 void FCBDataReceived(const uint8_t* mac, const uint8_t* incomingData, int length)
 {
   // copy data to the fcbData struct 
-  memcpy(&carData, incomingData, sizeof(carData));
+  memcpy((uint8_t *) &carData, incomingData, sizeof(carData));
 
   counter++;
 

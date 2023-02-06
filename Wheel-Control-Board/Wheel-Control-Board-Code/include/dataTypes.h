@@ -1,9 +1,9 @@
 /**
  * @file dataTypes.h
  * @author Dominic Gasperini
- * @brief 
+ * @brief all of the unique data types used to manage the state of the car
  * @version 0.1
- * @date 2023-01-29
+ * @date 2023-02-06
  * 
  * @copyright Copyright (c) 2023
  * 
@@ -54,10 +54,10 @@ typedef struct CarData
     uint8_t rpmCounterFL;
     uint8_t rpmCounterBR;
     uint8_t rpmCounterBL;
-    uint16_t rpmTimeFR;     // the last time in microseconds that the wheel rpm was calculated at
-    uint16_t rpmTimeFL;
-    uint16_t rpmTimeBR;
-    uint16_t rpmTimeBL;
+    uint64_t rpmTimeFR;     // the last time in microseconds that the wheel rpm was calculated at
+    uint64_t rpmTimeFL;
+    uint64_t rpmTimeBR;
+    uint64_t rpmTimeBL;
 
     float wheelSpeedFR;
     float wheelSpeedFL;
@@ -94,19 +94,3 @@ typedef struct CarData
   } outputs;
 
 } CarData;
-
-
-/**
- * @brief 
- * 
- */
-typedef struct WheelData {
-  struct LCD {
-
-  } lcd;
-
-  struct Outputs {
-    bool fcbConnected;
-  } outputs;
-
-} WheelData;

@@ -1,9 +1,9 @@
 /**
  * @file dataTypes.h
- * @author your name (you@domain.com)
- * @brief 
+ * @author Dominic Gasperini
+ * @brief all of the unique data types used to manage the state of the car
  * @version 0.1
- * @date 2023-01-29
+ * @date 2023-02-06
  * 
  * @copyright Copyright (c) 2023
  * 

@@ -54,10 +54,10 @@ typedef struct CarData
     uint8_t rpmCounterFL;
     uint8_t rpmCounterBR;
     uint8_t rpmCounterBL;
-    uint16_t rpmTimeFR;     // the last time in microseconds that the wheel rpm was calculated at
-    uint16_t rpmTimeFL;
-    uint16_t rpmTimeBR;
-    uint16_t rpmTimeBL;
+    uint64_t rpmTimeFR;     // the last time in microseconds that the wheel rpm was calculated at
+    uint64_t rpmTimeFL;
+    uint64_t rpmTimeBR;
+    uint64_t rpmTimeBL;
 
     float wheelSpeedFR;
     float wheelSpeedFL;

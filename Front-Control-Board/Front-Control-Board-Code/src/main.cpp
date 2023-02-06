@@ -58,7 +58,7 @@
 
 // debug
 #define ENABLE_DEBUG                    true        // master debug message control
-#define MAIN_LOOP_DELAY                 1000           // timer multiplier
+#define MAIN_LOOP_DELAY                 1000           // delay in main loop (should be set to 1 when not testing)
 
 
 /*
@@ -511,7 +511,7 @@ void WCBCallback(void* args) {
 void WCBDataReceived(const uint8_t* mac, const uint8_t* incomingData, int length)
 {
   // copy data to the wcbData struct 
-  memcpy(&carData, incomingData, sizeof(carData));
+  memcpy((uint8_t *) &carData, incomingData, sizeof(carData));
 
   return;
 }

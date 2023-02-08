@@ -13,6 +13,7 @@
 */
 // standard includes 
 #include <stdio.h>
+#include <stdlib.h>
 #include "esp_now.h"
 #include "esp_err.h"
 #include "esp_pm.h"
@@ -172,8 +173,20 @@ CarData carData = {
 };
 
 
-// ESP-Now Connection
-esp_now_peer_info wcbInfo;
+// ESP-Now Peers
+esp_now_peer_info wcbInfo = {
+  .peer_addr = {0xC4, 0xDE, 0xE2, 0xC0, 0x75, 0x80},    // TODO: make this use the address defined in pinConfig.h
+  .channel = 0,
+  .ifidx = WIFI_IF_STA,
+  .encrypt = false,
+};
+
+esp_now_peer_info rcbInfo = {
+  .peer_addr = {0xC4, 0xDE, 0xE2, 0xC0, 0x75, 0x80},    // TODO: make this use the address defined in pinConfig.h
+  .channel = 0,
+  .ifidx = WIFI_IF_STA,
+  .encrypt = false,
+};
 
 
 // CAN
@@ -232,6 +245,7 @@ void setup()
     bool canActive = false;
     bool ardanActive = false;
     bool wcbActive = false;
+    bool rcbActive = false;
   };
   setup setup;
 
@@ -292,58 +306,52 @@ void setup()
 
 
   // -------------------------- initialize ESP-NOW  ---------------------------- //
-  // turn on wifi access point 
-  if (esp_netif_init() == ESP_OK) {
-    Serial.printf("TCP/IP INIT: [ SUCCESS ]\n");
-    
-    // init wifi and config
-    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
-    if (esp_wifi_init(&cfg) == ESP_OK) {
-      Serial.printf("WIFI INIT: [ SUCCESS ]\n");
 
-      ESP_ERROR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_RAM));
-      ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
-      ESP_ERROR_CHECK(esp_wifi_start());
-      ESP_ERROR_CHECK(esp_wifi_set_channel(1, WIFI_SECOND_CHAN_NONE));
-    }
-    else {
-      Serial.printf("WIFI INIT: [ FAILED ]\n");
-    }
+  // init wifi and config
+  wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
+  ESP_ERROR_CHECK(esp_wifi_init(&cfg));
+  ESP_ERROR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_RAM));
+  ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
+  
+  if (esp_wifi_start() == ESP_OK) {
+    Serial.print("WIFI INIT [ SUCCESS ]\n");
+
+    // set custom device mac address
+    ESP_ERROR_CHECK(esp_wifi_set_mac(WIFI_IF_STA, deviceAddress));
   }
   else {
-    Serial.printf("ESP TCP/IP STATUS: [ FAILED ]\n");
+    Serial.print("WIFI INIT [ FAILED ]\n");
   }
-  
+
   // init ESP-NOW service
   if (esp_now_init() == ESP_OK) {
     Serial.printf("ESP-NOW INIT [ SUCCESS ]\n");
-    
-    if (esp_wifi_set_mac(WIFI_IF_STA, deviceAddress) == ESP_OK) {
-      Serial.printf("MAC ADDRESS UPDATE: [ SUCCESS ]\n");
-      Serial.printf("Address: %x\n", deviceAddress);
+
+    // register callback functions
+    // ESP_ERROR_CHECK(esp_now_register_send_cb());
+    ESP_ERROR_CHECK( esp_now_register_recv_cb(WCBDataReceived));
+
+    // add peers
+    if (esp_now_add_peer(&wcbInfo) == ESP_OK) {
+      Serial.printf("ESP-NOW WCB CONNECTION [ SUCCESS ]\n");
+      setup.wcbActive = true;
+    }
+    else {
+      Serial.printf("ESP-NOW WCB CONNECTION [ FAILED ]\n");
+    }
+
+    if (esp_now_add_peer(&rcbInfo) == ESP_OK) {
+      Serial.printf("ESP-NOW RCB CONNECTION [ SUCCESS ]\n");
+      setup.rcbActive = true;
+    }
+    else {
+      Serial.printf("ESP-NOW RCB CONNECTION [ FAILED ]\n");
     }
   }
+
   else {
     Serial.printf("ESP-NOW INIT [ FAILED ]\n");
   }
-
-  // get peer informtion about WCB
-  memcpy(wcbInfo.peer_addr, wcbAddress, sizeof(wcbAddress));
-  wcbInfo.channel = 0;
-  wcbInfo.encrypt = false;
-
-  // add WCB as a peer
-  if (esp_now_add_peer(&wcbInfo) == ESP_OK) {
-    Serial.printf("ESP-NOW CONNECTION [ SUCCESS ]\n");
-
-    setup.wcbActive = true;
-  }
-  else {
-    Serial.printf("ESP-NOW CONNECTION [ FAILED ]\n");
-  }
-
-  // attach message received ISR to the data received function
-  esp_now_register_recv_cb(WCBDataReceived);
   // ------------------------------------------------------------------------ //
 
 

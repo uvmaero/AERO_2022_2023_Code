@@ -85,6 +85,9 @@ Debugger debugger = {
   .CAN_sentStatus = 0,
   .CAN_outgoingMessage = {},
 
+  .RCB_updateResult = ESP_OK,
+  .RCB_updateMessage = {},
+
   .WCB_updateResult = ESP_OK,
   .WCB_updateMessage = {},
 
@@ -95,6 +98,7 @@ Debugger debugger = {
   .canTaskCount = 0,
   .ardanTaskCount = 0,
   .wcbTaskCount = 0,
+  .rcbTaskCount = 0,
 };
 
 
@@ -204,7 +208,7 @@ MCP_CAN CAN0(10);       // set CS pin to 10
 void SensorCallback(void* args);
 void CANCallback(void* args);
 void ARDANCallback(void* args);
-void WCBCallback(void* args);
+void ESPNOWCallback(void* args);
 void FRWheelSensorCallback(void* args);
 void FLWheelSensorCallback(void* args);
 
@@ -213,6 +217,7 @@ void ReadSensorsTask(void* pvParameters);
 void UpdateCANTask(void* pvParameters);
 void UpdateARDANTask(void* pvParameters);
 void UpdateWCBTask(void* pvParameters);
+void UpdateRCBTask(void* pvParameters);
 
 // ISRs
 void WCBDataReceived(const uint8_t* mac, const uint8_t* incomingData, int length);
@@ -403,9 +408,9 @@ void setup()
 
   // timer 4 - ESP-NOW Update
   const esp_timer_create_args_t timer4_args = {
-    .callback = &WCBCallback,
+    .callback = &ESPNOWCallback,
     .dispatch_method = ESP_TIMER_TASK,
-    .name = "WCB Update Timer"
+    .name = "ESP-NOW Update Timer"
   };
   esp_timer_handle_t timer4;
   ESP_ERROR_CHECK(esp_timer_create(&timer4_args, &timer4));
@@ -493,10 +498,16 @@ void ARDANCallback(void* args) {
  * 
  * @param args arguments to be passed to the task
  */
-void WCBCallback(void* args) {
-  static uint8_t ucParameterToPass;
-  TaskHandle_t xHandle = NULL;
-  xTaskCreate(UpdateWCBTask, "WCB-Update", TASK_STACK_SIZE, &ucParameterToPass, tskIDLE_PRIORITY, &xHandle);
+void ESPNOWCallback(void* args) {
+  // queue wcb update
+  static uint8_t ucParameterToPassWCB;
+  TaskHandle_t xHandleWCB = NULL;
+  xTaskCreate(UpdateWCBTask, "WCB-Update", TASK_STACK_SIZE, &ucParameterToPassWCB, tskIDLE_PRIORITY, &xHandleWCB);
+
+  // queue rcb update
+  static uint8_t ucParameterToPassRCB;
+  TaskHandle_t xHandleRCB = NULL;
+  xTaskCreate(UpdateRCBTask, "RCB-Update", TASK_STACK_SIZE, &ucParameterToPassRCB, tskIDLE_PRIORITY, &xHandleRCB);
 }
 
 
@@ -749,6 +760,28 @@ void UpdateWCBTask(void* pvParameters)
 
 
 /**
+ * @brief updates RCB with car data
+ * 
+ * @param pvParameters parameters passed to task
+ */
+void UpdateRCBTask(void* pvParameters)
+{
+  // send message
+  esp_err_t result = esp_now_send(rcbAddress, (uint8_t *) &carData, sizeof(carData));
+
+  // debugging 
+  if (debugger.debugEnabled) {
+    debugger.RCB_updateMessage = carData;
+    debugger.RCB_updateResult = result;
+    debugger.wcbTaskCount++;
+  }
+
+  // end task
+  vTaskDelete(NULL);
+}
+
+
+/**
  * @brief updates the ARDAN 
  * 
  * @param pvParameters parameters passed to task
@@ -940,6 +973,8 @@ void PrintDebug() {
 
   // Scheduler
   if (debugger.scheduler_debugEnable) {
-    Serial.printf("sensor: %d | can: %d | wcb: %d | ardan: %d\n", debugger.sensorTaskCount, debugger.canTaskCount, debugger.wcbTaskCount, debugger.ardanTaskCount);
+    Serial.printf("sensor: %d | can: %d | wcb: %d | rcb: %d | ardan: %d\n", debugger.sensorTaskCount, debugger.canTaskCount, 
+    debugger.wcbTaskCount, debugger.rcbTaskCount, 
+    debugger.ardanTaskCount);
   }
 }

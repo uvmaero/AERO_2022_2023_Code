@@ -77,9 +77,9 @@ Debugger debugger = {
   // debug toggle
   .debugEnabled = ENABLE_DEBUG,
   .CAN_debugEnabled = false,
-  .WCB_debugEnabled = true,
+  .WCB_debugEnabled = false,
   .IO_debugEnabled = false,
-  .scheduler_debugEnable = false,
+  .scheduler_debugEnable = true,
 
   // debug data
   .CAN_sentStatus = 0,
@@ -186,7 +186,7 @@ esp_now_peer_info wcbInfo = {
 };
 
 esp_now_peer_info rcbInfo = {
-  .peer_addr = {0xC4, 0xDE, 0xE2, 0xC0, 0x75, 0x80},    // TODO: make this use the address defined in pinConfig.h
+  .peer_addr = {0xC4, 0xDE, 0xE2, 0xC0, 0x75, 0x81},    // TODO: make this use the address defined in pinConfig.h
   .channel = 0,
   .ifidx = WIFI_IF_STA,
   .encrypt = false,
@@ -773,7 +773,7 @@ void UpdateRCBTask(void* pvParameters)
   if (debugger.debugEnabled) {
     debugger.RCB_updateMessage = carData;
     debugger.RCB_updateResult = result;
-    debugger.wcbTaskCount++;
+    debugger.rcbTaskCount++;
   }
 
   // end task

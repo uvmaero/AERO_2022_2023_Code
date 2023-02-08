@@ -401,7 +401,7 @@ void setup()
   esp_timer_handle_t timer3;
   ESP_ERROR_CHECK(esp_timer_create(&timer3_args, &timer3));
 
-  // timer 4 - WCB Update
+  // timer 4 - ESP-NOW Update
   const esp_timer_create_args_t timer4_args = {
     .callback = &WCBCallback,
     .dispatch_method = ESP_TIMER_TASK,
@@ -417,13 +417,13 @@ void setup()
     ESP_ERROR_CHECK(esp_timer_start_periodic(timer2, CAN_WRITE_INTERVAL));
   if (setup.ardanActive)
     ESP_ERROR_CHECK(esp_timer_start_periodic(timer3, ARDAN_UPDATE_INTERVAL));
-  if (setup.wcbActive)
+  if (setup.wcbActive && setup.rcbActive)
     ESP_ERROR_CHECK(esp_timer_start_periodic(timer4, WCB_UPDATE_INTERVAL));
 
-  Serial.printf("Timer 1 STATUS: %s\n", esp_timer_is_active(timer1) ? "RUNNING" : "FAILED");
-  Serial.printf("Timer 2 STATUS: %s\n", esp_timer_is_active(timer2) ? "RUNNING" : "FAILED");
-  Serial.printf("Timer 3 STATUS: %s\n", esp_timer_is_active(timer3) ? "RUNNING" : "FAILED");
-  Serial.printf("Timer 4 STATUS: %s\n", esp_timer_is_active(timer4) ? "RUNNING" : "FAILED");
+  Serial.printf("SENSOR TASK STATUS: %s\n", esp_timer_is_active(timer1) ? "RUNNING" : "DISABLED");
+  Serial.printf("CAN TASK STATUS: %s\n", esp_timer_is_active(timer2) ? "RUNNING" : "DISABLED");
+  Serial.printf("ARDAN TASK STATUS: %s\n", esp_timer_is_active(timer3) ? "RUNNING" : "DISABLED");
+  Serial.printf("ESP-NOW TASK STATUS: %s\n", esp_timer_is_active(timer4) ? "RUNNING" : "DISABLED");
   // ----------------------------------------------------------------------------------------- //
 
 

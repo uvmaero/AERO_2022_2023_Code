@@ -61,7 +61,10 @@ uint8_t deviceAddress[] = {0x1a, 0x1a, 0x1a, 0x1a, 0x1a, 0x1a};
 #define BRAKE_1_PIN                         ADC1_GPIO32_CHANNEL
 
 // Inputs
-#define CAN_MESSAGE_INTERRUPT_PIN           15             
+#define CAN_CS_PIN                          10
+#define CAN_MESSAGE_INTERRUPT_PIN           15   
+#define CAN_TX_PIN                          21
+#define CAN_RX_PIN                          22          
 
 // Outputs
 #define WCB_CONNECTION_LED                  19

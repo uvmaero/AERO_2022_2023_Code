@@ -23,10 +23,10 @@
 #include <esp_wifi.h>
 #include "esp_netif.h"
 #include "driver/adc.h"
+#include "driver/can.h"
 #include "esp_adc_cal.h"
 
 // custom includes
-#include <mcp_can.h>
 #include <LoRa.h>
 #include "debugger.h"
 #include "pinConfig.h"
@@ -59,7 +59,7 @@
 
 // debug
 #define ENABLE_DEBUG                    true        // master debug message control
-#define MAIN_LOOP_DELAY                 1000           // delay in main loop (should be set to 1 when not testing)
+#define MAIN_LOOP_DELAY                 1           // delay in main loop (should be set to 1 when not testing)
 
 
 /*
@@ -193,8 +193,10 @@ esp_now_peer_info rcbInfo = {
 };
 
 
-// CAN
-MCP_CAN CAN0(10);       // set CS pin to 10
+// CAN Interface
+can_general_config_t canConfig = CAN_GENERAL_CONFIG_DEFAULT((gpio_num_t)CAN_TX_PIN, (gpio_num_t)CAN_RX_PIN, CAN_MODE_NORMAL);   // set pins controller will use
+can_timing_config_t canTimingConfig = CAN_TIMING_CONFIG_500KBITS();         // the timing of the CAN bus
+can_filter_config_t canFilterConfig = CAN_FILTER_CONFIG_ACCEPT_ALL();       // filter so we only receive certain messages
 
 
 /*
@@ -238,6 +240,9 @@ void setup()
 {
   // set power configuration
   esp_pm_configure(&power_configuration);
+
+  // delay startup by 5 seconds
+  vTaskDelay(5000);
 
   // -------------------------- initialize serial connection ------------------------ //
   Serial.begin(9600);
@@ -288,21 +293,16 @@ void setup()
   // -------------------------------------------------------------------------- //
 
 
-  // --------------------- initialize CAN Connection -------------------------- //
- 
-  if (CAN0.begin(MCP_ANY, CAN_500KBPS, MCP_16MHZ) == CAN_OK) {
+  // --------------------- initialize CAN Controller -------------------------- //
+  if (can_driver_install(&canConfig, &canTimingConfig, &canFilterConfig) == ESP_OK) {
     Serial.printf("CAN INIT [ SUCCESS ]\n");
 
-    // set mode to read and write
-    CAN0.setMode(MCP_NORMAL);
+    // start CAN interface
+    if (can_start() == ESP_OK) {
+      Serial.printf("CAN STARTED [ SUCCESS ]\n");
 
-    // setup mask and filter
-    CAN0.init_Mask(0, 0, 0xFFFFFFFF);       // check all ID bits, excludes everything except select IDs
-    CAN0.init_Filt(0, 0, 0x100);            // RCB ID 1
-    CAN0.init_Filt(1, 0, 0x101);            // RCB ID 2
-    CAN0.init_Filt(2, 0, 0x102);            // Rinehart ID
-
-    setup.canActive = true;
+      setup.canActive = true;
+    }
   }
   else {
     Serial.printf("CAN INIT [ FAILED ]\n");
@@ -334,7 +334,7 @@ void setup()
 
     // register callback functions
     // ESP_ERROR_CHECK(esp_now_register_send_cb());
-    ESP_ERROR_CHECK( esp_now_register_recv_cb(WCBDataReceived));
+    ESP_ERROR_CHECK(esp_now_register_recv_cb(WCBDataReceived));
 
     // add peers
     if (esp_now_add_peer(&wcbInfo) == ESP_OK) {
@@ -445,7 +445,7 @@ void setup()
     Serial.printf("\nScheduler STATUS: FAILED\nHALTING OPERATIONS");
     while (1) {};
   }
-  Serial.printf("\n\n|--- END SETUP ---|\n\n\n");
+  Serial.printf("\n\n|--- END SETUP ---|\n\n");
   // ---------------------------------------------------------------------------------------- //
 }
 
@@ -465,7 +465,7 @@ void setup()
 void SensorCallback(void* args) {
   static uint8_t ucParameterToPass;
   TaskHandle_t xHandle = NULL;
-  xTaskCreate(ReadSensorsTask, "Poll-Senser-Data", TASK_STACK_SIZE, &ucParameterToPass, tskIDLE_PRIORITY, &xHandle);
+  xTaskCreate(ReadSensorsTask, "Poll-Senser-Data", TASK_STACK_SIZE, &ucParameterToPass, 5, &xHandle);
 }
 
 
@@ -477,7 +477,7 @@ void SensorCallback(void* args) {
 void CANCallback(void* args) {
   static uint8_t ucParameterToPass;
   TaskHandle_t xHandle = NULL;
-  xTaskCreate(UpdateCANTask, "CAN-Update", TASK_STACK_SIZE, &ucParameterToPass, tskIDLE_PRIORITY, &xHandle);
+  xTaskCreate(UpdateCANTask, "CAN-Update", TASK_STACK_SIZE, &ucParameterToPass, 5, &xHandle);
 }
 
 
@@ -489,7 +489,7 @@ void CANCallback(void* args) {
 void ARDANCallback(void* args) {
   static uint8_t ucParameterToPass;
   TaskHandle_t xHandle = NULL;
-  xTaskCreate(UpdateARDANTask, "ARDAN-Update", TASK_STACK_SIZE, &ucParameterToPass, tskIDLE_PRIORITY, &xHandle);
+  xTaskCreate(UpdateARDANTask, "ARDAN-Update", TASK_STACK_SIZE, &ucParameterToPass, 3, &xHandle);
 }
 
 
@@ -502,12 +502,12 @@ void ESPNOWCallback(void* args) {
   // queue wcb update
   static uint8_t ucParameterToPassWCB;
   TaskHandle_t xHandleWCB = NULL;
-  xTaskCreate(UpdateWCBTask, "WCB-Update", TASK_STACK_SIZE, &ucParameterToPassWCB, tskIDLE_PRIORITY, &xHandleWCB);
+  xTaskCreate(UpdateWCBTask, "WCB-Update", TASK_STACK_SIZE, &ucParameterToPassWCB, 4, &xHandleWCB);
 
   // queue rcb update
   static uint8_t ucParameterToPassRCB;
   TaskHandle_t xHandleRCB = NULL;
-  xTaskCreate(UpdateRCBTask, "RCB-Update", TASK_STACK_SIZE, &ucParameterToPassRCB, tskIDLE_PRIORITY, &xHandleRCB);
+  xTaskCreate(UpdateRCBTask, "RCB-Update", TASK_STACK_SIZE, &ucParameterToPassRCB, 4, &xHandleRCB);
 }
 
 
@@ -676,55 +676,65 @@ void ReadSensorsTask(void* pvParameters)
 void UpdateCANTask(void* pvParameters)
 {
   // inits
-  byte outgoingMessage[8];
-  unsigned long receivingID = 0;
-  byte messageLength = 0;
-  byte receivingBuffer[8];
+  can_message_t incomingMessage;
 
   // --- receive messages --- //
   // check for new messages in the CAN buffer
-  if (CAN0.checkReceive() == CAN_MSGAVAIL) {
-    CAN0.readMsgBuf(&receivingID, &messageLength, receivingBuffer);
+  if (can_receive(&incomingMessage, pdMS_TO_TICKS(1000))) {
 
-    // filter for only the IDs we are interested in
-    switch (receivingID)
-    {
-      // message from RCB: Sensor Data
-      case 0x100:
-      // do stuff with the data in the message
-      break;
+    if (incomingMessage.flags & CAN_MSG_FLAG_NONE) {
+      // filter for only the IDs we are interested in
+      switch (incomingMessage.identifier)
+      {
+        // message from RCB: Sensor Data
+        case 0x100:
+        if (!(incomingMessage.flags & CAN_MSG_FLAG_RTR)) {
+          // do stuff with the data in the message
+        }
+        break;
 
-      // message from RCB: BMS and electrical data
-      case 0x101:
-      // do stuff with the data in the message
-      break;
+        // message from RCB: BMS and electrical data
+        case 0x101:
+        if (!(incomingMessage.flags & CAN_MSG_FLAG_RTR)) {
+          // do stuff with the data in the message
+        }        
+        break;
 
-      default:
-      // do nothing because we didn't get any messages of interest
-      return;
-      break;
+        default:
+        // do nothing because we didn't get any messages of interest
+        break;
+      }
     }
+
   }
 
   // --- send message --- // 
-  // build message
-  outgoingMessage[0] = 0x00;
-  outgoingMessage[1] = 0x01;
-  outgoingMessage[2] = 0x02;
-  outgoingMessage[3] = 0x03;
-  outgoingMessage[4] = 0x04;
-  outgoingMessage[5] = 0x05;
-  outgoingMessage[6] = 0x06;
-  outgoingMessage[7] = 0x07;
+  can_message_t outgoingMessage;
+  outgoingMessage.identifier = 0xAA;
+  outgoingMessage.flags = CAN_MSG_FLAG_NONE;
+  outgoingMessage.data_length_code = 8;
+  bool sentStatus = false;
 
-  // send the message and get its sent status
-  byte sentStatus = CAN0.sendMsgBuf(0x100, 0, sizeof(outgoingMessage), outgoingMessage);    // (sender address, STD CAN frame, size of message, message)
+  // build message
+  outgoingMessage.data[0] = 0x00;
+  outgoingMessage.data[1] = 0x01;
+  outgoingMessage.data[2] = 0x02;
+  outgoingMessage.data[3] = 0x03;
+  outgoingMessage.data[4] = 0x04;
+  outgoingMessage.data[5] = 0x05;
+  outgoingMessage.data[6] = 0x06;
+  outgoingMessage.data[7] = 0x07;
+
+  // queue message for transmission
+  if (can_transmit(&outgoingMessage, pdMS_TO_TICKS(1000) == ESP_OK)) {
+    sentStatus = true;
+  }
 
   // debugging
   if (debugger.debugEnabled) {
     debugger.CAN_sentStatus = sentStatus;
     for (int i = 0; i < 7; ++i) {
-      debugger.CAN_outgoingMessage[i] = outgoingMessage[i];
+      debugger.CAN_outgoingMessage[i] = outgoingMessage.data[i];
     }
     debugger.canTaskCount++;
   }
@@ -912,8 +922,9 @@ void PrintCANDebug() {
 
   // message
   for (int i = 0; i < 7; ++i) {
-    Serial.printf("CAN Raw Data Byte %d: %d\n\n", i, debugger.CAN_outgoingMessage[i]);
+    Serial.printf("CAN Raw Data Byte %d: %d\t", i, debugger.CAN_outgoingMessage[i]);
   }
+  Serial.printf("\n");
 
   Serial.printf("\n--- END CAN DEBUG ---\n");
 }

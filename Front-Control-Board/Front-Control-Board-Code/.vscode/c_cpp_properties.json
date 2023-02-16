@@ -11,7 +11,6 @@
                 "/home/dom_gasperini/Documents/aero/AERO_2022-2023/Front-Control-Board/Front-Control-Board-Code/include",
                 "/home/dom_gasperini/Documents/aero/AERO_2022-2023/Front-Control-Board/Front-Control-Board-Code/src",
                 "/home/dom_gasperini/Documents/aero/AERO_2022-2023/Front-Control-Board/Front-Control-Board-Code/.pio/libdeps/esp32dev/LoRa/src",
-                "/home/dom_gasperini/Documents/aero/AERO_2022-2023/Front-Control-Board/Front-Control-Board-Code/.pio/libdeps/esp32dev/mcp_can",
                 "/home/dom_gasperini/.platformio/packages/framework-arduinoespressif32/libraries/SPI/src",
                 "/home/dom_gasperini/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/newlib/platform_include",
                 "/home/dom_gasperini/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/freertos/include",

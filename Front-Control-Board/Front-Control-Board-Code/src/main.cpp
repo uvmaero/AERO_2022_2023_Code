@@ -52,7 +52,7 @@
 
 // tasks & timers
 #define SENSOR_POLL_INTERVAL            100000      // 0.1 seconds in microseconds
-#define CAN_WRITE_INTERVAL              100000      // 0.1 seconds in microseconds
+#define CAN_WRITE_INTERVAL              1000000      // 0.1 seconds in microseconds
 #define ARDAN_UPDATE_INTERVAL           250000      // 0.25 seconds in microseconds
 #define WCB_UPDATE_INTERVAL             200000      // 0.2 seconds in microseconds
 #define TASK_STACK_SIZE                 3500        // in bytes
@@ -76,10 +76,10 @@
 Debugger debugger = {
   // debug toggle
   .debugEnabled = ENABLE_DEBUG,
-  .CAN_debugEnabled = false,
+  .CAN_debugEnabled = true,
   .WCB_debugEnabled = false,
   .IO_debugEnabled = false,
-  .scheduler_debugEnable = true,
+  .scheduler_debugEnable = false,
 
   // debug data
   .CAN_sentStatus = 0,
@@ -417,13 +417,13 @@ void setup()
 
   // start timers
   if (setup.ioActive)
-    ESP_ERROR_CHECK(esp_timer_start_periodic(timer1, SENSOR_POLL_INTERVAL));
+    // ESP_ERROR_CHECK(esp_timer_start_periodic(timer1, SENSOR_POLL_INTERVAL));
   if (setup.canActive)
     ESP_ERROR_CHECK(esp_timer_start_periodic(timer2, CAN_WRITE_INTERVAL));
   if (setup.ardanActive)
-    ESP_ERROR_CHECK(esp_timer_start_periodic(timer3, ARDAN_UPDATE_INTERVAL));
+    // ESP_ERROR_CHECK(esp_timer_start_periodic(timer3, ARDAN_UPDATE_INTERVAL));
   if (setup.wcbActive && setup.rcbActive)
-    ESP_ERROR_CHECK(esp_timer_start_periodic(timer4, WCB_UPDATE_INTERVAL));
+    // ESP_ERROR_CHECK(esp_timer_start_periodic(timer4, WCB_UPDATE_INTERVAL));
 
   Serial.printf("SENSOR TASK STATUS: %s\n", esp_timer_is_active(timer1) ? "RUNNING" : "DISABLED");
   Serial.printf("CAN TASK STATUS: %s\n", esp_timer_is_active(timer2) ? "RUNNING" : "DISABLED");
@@ -733,7 +733,7 @@ void UpdateCANTask(void* pvParameters)
   // debugging
   if (debugger.debugEnabled) {
     debugger.CAN_sentStatus = sentStatus;
-    for (int i = 0; i < 7; ++i) {
+    for (int i = 0; i < 8; ++i) {
       debugger.CAN_outgoingMessage[i] = outgoingMessage.data[i];
     }
     debugger.canTaskCount++;
@@ -921,7 +921,7 @@ void PrintCANDebug() {
   Serial.printf("CAN Message Send Status: %s\n", debugger.CAN_sentStatus ? "Success" : "Failed");
 
   // message
-  for (int i = 0; i < 7; ++i) {
+  for (int i = 0; i < 8; ++i) {
     Serial.printf("CAN Raw Data Byte %d: %d\t", i, debugger.CAN_outgoingMessage[i]);
   }
   Serial.printf("\n");
@@ -984,7 +984,7 @@ void PrintDebug() {
 
   // Scheduler
   if (debugger.scheduler_debugEnable) {
-    Serial.printf("sensor: %d | can: %d | wcb: %d | rcb: %d | ardan: %d\n", debugger.sensorTaskCount, debugger.canTaskCount, 
+    Serial.printf("sensor: %d | can: %d | wcb: %d | rcb: %d | ardan: %d\n", debugger.sensorTaskCount, debugger.canTaskCount,
     debugger.wcbTaskCount, debugger.rcbTaskCount, 
     debugger.ardanTaskCount);
   }

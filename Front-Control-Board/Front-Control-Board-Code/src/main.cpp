@@ -52,7 +52,7 @@
 
 // tasks & timers
 #define SENSOR_POLL_INTERVAL            100000      // 0.1 seconds in microseconds
-#define CAN_WRITE_INTERVAL              1000000      // 0.1 seconds in microseconds
+#define CAN_WRITE_INTERVAL              100000      // 0.1 seconds in microseconds
 #define ARDAN_UPDATE_INTERVAL           250000      // 0.25 seconds in microseconds
 #define WCB_UPDATE_INTERVAL             200000      // 0.2 seconds in microseconds
 #define TASK_STACK_SIZE                 3500        // in bytes

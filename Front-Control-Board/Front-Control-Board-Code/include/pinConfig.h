@@ -64,7 +64,7 @@ uint8_t deviceAddress[] = {0x1a, 0x1a, 0x1a, 0x1a, 0x1a, 0x1a};
 #define CAN_CS_PIN                          18
 #define CAN_MESSAGE_INTERRUPT_PIN           15   
 #define CAN_TX_PIN                          21
-#define CAN_RX_PIN                          22          
+#define CAN_RX_PIN                          22
 
 // Outputs
 #define WCB_CONNECTION_LED                  26

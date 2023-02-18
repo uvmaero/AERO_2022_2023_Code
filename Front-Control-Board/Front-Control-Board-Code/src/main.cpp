@@ -301,6 +301,14 @@ void setup()
     if (can_start() == ESP_OK) {
       Serial.printf("CAN STARTED [ SUCCESS ]\n");
 
+      // track all alerts
+      if (can_reconfigure_alerts(CAN_ALERT_ALL, NULL) == ESP_OK) {
+        Serial.printf("CAN ALERTS [ SUCCESS ]\n");
+      } 
+      else {
+        Serial.printf("CAN ALERTS [ FAILED ]\n");
+      }
+
       setup.canActive = true;
     }
   }
@@ -711,7 +719,7 @@ void UpdateCANTask(void* pvParameters)
   // --- send message --- // 
   can_message_t outgoingMessage;
   outgoingMessage.identifier = 0xAA;
-  outgoingMessage.flags = CAN_MSG_FLAG_NONE;
+  outgoingMessage.flags = CAN_MSG_FLAG_SELF;
   outgoingMessage.data_length_code = 8;
   bool sentStatus = false;
 
@@ -726,8 +734,31 @@ void UpdateCANTask(void* pvParameters)
   outgoingMessage.data[7] = 0x07;
 
   // queue message for transmission
-  if (can_transmit(&outgoingMessage, pdMS_TO_TICKS(1000)) == ESP_OK) {
+  int result = can_transmit(&outgoingMessage, pdMS_TO_TICKS(1000));
+  switch (result)
+  {
+  case ESP_OK:
     sentStatus = true;
+    break;
+
+  case ESP_ERR_INVALID_ARG:
+    Serial.printf("Arguments are invalid\n");
+  break;
+
+  case ESP_ERR_TIMEOUT:
+    Serial.printf("Timed out waiting for space on TX queue\n");
+  break;
+
+  case ESP_FAIL:
+    Serial.printf("TX queue is disabled and another message is currently transmitting\n");
+  break;
+
+  case ESP_ERR_INVALID_STATE:
+    Serial.printf("TWAI driver is not in running state, or is not installed\n");
+  break;
+
+  default:
+    break;
   }
 
   // debugging
@@ -916,6 +947,33 @@ long MapValue(long x, long in_min, long in_max, long out_min, long out_max) {
  */
 void PrintCANDebug() {
   Serial.printf("\n--- START CAN DEBUG ---\n");
+
+  // alerts
+  uint32_t alerts;
+  can_read_alerts(&alerts, pdMS_TO_TICKS(1000));
+  
+  if (alerts & CAN_ALERT_ABOVE_ERR_WARN) {
+      Serial.printf("ERROR: Surpassed Error Warning Limit\n");
+  }
+  if (alerts & CAN_ALERT_ERR_PASS) {
+          Serial.printf("ERROR: Entered Error Passive state\n");
+  }
+  if (alerts & CAN_ALERT_BUS_OFF) {
+      Serial.printf("ERROR: Bus Off state\n");
+      //Prepare to initiate bus recovery, reconfigure alerts to detect bus recovery completion
+      can_reconfigure_alerts(CAN_ALERT_BUS_RECOVERED, NULL);
+      for (int i = 3; i > 0; i--) {
+          Serial.printf("Initiate bus recovery in %d\n", i);
+          vTaskDelay(pdMS_TO_TICKS(1000));
+      }
+      can_initiate_recovery();    //Needs 128 occurrences of bus free signal
+      Serial.printf("Initiate bus recovery\n");
+  }
+  if (alerts & CAN_ALERT_BUS_RECOVERED) {
+      //Bus recovery was successful, exit control task to uninstall driver
+      Serial.printf("Bus Recovered!\n");
+  }
+
 
   // sent status
   Serial.printf("CAN Message Send Status: %s\n", debugger.CAN_sentStatus ? "Success" : "Failed");

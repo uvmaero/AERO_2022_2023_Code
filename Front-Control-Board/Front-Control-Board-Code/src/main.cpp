@@ -726,7 +726,7 @@ void UpdateCANTask(void* pvParameters)
   outgoingMessage.data[7] = 0x07;
 
   // queue message for transmission
-  if (can_transmit(&outgoingMessage, pdMS_TO_TICKS(1000) == ESP_OK)) {
+  if (can_transmit(&outgoingMessage, pdMS_TO_TICKS(1000)) == ESP_OK) {
     sentStatus = true;
   }
 

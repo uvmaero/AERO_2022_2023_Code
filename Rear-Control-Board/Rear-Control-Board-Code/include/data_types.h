@@ -83,7 +83,7 @@ typedef struct CarData
 
     float vicoreTemp;
     float pumpTempIn;
-    float pimpTempOut;
+    float pumpTempOut;
   } inputs;
 
   struct Outputs

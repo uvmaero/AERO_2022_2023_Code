@@ -157,7 +157,7 @@ CarData carData = {
 
     .vicoreTemp = 0.0f,
     .pumpTempIn = 0.0f,
-    .pimpTempOut = 0.0f,
+    .pumpTempOut = 0.0f,
   },
 
   // Outputs
@@ -560,6 +560,20 @@ void ReadSensorsTask(void* pvParameters)
   // update wheel ride height values
   carData.sensors.wheelHeightFR = adc1_get_raw(WHEEL_HEIGHT_BR_SENSOR);
   carData.sensors.wheelHeightFL = adc1_get_raw(WHEEL_HEIGHT_BL_SENSOR);
+
+
+  // read radiator sensors
+  carData.inputs.pumpTempIn = adc1_get_raw(RAD_TEMP_IN_PIN);
+  carData.inputs.pumpTempOut = adc1_get_raw(RAD_TEMP_OUT_PIN);
+
+
+  // update fans
+
+
+  // update pump
+
+
+  // update faults
 
 
   // update brake light state

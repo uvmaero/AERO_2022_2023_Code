@@ -165,7 +165,7 @@ CarData carData = {
 
     .vicoreTemp = 0.0f,
     .pumpTempIn = 0.0f,
-    .pimpTempOut = 0.0f,
+    .pumpTempOut = 0.0f,
   },
 
   // Outputs
@@ -173,6 +173,8 @@ CarData carData = {
     .buzzerActive = false,
     .buzzerCounter = 0,
     .brakeLight = false,
+    .fansActive = false,
+    .pumpActive = false,
   }
 };
 

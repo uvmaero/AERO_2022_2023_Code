@@ -2,8 +2,8 @@
  * @file dataTypes.h
  * @author Dominic Gasperini
  * @brief all of the unique data types used to manage the state of the car
- * @version 0.1
- * @date 2023-02-06
+ * @version 1.0
+ * @date 2023-02-21
  * 
  * @copyright Copyright (c) 2023
  * 
@@ -83,7 +83,7 @@ typedef struct CarData
 
     float vicoreTemp;
     float pumpTempIn;
-    float pimpTempOut;
+    float pumpTempOut;
   } inputs;
 
   struct Outputs
@@ -91,6 +91,8 @@ typedef struct CarData
     bool buzzerActive;
     uint8_t buzzerCounter;
     bool brakeLight;
+    bool fansActive;
+    bool pumpActive;
   } outputs;
 
 } CarData;

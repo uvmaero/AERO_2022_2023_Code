@@ -165,6 +165,7 @@ CarData carData = {
     .buzzerActive = false,
     .buzzerCounter = 0,
     .brakeLight = false,
+    .fansActive = false,
   }
 };
 
@@ -561,20 +562,28 @@ void ReadSensorsTask(void* pvParameters)
   carData.sensors.wheelHeightFR = adc1_get_raw(WHEEL_HEIGHT_BR_SENSOR);
   carData.sensors.wheelHeightFL = adc1_get_raw(WHEEL_HEIGHT_BL_SENSOR);
 
-
   // read radiator sensors
   carData.inputs.pumpTempIn = adc1_get_raw(RAD_TEMP_IN_PIN);
   carData.inputs.pumpTempOut = adc1_get_raw(RAD_TEMP_OUT_PIN);
 
-
   // update fans
-
+  if (carData.outputs.fansActive) {
+    gpio_set_level((gpio_num_t)FAN_ENABLE_PIN, 1);    // turn on fans
+  }
+  else {
+    gpio_set_level((gpio_num_t)FAN_ENABLE_PIN, 0);    // turn off fans
+  }
 
   // update pump
-
+  if (carData.outputs.pumpActive) {
+    gpio_set_level((gpio_num_t)PUMP_ENABLE_PIN, 1);   // turn on pump
+  }
+  else {
+    gpio_set_level((gpio_num_t)PUMP_ENABLE_PIN, 0);   // turn off pump
+  }
 
   // update faults
-
+  // TODO: ask colin about this
 
   // update brake light state
   if (carData.outputs.brakeLight) {
@@ -584,15 +593,14 @@ void ReadSensorsTask(void* pvParameters)
     gpio_set_level((gpio_num_t)BRAKE_LIGHT_PIN, 0);   // turn off the brake light
   }
 
-  
+  // turn wifi back on to re-enable esp-now connection to wheel board
+  esp_wifi_start();
+
   // debugging
   if (debugger.debugEnabled) {
     debugger.IO_data = carData;
     debugger.sensorTaskCount++;
   }
-
-  // turn wifi back on to re-enable esp-now connection to wheel board
-  esp_wifi_start();
 
   // end task
   vTaskDelete(NULL);

@@ -91,6 +91,8 @@ typedef struct CarData
     bool buzzerActive;
     uint8_t buzzerCounter;
     bool brakeLight;
+    bool fansActive;
+    bool pumpActive;
   } outputs;
 
 } CarData;

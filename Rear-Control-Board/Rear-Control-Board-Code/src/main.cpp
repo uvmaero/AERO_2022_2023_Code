@@ -448,7 +448,7 @@ void CANCallback(void* args) {
  * 
  * @param args arguments to be passed to the task
  */
-void ARDANCallback(void* args) {
+void LoggerCallback(void* args) { 
   static uint8_t ucParameterToPass;
   TaskHandle_t xHandle = NULL;
   xTaskCreate(UpdateLoggerTask, "ARDAN-Update", TASK_STACK_SIZE, &ucParameterToPass, 3, &xHandle);
@@ -466,14 +466,13 @@ void ESPNOWCallback(void* args) {
 
 
 /**
- * @brief a callback function for when data is received from WCB
+ * @brief a callback function for when data is received from FCB
  * 
- * @param mac             the address of the WCB
+ * @param mac             the address of the FCB
  * @param incomingData    the structure of incoming data
  * @param length          size of the incoming data
  */
-void WCBDataReceived(const uint8_t* mac, const uint8_t* incomingData, int length)
-{
+void FCBDataReceived(const uint8_t* mac, const uint8_t* incomingData, int length) {
   // copy data to the wcbData struct 
   memcpy((uint8_t *) &carData, incomingData, sizeof(carData));
 
@@ -696,6 +695,20 @@ void UpdateRCBTask(void* pvParameters)
     debugger.RCB_updateResult = result;
     debugger.rcbTaskCount++;
   }
+
+  // end task
+  vTaskDelete(NULL);
+}
+
+
+/**
+ * @brief writes most recent stored data frame to the SD card
+ * 
+ * @param pvParameters parameters passed to task
+ */
+void UpdateLoggerTask(void* pvParameters) {
+  // inits
+  
 
   // end task
   vTaskDelete(NULL);

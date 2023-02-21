@@ -69,7 +69,6 @@ Debugger debugger = {
   // debug toggle
   .debugEnabled = ENABLE_DEBUG,
   .CAN_debugEnabled = true,
-  .WCB_debugEnabled = false,
   .IO_debugEnabled = false,
   .scheduler_debugEnable = false,
 
@@ -77,20 +76,15 @@ Debugger debugger = {
   .CAN_sentStatus = 0,
   .CAN_outgoingMessage = {},
 
-  .RCB_updateResult = ESP_OK,
-  .RCB_updateMessage = {},
-
-  .WCB_updateResult = ESP_OK,
-  .WCB_updateMessage = {},
+  .FCB_updateResult = ESP_OK,
+  .FCB_updateMessage = {},
 
   .IO_data = {},
 
   // scheduler data
   .sensorTaskCount = 0,
   .canTaskCount = 0,
-  .ardanTaskCount = 0,
-  .wcbTaskCount = 0,
-  .rcbTaskCount = 0,
+  .loggerTaskCount = 0,
 };
 
 
@@ -715,6 +709,11 @@ void UpdateLoggerTask(void* pvParameters) {
   // inits
 
 
+  // debugging
+  if (debugger.debugEnabled) {
+    debugger.loggerTaskCount++;
+  }
+
   // end task
   vTaskDelete(NULL);
 }
@@ -820,11 +819,11 @@ void PrintWCBDebug() {
   Serial.printf("\n--- START WCB DEBUG ---\n");
 
   // send status
-  Serial.printf("WCB ESP-NOW Update: %s\n", debugger.WCB_updateResult ? "Success" : "Failed");
+  Serial.printf("WCB ESP-NOW Update: %s\n", debugger.FCB_updateResult ? "Success" : "Failed");
 
 
   // message
-  Serial.printf("ready to drive status: %d\n", debugger.WCB_updateMessage.drivingData.readyToDrive);
+  Serial.printf("ready to drive status: %d\n", debugger.FCB_updateMessage.drivingData.readyToDrive);
   
 
   Serial.printf("\n--- END WCB DEBUG ---\n");
@@ -854,8 +853,8 @@ void PrintDebug() {
       PrintCANDebug();
   }
 
-  // WCB
-  if (debugger.WCB_debugEnabled) {
+  // FCB
+  if (debugger.FCB_debugEnabled) {
     PrintWCBDebug();
   }
 
@@ -866,8 +865,6 @@ void PrintDebug() {
 
   // Scheduler
   if (debugger.scheduler_debugEnable) {
-    Serial.printf("sensor: %d | can: %d | wcb: %d | rcb: %d | ardan: %d\n", debugger.sensorTaskCount, debugger.canTaskCount,
-    debugger.wcbTaskCount, debugger.rcbTaskCount, 
-    debugger.ardanTaskCount);
+    Serial.printf("sensor: %d | can: %d | logger: %d\n", debugger.sensorTaskCount, debugger.canTaskCount, debugger.loggerTaskCount);
   }
 }

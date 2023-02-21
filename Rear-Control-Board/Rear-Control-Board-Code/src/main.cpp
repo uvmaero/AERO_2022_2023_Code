@@ -680,35 +680,13 @@ void UpdateCANTask(void* pvParameters)
 
 
 /**
- * @brief updates RCB with car data
- * 
- * @param pvParameters parameters passed to task
- */
-void UpdateRCBTask(void* pvParameters)
-{
-  // send message
-  esp_err_t result = esp_now_send(fcbAddress, (uint8_t *) &carData, sizeof(carData));
-
-  // debugging 
-  if (debugger.debugEnabled) {
-    debugger.RCB_updateMessage = carData;
-    debugger.RCB_updateResult = result;
-    debugger.rcbTaskCount++;
-  }
-
-  // end task
-  vTaskDelete(NULL);
-}
-
-
-/**
  * @brief writes most recent stored data frame to the SD card
  * 
  * @param pvParameters parameters passed to task
  */
 void UpdateLoggerTask(void* pvParameters) {
   // inits
-  
+
 
   // end task
   vTaskDelete(NULL);

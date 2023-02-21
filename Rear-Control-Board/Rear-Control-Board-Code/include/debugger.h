@@ -1,0 +1,50 @@
+/**
+ * @file debugger.h
+ * @author Dominic Gasperini
+ * @brief 
+ * @version 1.0
+ * @date 2023-02-21
+ * 
+ * @copyright Copyright (c) 2023
+ * 
+ */
+
+#include "data_types.h"
+
+
+// Debug information
+typedef struct Debugger
+{
+  // debug toggle
+  bool debugEnabled;
+  bool CAN_debugEnabled;
+  bool WCB_debugEnabled;
+  bool IO_debugEnabled;
+  bool scheduler_debugEnable;
+
+  // debug data
+  byte CAN_sentStatus;
+  byte CAN_outgoingMessage[8];
+
+  esp_err_t RCB_updateResult = ESP_OK;
+  CarData RCB_updateMessage = {};
+
+  esp_err_t WCB_updateResult;
+  CarData WCB_updateMessage;
+
+  CarData IO_data;
+
+  // scheduler data
+  int sensorTaskCount;
+  int canTaskCount;
+  int ardanTaskCount;
+  int wcbTaskCount;
+  int rcbTaskCount;
+} Debugger;
+
+
+// functions
+void PrintDebug();
+void PrintCANDebug();
+void PrintWCBDebug();
+void PrintIODebug();

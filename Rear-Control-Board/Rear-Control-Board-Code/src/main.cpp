@@ -563,7 +563,12 @@ void ReadSensorsTask(void* pvParameters)
 
 
   // update brake light state
-  
+  if (carData.outputs.brakeLight) {
+    gpio_set_level((gpio_num_t)BRAKE_LIGHT_PIN, 1);   // turn on the brake light
+  }
+  else {
+    gpio_set_level((gpio_num_t)BRAKE_LIGHT_PIN, 0);   // turn off the brake light
+  }
 
   
   // debugging

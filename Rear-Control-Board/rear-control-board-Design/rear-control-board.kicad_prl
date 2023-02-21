@@ -65,7 +65,7 @@
       36
     ],
     "visible_layers": "000bfff_80000001",
-    "zone_display_mode": 0
+    "zone_display_mode": 1
   },
   "meta": {
     "filename": "rear-control-board.kicad_prl",

@@ -386,7 +386,7 @@
       "idf": "",
       "netlist": "",
       "specctra_dsn": "",
-      "step": "Model/rear-control-board.step",
+      "step": "../../../../../Desktop/EE boards/rear-control-board.step",
       "vrml": ""
     },
     "page_layout_descr_file": ""

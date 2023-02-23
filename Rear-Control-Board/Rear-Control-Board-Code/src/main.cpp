@@ -682,7 +682,7 @@ void UpdateCANTask(void* pvParameters)
   // --- send message --- // 
   can_message_t outgoingMessage;
   outgoingMessage.identifier = 0xAA;
-  outgoingMessage.flags = CAN_MSG_FLAG_SELF;
+  outgoingMessage.flags = CAN_MSG_FLAG_NONE;
   outgoingMessage.data_length_code = 8;
   bool sentStatus = false;
 

@@ -78,5 +78,5 @@ uint8_t deviceAddress[] = {0x1a, 0x1a, 0x1a, 0x1a, 0x1a, 0x1a};
 #define SD_D1_PIN                           28
 #define SD_D2_PIN                           30
 #define SD_D3_PIN                           29
-#define SD_DETECT_PIN                  39
+#define SD_DETECT_PIN                       39
 #define SD_MOUNT_POINT                      "/sdcard"

@@ -146,6 +146,10 @@ CarData carData = {
     .wheelHeightBL = 0.0f,
 
     .steeringWheelAngle = 0,
+
+    .vicoreTemp = 0.0f,
+    .pumpTempIn = 0.0f,
+    .pumpTempOut = 0.0f,
   },
 
   // Inputs
@@ -156,10 +160,6 @@ CarData carData = {
     .brake1 = 0,
     .brakeRegen = 0,
     .coastRegen = 0,
-
-    .vicoreTemp = 0.0f,
-    .pumpTempIn = 0.0f,
-    .pumpTempOut = 0.0f,
   },
 
   // Outputs
@@ -210,6 +210,7 @@ sdmmc_slot_config_t sdSlotConfig = {
   .flags = 0,                           // no flags
 };
 int sdLogfileNumber;
+char sdLogFilename[SD_BUFF];
 
 
 /*
@@ -395,8 +396,9 @@ void setup()
         fgets(line, sizeof(line), trackerFile);
         sdLogfileNumber = atoi(line);
 
-        // update tracker number
-        fputs(itoa(sdLogfileNumber++, line, SD_BUFF), tmpFile);
+        // update tracker number and write to temp file
+        sdLogfileNumber++;
+        fprintf(tmpFile, "%d", sdLogfileNumber);
 
         // close files to save changes
         fclose(trackerFile);
@@ -408,6 +410,9 @@ void setup()
         remove(SD_MOUNT_POINT"/tracker.txt");
         if (rename(SD_MOUNT_POINT"/tmp.txt", SD_MOUNT_POINT"/tracker.txt") == 0) {
           Serial.printf("SD CARD TRACKER FILE UPDATE [ SUCCESS ]\n");
+
+          // set filename for logfile
+          GenerateFilename();
           
           setup.loggerActive = true;
         }
@@ -649,8 +654,8 @@ void ReadSensorsTask(void* pvParameters)
   carData.sensors.wheelHeightFL = adc1_get_raw(WHEEL_HEIGHT_BL_SENSOR);
 
   // read radiator sensors
-  carData.inputs.pumpTempIn = adc1_get_raw(RAD_TEMP_IN_PIN);
-  carData.inputs.pumpTempOut = adc1_get_raw(RAD_TEMP_OUT_PIN);
+  carData.sensors.pumpTempIn = adc1_get_raw(RAD_TEMP_IN_PIN);
+  carData.sensors.pumpTempOut = adc1_get_raw(RAD_TEMP_OUT_PIN);
 
   // update fans
   if (carData.outputs.fansActive) {
@@ -799,58 +804,53 @@ void UpdateCANTask(void* pvParameters)
  */
 void UpdateLoggerTask(void* pvParameters) {
   // inits
+  char tmpStr[SD_BUFF];
+  bool logWritten = false;
+  float timeStamp = (float)esp_timer_get_time() * 1000000;    // convert uptime from microseconds to seconds
+
+  // open file
+  FILE* logFile = fopen(sdLogFilename, "w");
+
+  // ensure file is open before writing and write those logs
+  if (logFile != NULL) {
+    // write start of block seperator
+    fprintf(logFile, "\n------------------------------\n");
+
+    // write timestamp
+    fprintf(logFile, "\t\t[ %.2f seconds ]:\n\n", timeStamp);
+
+    // write data
+    fprintf(logFile, "DRIVE STATE: RTD: %d | INVER-EN: %d | MODE: %d\n", carData.drivingData.readyToDrive, carData.drivingData.enableInverter, (int)carData.drivingData.driveMode);
+
+    fprintf(logFile, "FAULTS: IMD: %d | BMS: %d\n", carData.drivingData.imdFault, carData.drivingData.bmsFault);
+
+    fprintf(logFile, "DRIVE STATS: COMM-TORQ: %d | SPEED: %f | DIR: %d\n", carData.drivingData.commandedTorque, carData.drivingData.currentSpeed, carData.drivingData.driveDirection);
+    
+    fprintf(logFile, "PEDALS: P1: %d | P2: %d | B1: %d | B2: %d\n", carData.inputs.pedal0, carData.inputs.pedal1, carData.inputs.brake0, carData.inputs.brake1);
+    
+    fprintf(logFile, "WHEEL SPEED: FR: %f | FL: %f | BR: %f | BL: %f\n", carData.sensors.wheelSpeedFR, carData.sensors.wheelSpeedFL, carData.sensors.wheelSpeedBR, carData.sensors.wheelSpeedBL);
+    
+    fprintf(logFile, "WHEEL HEIGHT: FR: %f | FL: %f | BR: %f | BL: %f\n", carData.sensors.wheelHeightFR, carData.sensors.wheelHeightFL, carData.sensors.wheelHeightBR, carData.sensors.wheelHeightBL);
+    
+    fprintf(logFile, "STEERING ANGLE: %d\n", carData.sensors.steeringWheelAngle);
+
+    fprintf(logFile, "PACKS: CHARGE: %f | BUS-V: %f | RINE-V: %f\n", carData.batteryStatus.batteryChargeState, carData.batteryStatus.busVoltage, carData.batteryStatus.rinehartVoltage);
+    
+    fprintf(logFile, "TEMPS: PACK-1: %f | PACK-2: %f | VICORE: %f | PUMP-I: %f | PUMP-O: %f\n", carData.batteryStatus.pack1Temp, carData.batteryStatus.pack2Temp, carData.sensors.vicoreTemp, carData.sensors.pumpTempIn, carData.sensors.pumpTempOut);
+
+    fprintf(logFile, "OUTPUTS: BUZZER: %d | BRAKE: %d | FAN-EN: %d | PUMP-EN: %d\n", carData.outputs.buzzerActive, carData.outputs.brakeLight, carData.outputs.fansActive, carData.outputs.pumpActive);
+
+    // write end of block seperator
+    fprintf(logFile, "\n------------------------------\n");
+  }
 
 
-//     // Use POSIX and C standard library functions to work with files.
-//     // First create a file.
-//     ESP_LOGI(TAG, "Opening file");
-//     FILE* f = fopen(MOUNT_POINT"/hello.txt", "w");
-//     if (f == NULL) {
-//         ESP_LOGE(TAG, "Failed to open file for writing");
-//         return;
-//     }
-//     fprintf(f, "Hello %s!\n", card->cid.name);
-//     fclose(f);
-//     ESP_LOGI(TAG, "File written");
+  else {
+    Serial.printf("Failed to open log file!\n");
+  }
 
-//     // Check if destination file exists before renaming
-//     struct stat st;
-//     if (stat(MOUNT_POINT"/foo.txt", &st) == 0) {
-//         // Delete it if it exists
-//         unlink(MOUNT_POINT"/foo.txt");
-//     }
-
-//     // Rename original file
-//     ESP_LOGI(TAG, "Renaming file");
-//     if (rename(MOUNT_POINT"/hello.txt", MOUNT_POINT"/foo.txt") != 0) {
-//         ESP_LOGE(TAG, "Rename failed");
-//         return;
-//     }
-
-//     // Open renamed file for reading
-//     ESP_LOGI(TAG, "Reading file");
-//     f = fopen(MOUNT_POINT"/foo.txt", "r");
-//     if (f == NULL) {
-//         ESP_LOGE(TAG, "Failed to open file for reading");
-//         return;
-//     }
-//     char line[64];
-//     fgets(line, sizeof(line), f);
-//     fclose(f);
-//     // strip newline
-//     char* pos = strchr(line, '\n');
-//     if (pos) {
-//         *pos = '\0';
-//     }
-//     ESP_LOGI(TAG, "Read from file: '%s'", line);
-
-//     // All done, unmount partition and disable SDMMC or SPI peripheral
-//     esp_vfs_fat_sdcard_unmount(mount_point, card);
-//     ESP_LOGI(TAG, "Card unmounted");
-// #ifdef USE_SPI_MODE
-//     //deinitialize the bus after all devices are removed
-//     spi_bus_free(host.slot);
-// #endif
+  // close log file
+  fclose(logFile);
 
 
   // debugging
@@ -883,6 +883,20 @@ void loop()
   if (debugger.debugEnabled) {
     PrintDebug();
   }
+}
+
+
+/**
+ * @brief 
+ * 
+ */
+void GenerateFilename() {
+  // inits
+  char num[SD_BUFF];
+
+  strcat(sdLogFilename, SD_MOUNT_POINT"/poop-aids-");
+  strcat(sdLogFilename, itoa(sdLogfileNumber, num, SD_BUFF));
+  strcat(sdLogFilename, ".txt");
 }
 
 

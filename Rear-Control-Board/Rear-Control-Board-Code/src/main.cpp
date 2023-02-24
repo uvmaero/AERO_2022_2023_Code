@@ -194,23 +194,18 @@ can_filter_config_t canFilterConfig = CAN_FILTER_CONFIG_ACCEPT_ALL();       // f
 // SD Card Interface
 esp_vfs_fat_sdmmc_mount_config_t sdMountConfig = {
   .format_if_mount_failed = false,
-  .max_files = 100,
+  .max_files = 1000,
   .allocation_unit_size = 0,
 };
 sdmmc_card_t* sdCard;
 const char sdMountPoint[] = SD_MOUNT_POINT;
 sdmmc_host_t sdHost = SDMMC_HOST_DEFAULT();
-// This initializes the slot without card detect (CD) and write protect (WP) signals.
-// Modify slot_config.gpio_cd and slot_config.gpio_wp if your board has these signals.
-sdmmc_slot_config_t sdSlotConfig = SDMMC_SLOT_CONFIG_DEFAULT();
-// GPIOs 15, 2, 4, 12, 13 should have external 10k pull-ups.
-// Internal pull-ups are not sufficient. However, enabling internal pull-ups
-// does make a difference some boards, so we do that here.
-// gpio_set_pull_mode(15, GPIO_PULLUP_ONLY);   // CMD, needed in 4- and 1- line modes
-// gpio_set_pull_mode(2, GPIO_PULLUP_ONLY);    // D0, needed in 4- and 1-line modes
-// gpio_set_pull_mode(4, GPIO_PULLUP_ONLY);    // D1, needed in 4-line mode only
-// gpio_set_pull_mode(12, GPIO_PULLUP_ONLY);   // D2, needed in 4-line mode only
-// gpio_set_pull_mode(13, GPIO_PULLUP_ONLY);   // D3, needed in 4- and 1-line modes
+sdmmc_slot_config_t sdSlotConfig = {
+  .cd = (gpio_num_t)SD_DETECT_PIN,      // detect sd card presence
+  .wp = GPIO_NUM_NC,                    // no write protection
+  .width = SDMMC_SLOT_WIDTH_DEFAULT,    // sets to max available bandwidth
+  .flags = 0,                           // no flags
+};
 
 
 /*
@@ -372,7 +367,18 @@ void setup()
   if (esp_vfs_fat_sdmmc_mount(sdMountPoint, &sdHost, &sdSlotConfig, &sdMountConfig, &sdCard) == ESP_OK) {
     Serial.printf("SD CARD INIT [ SUCCESS ]\n");
 
-    // get log number from existing file for per-boot file creation
+    // SD connected pins should have external 10k pull-ups.
+    // uncomment if those are not enough
+    ESP_ERROR_CHECK(gpio_set_pull_mode((gpio_num_t)SD_CMD_PIN, GPIO_PULLUP_ONLY));
+    ESP_ERROR_CHECK(gpio_set_pull_mode((gpio_num_t)SD_D0_PIN, GPIO_PULLUP_ONLY));
+    ESP_ERROR_CHECK(gpio_set_pull_mode((gpio_num_t)SD_D1_PIN, GPIO_PULLUP_ONLY));
+    ESP_ERROR_CHECK(gpio_set_pull_mode((gpio_num_t)SD_D2_PIN, GPIO_PULLUP_ONLY));
+    ESP_ERROR_CHECK(gpio_set_pull_mode((gpio_num_t)SD_D3_PIN, GPIO_PULLUP_ONLY));
+
+    // print sd card information
+    
+
+    // get log file number from existing file for per-boot file creation
     // TODO: implement this!
 
     setup.loggerActive = true;

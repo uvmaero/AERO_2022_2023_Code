@@ -72,7 +72,11 @@ uint8_t deviceAddress[] = {0x1a, 0x1a, 0x1a, 0x1a, 0x1a, 0x1a};
 #define PUMP_ENABLE_PIN                     2
 #define BRAKE_LIGHT_PIN                     26
 
-#define SC_CS_PIN                           14
-#define SD_TX_PIN                           12
-#define SD_RX_PIN                           13
+#define SD_CMD_PIN                          14
+#define SD_CLK_PIN                          12
+#define SD_D0_PIN                           27
+#define SD_D1_PIN                           28
+#define SD_D2_PIN                           30
+#define SD_D3_PIN                           29
+#define SD_DETECT_PIN                  39
 #define SD_MOUNT_POINT                      "/sdcard"

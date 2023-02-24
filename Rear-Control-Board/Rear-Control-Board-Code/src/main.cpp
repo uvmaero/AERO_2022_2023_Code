@@ -44,6 +44,9 @@
 // GPIO
 #define GPIO_INPUT_PIN_SELECT           1       
 
+// SD Card
+#define SD_BUFF                         128
+
 // definitions
 #define TIRE_DIAMETER                   20.0        // diameter of the vehicle's tires in inches
 #define WHEEL_RPM_CALC_THRESHOLD        100         // the number of times the hall effect sensor is tripped before calculating vehicle speed
@@ -206,6 +209,7 @@ sdmmc_slot_config_t sdSlotConfig = {
   .width = SDMMC_SLOT_WIDTH_DEFAULT,    // sets to max available bandwidth
   .flags = 0,                           // no flags
 };
+int sdLogfileNumber;
 
 
 /*
@@ -383,14 +387,49 @@ void setup()
       Serial.printf("SD CARD DETECT [ CONNECTED ]\n");
 
       // get log file number from existing file for per-boot file creation
-      // TODO: implement this!
+      FILE* trackerFile = fopen(SD_MOUNT_POINT"/tracker.txt", "r");
+      FILE* tmpFile = fopen(SD_MOUNT_POINT"/tmp.txt", "w");
+      // ensure the file can be opened
+      if (trackerFile != NULL && tmpFile != NULL) {
+        char line[SD_BUFF];
+        fgets(line, sizeof(line), trackerFile);
+        sdLogfileNumber = atoi(line);
 
-      setup.loggerActive = true;
+        // update tracker number
+        fputs(itoa(sdLogfileNumber++, line, SD_BUFF), tmpFile);
+
+        // close files to save changes
+        fclose(trackerFile);
+        fclose(tmpFile);
+
+        Serial.printf("SD CARD TRACKER FILE READ [ SUCCESS ]\n");
+
+        // delete original file and update tmp file
+        remove(SD_MOUNT_POINT"/tracker.txt");
+        if (rename(SD_MOUNT_POINT"/tmp.txt", SD_MOUNT_POINT"/tracker.txt") == 0) {
+          Serial.printf("SD CARD TRACKER FILE UPDATE [ SUCCESS ]\n");
+          
+          setup.loggerActive = true;
+        }
+        
+        // failed to rename file tmp to tracker
+        else {
+          Serial.printf("SD CARD TRACKER FILE UPDATE [ FAILED ]\n");
+        }
+
+      // on open file open failure 
+      }
+      else {
+        Serial.printf("SD TRACKER FILE READ [ FAILED ]\n");
+      }
+  
+    // failed to detect sd card via sd detect pin 
     }
     else {
       Serial.printf("SD CARD DETECT [ FAILED ]\n");
     }
 
+  // sd card struct init failed
   }
   else {
     Serial.printf("SD CARD INIT [ FAILED ]\n");

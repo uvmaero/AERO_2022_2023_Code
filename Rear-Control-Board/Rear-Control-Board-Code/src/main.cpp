@@ -238,6 +238,7 @@ void FCBDataReceived(const uint8_t* mac, const uint8_t* incomingData, int length
 
 // helpers
 long MapValue(long x, long in_min, long in_max, long out_min, long out_max);
+void GenerateFilename();
 
 
 /*
@@ -887,7 +888,7 @@ void loop()
 
 
 /**
- * @brief 
+ * @brief generate a new log filename based on tracker.txt
  * 
  */
 void GenerateFilename() {

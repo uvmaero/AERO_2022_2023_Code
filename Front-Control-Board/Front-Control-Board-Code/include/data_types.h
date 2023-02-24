@@ -70,6 +70,10 @@ typedef struct CarData
     float wheelHeightBL;
 
     uint16_t steeringWheelAngle;
+
+    float vicoreTemp;
+    float pumpTempIn;
+    float pumpTempOut;
   } sensors;
 
   struct Inputs
@@ -80,10 +84,6 @@ typedef struct CarData
     uint16_t brake1;
     uint16_t brakeRegen;
     uint16_t coastRegen;
-
-    float vicoreTemp;
-    float pumpTempIn;
-    float pumpTempOut;
   } inputs;
 
   struct Outputs

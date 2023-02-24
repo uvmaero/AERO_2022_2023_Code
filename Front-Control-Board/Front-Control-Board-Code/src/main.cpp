@@ -29,7 +29,7 @@
 // custom includes
 #include <LoRa.h>
 #include "debugger.h"
-#include "pinConfig.h"
+#include "pin_config.h"
 
 
 /*
@@ -152,6 +152,10 @@ CarData carData = {
     .wheelHeightBL = 0.0f,
 
     .steeringWheelAngle = 0,
+
+    .vicoreTemp = 0.0f,
+    .pumpTempIn = 0.0f,
+    .pumpTempOut = 0.0f,
   },
 
   // Inputs
@@ -162,10 +166,6 @@ CarData carData = {
     .brake1 = 0,
     .brakeRegen = 0,
     .coastRegen = 0,
-
-    .vicoreTemp = 0.0f,
-    .pumpTempIn = 0.0f,
-    .pumpTempOut = 0.0f,
   },
 
   // Outputs

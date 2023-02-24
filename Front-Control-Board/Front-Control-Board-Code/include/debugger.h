@@ -11,7 +11,7 @@
 
 #include <stdio.h>
 #include <Arduino.h>
-#include "dataTypes.h"
+#include "data_types.h"
 
 
 // Debug information

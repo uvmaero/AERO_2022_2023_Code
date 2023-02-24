@@ -81,8 +81,8 @@ Debugger debugger = {
   .CAN_sentStatus = 0,
   .CAN_outgoingMessage = {},
 
-  .FCB_updateResult = ESP_OK,
-  .FCB_updateMessage = {},
+  .WCB_updateResult = ESP_OK,
+  .WCB_updateMessage = {},
 
   .IO_data = {},
 
@@ -90,6 +90,7 @@ Debugger debugger = {
   .sensorTaskCount = 0,
   .canTaskCount = 0,
   .loggerTaskCount = 0,
+  .wcbTaskCount = 0,
 };
 
 
@@ -229,6 +230,7 @@ void BLWheelSensorCallback(void* args);
 void ReadSensorsTask(void* pvParameters);
 void UpdateCANTask(void* pvParameters);
 void UpdateLoggerTask(void* pvParameters);
+void UpdateWCBTask(void* pvParameters);
 
 // ISRs
 void FCBDataReceived(const uint8_t* mac, const uint8_t* incomingData, int length);
@@ -534,24 +536,26 @@ void CANCallback(void* args) {
 
 
 /**
- * @brief callback function for creating a new ARDAN Update task
+ * @brief callback function for creating a new Logger Update task
  * 
  * @param args arguments to be passed to the task
  */
 void LoggerCallback(void* args) { 
   static uint8_t ucParameterToPass;
   TaskHandle_t xHandle = NULL;
-  xTaskCreate(UpdateLoggerTask, "ARDAN-Update", TASK_STACK_SIZE, &ucParameterToPass, 3, &xHandle);
+  xTaskCreate(UpdateLoggerTask, "ARDAN-Update", TASK_STACK_SIZE, &ucParameterToPass, 4, &xHandle);
 }
 
 
 /**
- * @brief callback function for creating a new FCB Update task
+ * @brief callback function for creating a new WCB Update task
  * 
  * @param args arguments to be passed to the task
  */
 void ESPNOWCallback(void* args) {
-
+  static uint8_t ucParameterToPass;
+  TaskHandle_t xHandle = NULL;
+  xTaskCreate(UpdateWCBTask, "WCB-Update", TASK_STACK_SIZE, &ucParameterToPass, 3, &xHandle);
 }
 
 
@@ -563,8 +567,28 @@ void ESPNOWCallback(void* args) {
  * @param length          size of the incoming data
  */
 void FCBDataReceived(const uint8_t* mac, const uint8_t* incomingData, int length) {
-  // copy data to the wcbData struct 
-  memcpy((uint8_t *) &carData, incomingData, sizeof(carData));
+  // inits
+  CarData tmp;
+
+  // copy data to the tmp struct 
+  memcpy((uint8_t *) &tmp, incomingData, sizeof(carData));
+
+  // update relevant data
+  carData.sensors.steeringWheelAngle = tmp.sensors.steeringWheelAngle;
+
+  carData.sensors.wheelSpeedFR = tmp.sensors.wheelSpeedFR;
+  carData.sensors.wheelSpeedFR = tmp.sensors.wheelSpeedFR;
+  carData.sensors.wheelSpeedFR = tmp.sensors.wheelSpeedFR;
+  carData.sensors.wheelSpeedFR = tmp.sensors.wheelSpeedFR;
+
+  carData.sensors.wheelHeightFR = tmp.sensors.wheelHeightFR;
+  carData.sensors.wheelHeightFR = tmp.sensors.wheelHeightFR;
+  carData.sensors.wheelHeightFR = tmp.sensors.wheelHeightFR;
+  carData.sensors.wheelHeightFR = tmp.sensors.wheelHeightFR;
+
+  carData.drivingData.driveMode = tmp.drivingData.driveMode;
+
+  carData.drivingData.currentSpeed = tmp.drivingData.currentSpeed;
 
   return;
 }
@@ -796,6 +820,27 @@ void UpdateCANTask(void* pvParameters)
 
 
 /**
+ * @brief updates wheel board with information from rcb
+ * 
+ * @param pvParameters parameters passed to task
+ */
+void UpdateWCBTask(void* pvParameters) {
+  // send message
+  esp_err_t result = esp_now_send(wcbAddress, (uint8_t *) &carData, sizeof(carData));
+
+  // debugging 
+  if (debugger.debugEnabled) {
+    debugger.WCB_updateMessage = carData;
+    debugger.WCB_updateResult = result;
+    debugger.wcbTaskCount++;
+  }
+
+  // end task
+  vTaskDelete(NULL);
+}
+
+
+/**
  * @brief writes most recent stored data frame to the SD card
  * 
  * @param pvParameters parameters passed to task
@@ -975,11 +1020,11 @@ void PrintWCBDebug() {
   Serial.printf("\n--- START WCB DEBUG ---\n");
 
   // send status
-  Serial.printf("WCB ESP-NOW Update: %s\n", debugger.FCB_updateResult ? "Success" : "Failed");
+  Serial.printf("WCB ESP-NOW Update: %s\n", debugger.WCB_updateResult ? "Success" : "Failed");
 
 
   // message
-  Serial.printf("ready to drive status: %d\n", debugger.FCB_updateMessage.drivingData.readyToDrive);
+  Serial.printf("ready to drive status: %d\n", debugger.WCB_updateMessage.drivingData.readyToDrive);
   
 
   Serial.printf("\n--- END WCB DEBUG ---\n");

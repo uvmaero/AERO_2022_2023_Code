@@ -26,8 +26,8 @@ typedef struct Debugger
   byte CAN_sentStatus;
   byte CAN_outgoingMessage[8];
 
-  esp_err_t FCB_updateResult = ESP_OK;
-  CarData FCB_updateMessage = {};
+  esp_err_t WCB_updateResult = ESP_OK;
+  CarData WCB_updateMessage = {};
 
   CarData IO_data;
 
@@ -35,6 +35,7 @@ typedef struct Debugger
   int sensorTaskCount;
   int canTaskCount;
   int loggerTaskCount;
+  int wcbTaskCount;
 } Debugger;
 
 

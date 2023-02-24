@@ -571,7 +571,7 @@ void FCBDataReceived(const uint8_t* mac, const uint8_t* incomingData, int length
   CarData tmp;
 
   // copy data to the tmp struct 
-  memcpy((uint8_t *) &tmp, incomingData, sizeof(carData));
+  memcpy((uint8_t *) &tmp, incomingData, sizeof(incomingData));
 
   // update relevant data
   carData.sensors.steeringWheelAngle = tmp.sensors.steeringWheelAngle;

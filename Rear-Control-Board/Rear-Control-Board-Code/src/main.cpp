@@ -41,9 +41,6 @@
                                     Definitions
 ===============================================================================================
 */
-// GPIO
-#define GPIO_INPUT_PIN_SELECT           1       
-
 // SD Card
 #define SD_BUFF                         128
 

@@ -360,10 +360,13 @@ void setup()
   else {
     Serial.printf("ESP-NOW INIT [ FAILED ]\n");
   }
+
+
   // ------------------------------------------------------------------------ //
 
 
   // ---------------------- initialize SD Logger ---------------------------- //
+  // init sd card
   if (esp_vfs_fat_sdmmc_mount(sdMountPoint, &sdHost, &sdSlotConfig, &sdMountConfig, &sdCard) == ESP_OK) {
     Serial.printf("SD CARD INIT [ SUCCESS ]\n");
 
@@ -375,13 +378,19 @@ void setup()
     ESP_ERROR_CHECK(gpio_set_pull_mode((gpio_num_t)SD_D2_PIN, GPIO_PULLUP_ONLY));
     ESP_ERROR_CHECK(gpio_set_pull_mode((gpio_num_t)SD_D3_PIN, GPIO_PULLUP_ONLY));
 
-    // print sd card information
-    
+    // check for sd card inserted
+    if (gpio_get_level((gpio_num_t) SD_DETECT_PIN)) {
+      Serial.printf("SD CARD DETECT [ CONNECTED ]\n");
 
-    // get log file number from existing file for per-boot file creation
-    // TODO: implement this!
+      // get log file number from existing file for per-boot file creation
+      // TODO: implement this!
 
-    setup.loggerActive = true;
+      setup.loggerActive = true;
+    }
+    else {
+      Serial.printf("SD CARD DETECT [ FAILED ]\n");
+    }
+
   }
   else {
     Serial.printf("SD CARD INIT [ FAILED ]\n");

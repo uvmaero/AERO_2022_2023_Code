@@ -276,16 +276,19 @@ void setup()
   // -------------------------- initialize GPIO ------------------------------------- //
   ESP_ERROR_CHECK(gpio_install_isr_service(0));
 
-  // setup front right wheel speed sensor
-  gpio_set_direction((gpio_num_t)WHEEL_HEIGHT_BR_SENSOR, GPIO_MODE_INPUT);
-  gpio_set_intr_type((gpio_num_t)WHEEL_HEIGHT_BR_SENSOR, GPIO_INTR_HIGH_LEVEL);
-  gpio_isr_handler_add((gpio_num_t)WHEEL_HEIGHT_BR_SENSOR, BRWheelSensorCallback, (void*) (gpio_num_t)WHEEL_HEIGHT_BR_SENSOR);
+  // setup rear right wheel speed sensor
+  gpio_set_direction((gpio_num_t)WHEEL_SPEED_BR_SENSOR, GPIO_MODE_INPUT);
+  gpio_set_intr_type((gpio_num_t)WHEEL_SPEED_BR_SENSOR, GPIO_INTR_HIGH_LEVEL);
+  gpio_isr_handler_add((gpio_num_t)WHEEL_SPEED_BR_SENSOR, BRWheelSensorCallback, (void*) (gpio_num_t)WHEEL_SPEED_BR_SENSOR);
   
-  // setup front left wheel speed sensor
-  gpio_set_direction((gpio_num_t)WHEEL_HEIGHT_BL_SENSOR, GPIO_MODE_INPUT);
-  gpio_set_intr_type((gpio_num_t)WHEEL_HEIGHT_BL_SENSOR, GPIO_INTR_HIGH_LEVEL);
-  gpio_isr_handler_add((gpio_num_t)WHEEL_HEIGHT_BL_SENSOR, BLWheelSensorCallback, (void*) (gpio_num_t)WHEEL_HEIGHT_BL_SENSOR);
+  // setup rear left wheel speed sensor
+  gpio_set_direction((gpio_num_t)WHEEL_SPEED_BL_SENSOR, GPIO_MODE_INPUT);
+  gpio_set_intr_type((gpio_num_t)WHEEL_SPEED_BL_SENSOR, GPIO_INTR_HIGH_LEVEL);
+  gpio_isr_handler_add((gpio_num_t)WHEEL_SPEED_BL_SENSOR, BLWheelSensorCallback, (void*) (gpio_num_t)WHEEL_SPEED_BL_SENSOR);
 
+  // setup rear wheel height sensors
+  gpio_set_direction((gpio_num_t)WHEEL_HEIGHT_BR_SENSOR, GPIO_MODE_INPUT);
+  gpio_set_direction((gpio_num_t)WHEEL_HEIGHT_BL_SENSOR, GPIO_MODE_INPUT);
 
   // setup adc pins
   ESP_ERROR_CHECK(adc1_config_width(ADC_WIDTH_BIT_12));
@@ -300,6 +303,10 @@ void setup()
   ESP_ERROR_CHECK(adc2_config_channel_atten(ADC2_CHANNEL_1, ADC_ATTEN_0db));
 
   // outputs //
+  gpio_set_direction((gpio_num_t)FAN_ENABLE_PIN, GPIO_MODE_OUTPUT);
+  gpio_set_direction((gpio_num_t)PUMP_ENABLE_PIN, GPIO_MODE_OUTPUT);
+  gpio_set_direction((gpio_num_t)BRAKE_LIGHT_PIN, GPIO_MODE_OUTPUT);
+
 
   setup.ioActive = true;
   // -------------------------------------------------------------------------- //

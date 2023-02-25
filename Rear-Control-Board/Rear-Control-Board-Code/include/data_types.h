@@ -10,7 +10,10 @@
  */
 
 
-// Drive Mode Enumeration Type
+/**
+ * @brief 
+ * 
+ */
 typedef enum DriveModes
 {
   SLOW = 0,
@@ -23,12 +26,27 @@ typedef enum DriveModes
  * @brief 
  * 
  */
+typedef enum PrechargeStates
+{
+  PRECHARGE_OFF = 0,
+  PRECHARGE_ON = 1,
+  PRECHARGE_DONE = 2,
+  PRECHARGE_ERROR = 3,
+
+} PrechargeStates;
+
+
+/**
+ * @brief 
+ * 
+ */
 typedef struct CarData
 {
   struct DrivingData
   {
     bool readyToDrive;
     bool enableInverter;
+    PrechargeStates prechargeState;
 
     bool imdFault;
     bool bmsFault;

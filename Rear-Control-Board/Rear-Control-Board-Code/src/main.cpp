@@ -47,6 +47,8 @@
 // definitions
 #define TIRE_DIAMETER                   20.0        // diameter of the vehicle's tires in inches
 #define WHEEL_RPM_CALC_THRESHOLD        100         // the number of times the hall effect sensor is tripped before calculating vehicle speed
+#define PRECHARGE_FLOOR                 0.9         // minimum percentage of acceptable voltage to run car
+#define MIN_BUS_VOLTAGE                 220         // a voltage that can only be reached with two active packs
 
 // tasks & timers
 #define SENSOR_POLL_INTERVAL            100000      // 0.1 seconds in microseconds
@@ -103,6 +105,7 @@ CarData carData = {
   .drivingData = {
     .readyToDrive = false,
     .enableInverter = false,
+    .prechargeState = PRECHARGE_OFF,
 
     .imdFault = false,
     .bmsFault = false,
@@ -219,7 +222,7 @@ char sdLogFilename[SD_BUFF];
 
 
 // callbacks
-void SensorCallback(void* args);
+void SensorPrechargeCallback(void* args);
 void CANCallback(void* args);
 void ESPNOWCallback(void* args);
 void LoggerCallback(void* args);
@@ -231,6 +234,7 @@ void ReadSensorsTask(void* pvParameters);
 void UpdateCANTask(void* pvParameters);
 void UpdateLoggerTask(void* pvParameters);
 void UpdateWCBTask(void* pvParameters);
+void PrechargeTask(void* pvParameters);
 
 // ISRs
 void FCBDataReceived(const uint8_t* mac, const uint8_t* incomingData, int length);
@@ -445,9 +449,9 @@ void setup()
 
 
   // ---------------------- initialize timer interrupts ---------------------- //
-  // timer 1 - Read Sensors 
+  // timer 1 - Read Sensors & Update Precharge
   const esp_timer_create_args_t timer1_args = {
-    .callback = &SensorCallback,
+    .callback = &SensorPrechargeCallback,
     .dispatch_method = ESP_TIMER_TASK,
     .name = "Sensor Timer"
   };
@@ -516,10 +520,14 @@ void setup()
  * 
  * @param args arguments to be passed to the task
  */
-void SensorCallback(void* args) {
+void SensorPrechargeCallback(void* args) {
+  // queue sensor task
   static uint8_t ucParameterToPass;
   TaskHandle_t xHandle = NULL;
   xTaskCreate(ReadSensorsTask, "Poll-Senser-Data", TASK_STACK_SIZE, &ucParameterToPass, 5, &xHandle);
+
+  // queue precharge task 
+  xTaskCreate(PrechargeTask, "Update-Precharge", TASK_STACK_SIZE, &ucParameterToPass, 6, &xHandle);
 }
 
 
@@ -717,6 +725,161 @@ void ReadSensorsTask(void* pvParameters)
 
   // end task
   vTaskDelete(NULL);
+}
+
+
+/**
+ * @brief run precharge
+ * 
+ * @param pvParameters 
+ */
+void PrechargeTask(void* pvParameters) {
+  // inits
+  can_message_t outgoingMessage;
+
+  // precharge state machine
+  switch (carData.drivingData.prechargeState) {
+
+    // prepare for and start precharge
+    case PRECHARGE_OFF:
+      // set ready to drive state
+      carData.drivingData.readyToDrive = false;
+
+      // send a message to rinehart
+      outgoingMessage.identifier = 0xAA;
+      outgoingMessage.flags = CAN_MSG_FLAG_NONE;
+      outgoingMessage.data_length_code = 8;
+
+      // build message
+      // message is sent to rinehart to turn everything off
+      outgoingMessage.data[0] = 1;          // parameter address. LSB
+      outgoingMessage.data[1] = 0;          // parameter address. MSB
+      outgoingMessage.data[2] = 1;          // Read / Write. 1 is write
+      outgoingMessage.data[3] = 0;          // N/A
+      outgoingMessage.data[4] = 0;          // Data: ( 0: all off | 1: relay 1 on | 2: relay 2 on | 3: relay 1 & 2 on )
+      outgoingMessage.data[5] = 0x55;       // 55 means relay control
+      outgoingMessage.data[6] = 0;          // N/A
+      outgoingMessage.data[7] = 0;          // N/A
+
+
+      // queue message for transmission
+      int result = can_transmit(&outgoingMessage, pdMS_TO_TICKS(1000));
+
+      // ensure message was successfully sent
+      if (result == ESP_OK) {
+        carData.drivingData.prechargeState = PRECHARGE_ON;
+      }
+      else {
+        carData.drivingData.prechargeState = PRECHARGE_ERROR;
+      }
+    break;
+
+    // do precharge
+    case PRECHARGE_ON:
+      // ensure voltages are above correct values
+      if ((carData.batteryStatus.rinehartVoltage > (carData.batteryStatus.busVoltage * PRECHARGE_FLOOR)) && (carData.batteryStatus.busVoltage > MIN_BUS_VOLTAGE)) {
+        carData.drivingData.prechargeState = PRECHARGE_DONE;
+      }
+
+      // re-send message to ensure relay is on
+      else {
+        // send a message to rinehart
+        outgoingMessage.identifier = 0xAA;
+        outgoingMessage.flags = CAN_MSG_FLAG_NONE;
+        outgoingMessage.data_length_code = 8;
+
+        // build message
+        // message is sent to rinehart to turn on precharge relay
+        // precharge relay is on relay 1 from Rinehart
+        outgoingMessage.data[0] = 1;            // parameter address. LSB
+        outgoingMessage.data[1] = 0;            // parameter address. MSB
+        outgoingMessage.data[2] = 1;            // Read / Write. 1 is write
+        outgoingMessage.data[3] = 0;            // N/A
+        outgoingMessage.data[4] = 1;            // Data: ( 0: all off | 1: relay 1 on | 2: relay 2 on | 3: relay 1 & 2 on )
+        outgoingMessage.data[5] = 0x55;         // 55 means relay control
+        outgoingMessage.data[6] = 0;            // N/A
+        outgoingMessage.data[7] = 0;            // N/A
+
+        // queue message for transmission
+        int result = can_transmit(&outgoingMessage, pdMS_TO_TICKS(1000));
+
+        // ensure message was successfully sent
+        if (result == ESP_OK) {
+          carData.drivingData.prechargeState = PRECHARGE_ON;
+        }
+        else {
+          carData.drivingData.prechargeState = PRECHARGE_ERROR;
+        }
+      }
+    break;
+
+
+    // precharge complete!
+    case PRECHARGE_DONE:
+      // message is sent to rinehart to turn everything on
+      // Keep precharge relay on and turn on main contactor
+      outgoingMessage.data[0] = 1;            // parameter address. LSB
+      outgoingMessage.data[1] = 0;            // parameter address. MSB
+      outgoingMessage.data[2] = 1;            // Read / Write. 1 is write
+      outgoingMessage.data[3] = 0;            // N/A
+      outgoingMessage.data[4] = 3;            // Data: ( 0: all off | 1: relay 1 on | 2: relay 2 on | 3: relay 1 & 2 on )
+      outgoingMessage.data[5] = 0x55;         // 55 is relay control
+      outgoingMessage.data[6] = 0;            // N/A
+      outgoingMessage.data[7] = 0;            // N/A
+
+      // queue message for transmission
+      int result = can_transmit(&outgoingMessage, pdMS_TO_TICKS(1000));
+
+      // ensure message was successfully sent
+      if (result != ESP_OK) {
+        carData.drivingData.prechargeState = PRECHARGE_ERROR;
+      } 
+
+      // if rinehart voltage drops below battery, something's wrong, 
+      if (carData.batteryStatus.rinehartVoltage < (carData.batteryStatus.busVoltage * PRECHARGE_FLOOR)) {
+        carData.drivingData.prechargeState = PRECHARGE_ERROR;
+      }
+
+    break;
+
+
+    // error state
+    case PRECHARGE_ERROR:
+      // send a message to rinehart
+      outgoingMessage.identifier = 0xAA;
+      outgoingMessage.flags = CAN_MSG_FLAG_NONE;
+      outgoingMessage.data_length_code = 8;
+      
+      // build message
+      // message is sent to rinehart to turn everything off
+      outgoingMessage.data[0] = 1;            // parameter address. LSB
+      outgoingMessage.data[1] = 0;            // parameter address. MSB
+      outgoingMessage.data[2] = 1;            // Read / Write. 1 is write
+      outgoingMessage.data[3] = 0;            // N/A
+      outgoingMessage.data[4] = 0;            // Data: ( 0: all off | 1: relay 1 on | 2: relay 2 on | 3: relay 1 & 2 on )
+      outgoingMessage.data[5] = 0x55;         // 55 means relay control
+      outgoingMessage.data[6] = 0;            // N/A
+      outgoingMessage.data[7] = 0;            // N/A
+
+      // queue message for transmission
+      int result = can_transmit(&outgoingMessage, pdMS_TO_TICKS(1000));
+
+      // ensure car cannot drive
+      carData.drivingData.readyToDrive = false;
+      carData.drivingData.commandedTorque = 0;
+      carData.drivingData.enableInverter = false;
+
+      // ensure we do not leave precharge error
+      carData.drivingData.prechargeState = PRECHARGE_ERROR;
+    break;
+    
+
+    // handle undefined behavior
+    default:
+      // if we've entered an undefined state, go to error mode
+      carData.drivingData.prechargeState = PRECHARGE_ERROR;
+    break;
+    }
 }
 
 

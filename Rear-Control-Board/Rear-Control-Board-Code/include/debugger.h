@@ -31,8 +31,11 @@ typedef struct Debugger
 
   CarData IO_data;
 
+  
+
   // scheduler data
   int sensorTaskCount;
+  int prechargeTaskCount;
   int canTaskCount;
   int loggerTaskCount;
   int wcbTaskCount;

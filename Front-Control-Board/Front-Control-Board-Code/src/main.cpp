@@ -50,6 +50,15 @@
 #define TORQUE_DEADBAND                 5
 #define MAX_TORQUE                      225         // MAX TORQUE RINEHART CAN ACCEPT, DO NOT EXCEED 230!!!
 
+// CAN
+#define FCB_CONTROL_ADDR                0x0A
+#define FCB_DATA_ADDR                   0x0B
+#define RCB_CONTROL_ADDR                0x0C
+#define RCB_DATA_ADDR                   0x0D
+#define RINE_CONTROL_ADDR               0x0C0
+#define RINE_MOTOR_INFO_ADDR            0x0A5
+#define RINE_VOLT_INFO_ADDR             0x0A7
+
 // tasks & timers
 #define SENSOR_POLL_INTERVAL            100000      // 0.1 seconds in microseconds
 #define CAN_WRITE_INTERVAL              100000      // 0.1 seconds in microseconds
@@ -226,6 +235,7 @@ void UpdateRCBTask(void* pvParameters);
 
 // ISRs
 void WCBDataReceived(const uint8_t* mac, const uint8_t* incomingData, int length);
+void ReadyToDriveButtonPressed(void* args);
 
 // helpers
 void GetCommandedTorque();
@@ -275,8 +285,10 @@ void setup()
   gpio_set_intr_type((gpio_num_t)WHEEL_HEIGHT_FL_SENSOR, GPIO_INTR_HIGH_LEVEL);
   gpio_isr_handler_add((gpio_num_t)WHEEL_HEIGHT_FL_SENSOR, FLWheelSensorCallback, (void*) (gpio_num_t)WHEEL_HEIGHT_FL_SENSOR);
 
-  // setup WCB connection status LED
-  gpio_set_direction((gpio_num_t)WCB_CONNECTION_LED, GPIO_MODE_OUTPUT);
+  // setup RTD button
+  gpio_set_direction((gpio_num_t)RTD_BUTTON_PIN, GPIO_MODE_INPUT);
+  gpio_set_intr_type((gpio_num_t)RTD_BUTTON_PIN, GPIO_INTR_HIGH_LEVEL);
+  gpio_isr_handler_add((gpio_num_t)RTD_BUTTON_PIN, ReadyToDriveButtonPressed, (void*) (gpio_num_t)RTD_BUTTON_PIN);
 
   // setup adc pins
   ESP_ERROR_CHECK(adc1_config_width(ADC_WIDTH_BIT_12));
@@ -291,6 +303,12 @@ void setup()
   ESP_ERROR_CHECK(adc2_config_channel_atten(ADC2_CHANNEL_1, ADC_ATTEN_0db));
 
   // outputs //
+  // setup WCB connection status LED
+  gpio_set_direction((gpio_num_t)WCB_CONNECTION_LED, GPIO_MODE_OUTPUT);
+
+  // setup RTD button LED
+  gpio_set_direction((gpio_num_t)RTD_BUTTON_LED_PIN, GPIO_MODE_OUTPUT);
+
 
   setup.ioActive = true;
   // -------------------------------------------------------------------------- //
@@ -541,7 +559,7 @@ void WCBDataReceived(const uint8_t* mac, const uint8_t* incomingData, int length
 /**
  * @brief callback function for when the hall effect sensor fires on front right wheel
  * 
- * @param args 
+ * @param args arguments to be passed to the task
  */
 void FRWheelSensorCallback(void* args) {
   // increment pass counter
@@ -569,7 +587,7 @@ void FRWheelSensorCallback(void* args) {
 /**
  * @brief callback function for when the hall effect sensor fires on front left wheel
  * 
- * @param args 
+ * @param args arguments to be passed to the task
  */
 void FLWheelSensorCallback(void* args) {
   // increment pass counter
@@ -591,6 +609,19 @@ void FLWheelSensorCallback(void* args) {
   }
 
   return;
+}
+
+
+/**
+ * @brief handle the ready to drive button press event
+ * 
+ * @param args arguments to be passed to the task
+ */
+void ReadyToDriveButtonPressed(void* args) {
+  if (carData.drivingData.readyToDrive) {
+    // turn on buzzer to indicate TSV is live
+    carData.outputs.buzzerActive = true;
+  }
 }
 
 
@@ -633,7 +664,8 @@ void ReadSensorsTask(void* pvParameters)
   {
     gpio_set_level((gpio_num_t)BUZZER_PIN, carData.outputs.buzzerActive);
     carData.outputs.buzzerCounter++;
-    if (carData.outputs.buzzerCounter >= (2 * (100 / (SENSOR_POLL_INTERVAL / 10000))))    // get 2 seconds worth of interrupt counts
+
+    if (carData.outputs.buzzerCounter >= (2 * (SENSOR_POLL_INTERVAL / 10000)))    // convert to activations per second and multiply by 2
     {
       // update buzzer state and turn off the buzzer
       carData.outputs.buzzerActive = false;
@@ -682,91 +714,108 @@ void ReadSensorsTask(void* pvParameters)
  */
 void UpdateCANTask(void* pvParameters)
 {
-  // inits
-  can_message_t incomingMessage;
+  // send and receive messages until RTOS says to stop
+  while (1) {
+    // inits
+    can_message_t incomingMessage;
 
-  // --- receive messages --- //
-  // check for new messages in the CAN buffer
-  if (can_receive(&incomingMessage, pdMS_TO_TICKS(1000))) {
+    // --- receive messages --- //
+    // check for new messages in the CAN buffer
+    if (can_receive(&incomingMessage, pdMS_TO_TICKS(1000))) {
+      if (incomingMessage.flags & CAN_MSG_FLAG_NONE) {
 
-    if (incomingMessage.flags & CAN_MSG_FLAG_NONE) {
-      // filter for only the IDs we are interested in
-      switch (incomingMessage.identifier)
-      {
-        // message from RCB: Sensor Data
-        case 0x100:
-        if (!(incomingMessage.flags & CAN_MSG_FLAG_RTR)) {
-          // do stuff with the data in the message
+        // filter for only the IDs we are interested in
+        switch (incomingMessage.identifier) {
+
+          case RCB_CONTROL_ADDR:
+            incomingMessage.data[0] = carData.drivingData.readyToDrive;
+            incomingMessage.data[1] = carData.drivingData.imdFault;
+            incomingMessage.data[2] = carData.drivingData.bmsFault;
+          break;
+
+          case RCB_DATA_ADDR:
+            incomingMessage.data[0] = carData.sensors.wheelSpeedBR;
+            incomingMessage.data[1] = carData.sensors.wheelSpeedBL;
+            incomingMessage.data[2] = carData.sensors.wheelHeightBR;
+            incomingMessage.data[3] = carData.sensors.wheelHeightBL;
+          break;
+
+          default:
+          break;
         }
-        break;
-
-        // message from RCB: BMS and electrical data
-        case 0x101:
-        if (!(incomingMessage.flags & CAN_MSG_FLAG_RTR)) {
-          // do stuff with the data in the message
-        }        
-        break;
-
-        default:
-        // do nothing because we didn't get any messages of interest
-        break;
       }
     }
 
-  }
+    // --- send message --- // 
+    can_message_t outgoingMessage;
+    bool sentStatus = false;
 
-  // --- send message --- // 
-  can_message_t outgoingMessage;
-  outgoingMessage.identifier = 0xAA;
-  outgoingMessage.flags = CAN_MSG_FLAG_SELF;
-  outgoingMessage.data_length_code = 8;
-  bool sentStatus = false;
+    // build rinehart CONTROL message
+    outgoingMessage.identifier = RINE_CONTROL_ADDR;
+    outgoingMessage.flags = CAN_MSG_FLAG_NONE;
+    outgoingMessage.data_length_code = 8;
+    outgoingMessage.data[0] = carData.drivingData.commandedTorque & 0xFF; // commanded torque is sent across two bytes
+    outgoingMessage.data[1] = carData.drivingData.commandedTorque >> 8;
+    outgoingMessage.data[2] = 0;                                          // speed command NOT USING
+    outgoingMessage.data[3] = 0;                                          // speed command NOT USING
+    outgoingMessage.data[4] = carData.drivingData.driveDirection;         // 1: forward | 0: reverse (we run in reverse!)
+    outgoingMessage.data[5] = carData.drivingData.enableInverter;         // 
+    outgoingMessage.data[6] = MAX_TORQUE;                                 // this is the max torque value that we are establishing that can be sent to rinehart
+    outgoingMessage.data[7] = 0;                                          // i think this one is min torque or it does nothing
 
-  // build message
-  outgoingMessage.data[0] = 0x00;
-  outgoingMessage.data[1] = 0x01;
-  outgoingMessage.data[2] = 0x02;
-  outgoingMessage.data[3] = 0x03;
-  outgoingMessage.data[4] = 0x04;
-  outgoingMessage.data[5] = 0x05;
-  outgoingMessage.data[6] = 0x06;
-  outgoingMessage.data[7] = 0x07;
+    // queue message for transmission
+    int result = can_transmit(&outgoingMessage, pdMS_TO_TICKS(1000));
 
-  // queue message for transmission
-  int result = can_transmit(&outgoingMessage, pdMS_TO_TICKS(1000));
-  switch (result)
-  {
-  case ESP_OK:
-    sentStatus = true;
-    break;
+    // build message for RCB - control
+    outgoingMessage.identifier = FCB_CONTROL_ADDR;
+    outgoingMessage.flags = CAN_MSG_FLAG_NONE;
+    outgoingMessage.data_length_code = 8;
+    outgoingMessage.data[0] = carData.outputs.brakeLight;
+    outgoingMessage.data[1] = 0;
+    outgoingMessage.data[2] = 0;
+    outgoingMessage.data[3] = 0;
+    outgoingMessage.data[4] = 0;
+    outgoingMessage.data[5] = 0;
+    outgoingMessage.data[6] = 0;
+    outgoingMessage.data[7] = 0;
 
-  case ESP_ERR_INVALID_ARG:
-    Serial.printf("Arguments are invalid\n");
-  break;
+    // queue message for transmission
+    int result = can_transmit(&outgoingMessage, pdMS_TO_TICKS(1000));
 
-  case ESP_ERR_TIMEOUT:
-    Serial.printf("Timed out waiting for space on TX queue\n");
-  break;
+    switch (result) {
+      case ESP_OK:
+        sentStatus = true;
+      break;
 
-  case ESP_FAIL:
-    Serial.printf("TX queue is disabled and another message is currently transmitting\n");
-  break;
+      case ESP_ERR_INVALID_ARG:
+        Serial.printf("Arguments are invalid\n");
+      break;
 
-  case ESP_ERR_INVALID_STATE:
-    Serial.printf("TWAI driver is not in running state, or is not installed\n");
-  break;
+      case ESP_ERR_TIMEOUT:
+        Serial.printf("Timed out waiting for space on TX queue\n");
+      break;
 
-  default:
-    break;
-  }
+      case ESP_FAIL:
+        Serial.printf("TX queue is disabled and another message is currently transmitting\n");
+      break;
 
-  // debugging
-  if (debugger.debugEnabled) {
-    debugger.CAN_sentStatus = sentStatus;
-    for (int i = 0; i < 8; ++i) {
-      debugger.CAN_outgoingMessage[i] = outgoingMessage.data[i];
+      case ESP_ERR_INVALID_STATE:
+        Serial.printf("TWAI driver is not in running state, or is not installed\n");
+      break;
+
+      default:
+        Serial.printf("Undefined CAN error :/\n");
+      break;
     }
-    debugger.canTaskCount++;
+
+    // debugging
+    if (debugger.debugEnabled) {
+      debugger.CAN_sentStatus = sentStatus;
+      for (int i = 0; i < 8; ++i) {
+        debugger.CAN_outgoingMessage[i] = outgoingMessage.data[i];
+      }
+      debugger.canTaskCount++;
+    }
   }
 
   // end task

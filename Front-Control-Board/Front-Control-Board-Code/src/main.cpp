@@ -111,6 +111,7 @@ CarData carData = {
   .drivingData = {
     .readyToDrive = false,
     .enableInverter = false,
+    .prechargeState = PRECHARGE_OFF,
 
     .imdFault = false,
     .bmsFault = false,

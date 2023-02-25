@@ -11,7 +11,7 @@
 
 
 /**
- * @brief 
+ * @brief the different throttle modes for to modify driving behavior
  * 
  */
 typedef enum DriveModes
@@ -23,7 +23,7 @@ typedef enum DriveModes
 
 
 /**
- * @brief 
+ * @brief each state that the precharge state machine can be in
  * 
  */
 typedef enum PrechargeStates
@@ -37,7 +37,7 @@ typedef enum PrechargeStates
 
 
 /**
- * @brief 
+ * @brief the entire current state of the car
  * 
  */
 typedef struct CarData

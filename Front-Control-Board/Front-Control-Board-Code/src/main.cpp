@@ -620,10 +620,6 @@ void ReadSensorsTask(void* pvParameters)
   // Calculate commanded torque
   GetCommandedTorque();
 
-  // update wheel speed values
-  carData.sensors.wheelSpeedFR = adc1_get_raw(WHEEL_SPEED_FR_SENSOR);
-  carData.sensors.wheelSpeedFL = adc1_get_raw(WHEEL_HEIGHT_FL_SENSOR);
-
   // update wheel ride height values
   carData.sensors.wheelHeightFR = adc1_get_raw(WHEEL_HEIGHT_FR_SENSOR);
   carData.sensors.wheelHeightFL = adc1_get_raw(WHEEL_HEIGHT_FL_SENSOR);

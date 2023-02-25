@@ -50,6 +50,15 @@
 #define PRECHARGE_FLOOR                 0.9         // minimum percentage of acceptable voltage to run car
 #define MIN_BUS_VOLTAGE                 220         // a voltage that can only be reached with two active packs
 
+// CAN
+#define FCB_CONTROL_ADDR                0x0A
+#define FCB_DATA_ADDR                   0x0B
+#define RCB_CONTROL_ADDR                0x0C
+#define RCB_DATA_ADDR                   0x0D
+#define RINE_CONTROL_ADDR               0x0C0
+#define RINE_MOTOR_INFO_ADDR            0x0A5
+#define RINE_VOLT_INFO_ADDR             0x0A7
+
 // tasks & timers
 #define SENSOR_POLL_INTERVAL            100000      // 0.1 seconds in microseconds
 #define CAN_WRITE_INTERVAL              100000      // 0.1 seconds in microseconds
@@ -743,6 +752,7 @@ void ReadSensorsTask(void* pvParameters)
 void PrechargeTask(void* pvParameters) {
   // inits
   can_message_t outgoingMessage;
+  int result;
 
   // precharge state machine
   switch (carData.drivingData.prechargeState) {
@@ -770,7 +780,7 @@ void PrechargeTask(void* pvParameters) {
 
 
       // queue message for transmission
-      int result = can_transmit(&outgoingMessage, pdMS_TO_TICKS(1000));
+      result = can_transmit(&outgoingMessage, pdMS_TO_TICKS(1000));
 
       // ensure message was successfully sent
       if (result == ESP_OK) {
@@ -808,7 +818,7 @@ void PrechargeTask(void* pvParameters) {
         outgoingMessage.data[7] = 0;            // N/A
 
         // queue message for transmission
-        int result = can_transmit(&outgoingMessage, pdMS_TO_TICKS(1000));
+        result = can_transmit(&outgoingMessage, pdMS_TO_TICKS(1000));
 
         // ensure message was successfully sent
         if (result == ESP_OK) {
@@ -835,7 +845,7 @@ void PrechargeTask(void* pvParameters) {
       outgoingMessage.data[7] = 0;            // N/A
 
       // queue message for transmission
-      int result = can_transmit(&outgoingMessage, pdMS_TO_TICKS(1000));
+      result = can_transmit(&outgoingMessage, pdMS_TO_TICKS(1000));
 
       // ensure message was successfully sent
       if (result != ESP_OK) {
@@ -869,7 +879,7 @@ void PrechargeTask(void* pvParameters) {
       outgoingMessage.data[7] = 0;            // N/A
 
       // queue message for transmission
-      int result = can_transmit(&outgoingMessage, pdMS_TO_TICKS(1000));
+      result = can_transmit(&outgoingMessage, pdMS_TO_TICKS(1000));
 
       // ensure car cannot drive
       carData.drivingData.readyToDrive = false;
@@ -897,87 +907,117 @@ void PrechargeTask(void* pvParameters) {
  */
 void UpdateCANTask(void* pvParameters)
 {
-  // inits
-  can_message_t incomingMessage;
+  // do this until RTOS tell it to stop
+  while (1) {
+    // inits
+    can_message_t incomingMessage;
+    int result;
 
-  // --- receive messages --- //
-  // check for new messages in the CAN buffer
-  if (can_receive(&incomingMessage, pdMS_TO_TICKS(1000))) {
+    // --- receive messages --- //
+    // check for new messages in the CAN buffer
+    if (can_receive(&incomingMessage, pdMS_TO_TICKS(1000))) {
 
-    if (incomingMessage.flags & CAN_MSG_FLAG_NONE) {
-      // filter for only the IDs we are interested in
-      switch (incomingMessage.identifier)
-      {
-        // Rinehart: voltage
-        case 0x0A7:
-        if (!(incomingMessage.flags & CAN_MSG_FLAG_RTR)) {
-          // rinehart voltage is spread across the first 2 bytes
-          int rine1 = incomingMessage.data[0];
-          int rine2 = incomingMessage.data[1];
+      if (incomingMessage.flags & CAN_MSG_FLAG_NONE) {
+        // filter for only the IDs we are interested in
+        switch (incomingMessage.identifier)
+        {
+          // Rinehart: voltage
+          case RINE_VOLT_INFO_ADDR:
+          if (!(incomingMessage.flags & CAN_MSG_FLAG_RTR)) {
+            // rinehart voltage is spread across the first 2 bytes
+            int rine1 = incomingMessage.data[0];
+            int rine2 = incomingMessage.data[1];
 
-          // combine the first two bytes and assign that to the rinehart voltage
-          carData.batteryStatus.rinehartVoltage = (rine2 << 8) | rine1;
+            // combine the first two bytes and assign that to the rinehart voltage
+            carData.batteryStatus.rinehartVoltage = (rine2 << 8) | rine1;
+          }
+          break;
+
+          // BMS: voltage and maybe other things
+          case 0x101:   // TODO: update this
+          if (!(incomingMessage.flags & CAN_MSG_FLAG_RTR)) {
+            // do stuff with the data in the message
+          }        
+          break;
+
+          default:
+          // do nothing because we didn't get any messages of interest
+          break;
         }
-        break;
-
-        // BMS: voltage and maybe other things
-        case 0x101:   // TODO: update this
-        if (!(incomingMessage.flags & CAN_MSG_FLAG_RTR)) {
-          // do stuff with the data in the message
-        }        
-        break;
-
-        default:
-        // do nothing because we didn't get any messages of interest
-        break;
       }
     }
 
-  }
+    // --- send message --- // 
+    can_message_t outgoingMessage;
+    bool sentStatus = false;
 
-  // --- send message --- // 
-  can_message_t outgoingMessage;
-  outgoingMessage.identifier = 0xAA;
-  outgoingMessage.flags = CAN_MSG_FLAG_NONE;
-  outgoingMessage.data_length_code = 8;
-  bool sentStatus = false;
+    // build message for FCB 
+    outgoingMessage.identifier = RCB_CONTROL_ADDR;
+    outgoingMessage.flags = CAN_MSG_FLAG_NONE;
+    outgoingMessage.data_length_code = 8;
 
-  // TODO: add some messages
+    outgoingMessage.data[0] = carData.drivingData.readyToDrive;
+    outgoingMessage.data[1] = carData.drivingData.imdFault;
+    outgoingMessage.data[2] = carData.drivingData.bmsFault;
+    outgoingMessage.data[3] = 0;
+    outgoingMessage.data[4] = 0;
+    outgoingMessage.data[5] = 0;
+    outgoingMessage.data[6] = 0;
+    outgoingMessage.data[7] = 0;
 
-  // queue message for transmission
-  int result = can_transmit(&outgoingMessage, pdMS_TO_TICKS(1000));
-  switch (result) {
-    case ESP_OK:
-      sentStatus = true;
+    // queue message for transmission
+    result = can_transmit(&outgoingMessage, pdMS_TO_TICKS(1000));
+
+    // build message for FCB 
+    outgoingMessage.identifier = RCB_DATA_ADDR;
+    outgoingMessage.flags = CAN_MSG_FLAG_NONE;
+    outgoingMessage.data_length_code = 8;
+
+    outgoingMessage.data[0] = carData.sensors.wheelSpeedBR;
+    outgoingMessage.data[1] = carData.sensors.wheelSpeedBL;
+    outgoingMessage.data[2] = carData.sensors.wheelHeightBR;
+    outgoingMessage.data[3] = carData.sensors.wheelHeightBL;
+    outgoingMessage.data[4] = 0;
+    outgoingMessage.data[5] = 0;
+    outgoingMessage.data[6] = 0;
+    outgoingMessage.data[7] = 0;
+
+    // queue message for transmission
+    result = can_transmit(&outgoingMessage, pdMS_TO_TICKS(1000));
+
+    switch (result) {
+      case ESP_OK:
+        sentStatus = true;
+        break;
+
+      case ESP_ERR_INVALID_ARG:
+        Serial.printf("Arguments are invalid\n");
       break;
 
-    case ESP_ERR_INVALID_ARG:
-      Serial.printf("Arguments are invalid\n");
-    break;
-
-    case ESP_ERR_TIMEOUT:
-      Serial.printf("Timed out waiting for space on TX queue\n");
-    break;
-
-    case ESP_FAIL:
-      Serial.printf("TX queue is disabled and another message is currently transmitting\n");
-    break;
-
-    case ESP_ERR_INVALID_STATE:
-      Serial.printf("TWAI driver is not in running state, or is not installed\n");
-    break;
-
-    default:
+      case ESP_ERR_TIMEOUT:
+        Serial.printf("Timed out waiting for space on TX queue\n");
       break;
-  }
 
-  // debugging
-  if (debugger.debugEnabled) {
-    debugger.CAN_sentStatus = sentStatus;
-    for (int i = 0; i < 8; ++i) {
-      debugger.CAN_outgoingMessage[i] = outgoingMessage.data[i];
+      case ESP_FAIL:
+        Serial.printf("TX queue is disabled and another message is currently transmitting\n");
+      break;
+
+      case ESP_ERR_INVALID_STATE:
+        Serial.printf("TWAI driver is not in running state, or is not installed\n");
+      break;
+
+      default:
+        break;
     }
-    debugger.canTaskCount++;
+
+    // debugging
+    if (debugger.debugEnabled) {
+      debugger.CAN_sentStatus = sentStatus;
+      for (int i = 0; i < 8; ++i) {
+        debugger.CAN_outgoingMessage[i] = outgoingMessage.data[i];
+      }
+      debugger.canTaskCount++;
+    }
   }
 
   // end task

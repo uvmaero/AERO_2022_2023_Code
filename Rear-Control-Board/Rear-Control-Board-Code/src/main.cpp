@@ -901,15 +901,20 @@ void UpdateCANTask(void* pvParameters)
       // filter for only the IDs we are interested in
       switch (incomingMessage.identifier)
       {
-        // message from RCB: Sensor Data
-        case 0x100:
+        // Rinehart: voltage
+        case 0x0A7:
         if (!(incomingMessage.flags & CAN_MSG_FLAG_RTR)) {
-          // do stuff with the data in the message
+          // rinehart voltage is spread across the first 2 bytes
+          int rine1 = incomingMessage.data[0];
+          int rine2 = incomingMessage.data[1];
+
+          // combine the first two bytes and assign that to the rinehart voltage
+          carData.batteryStatus.rinehartVoltage = (rine2 << 8) | rine1;
         }
         break;
 
-        // message from RCB: BMS and electrical data
-        case 0x101:
+        // BMS: voltage and maybe other things
+        case 0x101:   // TODO: update this
         if (!(incomingMessage.flags & CAN_MSG_FLAG_RTR)) {
           // do stuff with the data in the message
         }        
@@ -930,42 +935,33 @@ void UpdateCANTask(void* pvParameters)
   outgoingMessage.data_length_code = 8;
   bool sentStatus = false;
 
-  // build message
-  outgoingMessage.data[0] = 0x00;
-  outgoingMessage.data[1] = 0x01;
-  outgoingMessage.data[2] = 0x02;
-  outgoingMessage.data[3] = 0x03;
-  outgoingMessage.data[4] = 0x04;
-  outgoingMessage.data[5] = 0x05;
-  outgoingMessage.data[6] = 0x06;
-  outgoingMessage.data[7] = 0x07;
+  // TODO: add some messages
 
   // queue message for transmission
   int result = can_transmit(&outgoingMessage, pdMS_TO_TICKS(1000));
-  switch (result)
-  {
-  case ESP_OK:
-    sentStatus = true;
+  switch (result) {
+    case ESP_OK:
+      sentStatus = true;
+      break;
+
+    case ESP_ERR_INVALID_ARG:
+      Serial.printf("Arguments are invalid\n");
     break;
 
-  case ESP_ERR_INVALID_ARG:
-    Serial.printf("Arguments are invalid\n");
-  break;
-
-  case ESP_ERR_TIMEOUT:
-    Serial.printf("Timed out waiting for space on TX queue\n");
-  break;
-
-  case ESP_FAIL:
-    Serial.printf("TX queue is disabled and another message is currently transmitting\n");
-  break;
-
-  case ESP_ERR_INVALID_STATE:
-    Serial.printf("TWAI driver is not in running state, or is not installed\n");
-  break;
-
-  default:
+    case ESP_ERR_TIMEOUT:
+      Serial.printf("Timed out waiting for space on TX queue\n");
     break;
+
+    case ESP_FAIL:
+      Serial.printf("TX queue is disabled and another message is currently transmitting\n");
+    break;
+
+    case ESP_ERR_INVALID_STATE:
+      Serial.printf("TWAI driver is not in running state, or is not installed\n");
+    break;
+
+    default:
+      break;
   }
 
   // debugging

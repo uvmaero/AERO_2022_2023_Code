@@ -54,13 +54,13 @@ uint8_t deviceAddress[] = {0x1a, 0x1a, 0x1a, 0x1a, 0x1a, 0x1a};
 #define WHEEL_HEIGHT_BR_SENSOR              ADC1_CHANNEL_0
 #define WHEEL_HEIGHT_BL_SENSOR              ADC1_CHANNEL_0
 
-#define IMD_FAULT_PIN                       32
-#define BMS_FAULT_PIN                       33
-
 
 // Inputs
 #define RAD_TEMP_IN_PIN                     ADC1_CHANNEL_0
 #define RAD_TEMP_OUT_PIN                    ADC1_CHANNEL_0
+
+#define IMD_FAULT_PIN                       32
+#define BMS_FAULT_PIN                       33
 
 #define CAN_CS_PIN                          18
 #define CAN_MESSAGE_INTERRUPT_PIN           15   

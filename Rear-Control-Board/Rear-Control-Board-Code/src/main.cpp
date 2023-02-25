@@ -299,6 +299,10 @@ void setup()
   gpio_set_direction((gpio_num_t)WHEEL_HEIGHT_BR_SENSOR, GPIO_MODE_INPUT);
   gpio_set_direction((gpio_num_t)WHEEL_HEIGHT_BL_SENSOR, GPIO_MODE_INPUT);
 
+  // faults
+  gpio_set_direction((gpio_num_t)IMD_FAULT_PIN, GPIO_MODE_INPUT);
+  gpio_set_direction((gpio_num_t)BMS_FAULT_PIN, GPIO_MODE_INPUT);
+
   // setup adc pins
   ESP_ERROR_CHECK(adc1_config_width(ADC_WIDTH_BIT_12));
   ESP_ERROR_CHECK(adc1_config_channel_atten(ADC1_CHANNEL_0, ADC_ATTEN_0db));
@@ -719,8 +723,9 @@ void ReadSensorsTask(void* pvParameters)
     gpio_set_level((gpio_num_t)PUMP_ENABLE_PIN, 0);   // turn off pump
   }
 
-  // update faults
-  // TODO: ask colin about this
+  // read faults
+  carData.drivingData.imdFault = gpio_get_level((gpio_num_t)IMD_FAULT_PIN);
+  carData.drivingData.bmsFault = gpio_get_level((gpio_num_t)BMS_FAULT_PIN);
 
   // update brake light state
   if (carData.outputs.brakeLight) {

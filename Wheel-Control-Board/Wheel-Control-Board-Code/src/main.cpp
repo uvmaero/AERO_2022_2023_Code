@@ -162,10 +162,8 @@ CarData carData = {
 // ESP-Now Connection
 esp_now_peer_info fcbInfo;
 
-int counter = 0;
-
 // Display Information
-TFT_eSPI    tft = TFT_eSPI();         // Create object "tft"
+TFT_eSPI tft = TFT_eSPI();         // Create object "tft"
 TFT_eSprite img = TFT_eSprite(&tft);  // Create Sprite object "img" with pointer to "tft" object
 
 
@@ -445,10 +443,13 @@ void FCBCallback(void* args) {
  */
 void FCBDataReceived(const uint8_t* mac, const uint8_t* incomingData, int length)
 {
-  // copy data to the fcbData struct 
-  memcpy((uint8_t *) &carData, incomingData, sizeof(carData));
+  // inits
+  CarData tmp;
 
-  counter++;
+  // copy data to the tmp CarData struct 
+  memcpy((uint8_t *) &tmp, incomingData, sizeof(carData));
+
+  // copy relevant information
 
   return;
 }
@@ -602,7 +603,7 @@ void PrintFCBDebug() {
 
   // message
   Serial.printf("FCB rtd status: %d\n", carData.drivingData.readyToDrive);
-  Serial.printf("message rec count: %d\n", counter);
+  Serial.printf("message rec count: %d\n", debugger.fcbTaskCount);
 
   Serial.printf("\n--- END WCB DEBUG ---\n");
 }

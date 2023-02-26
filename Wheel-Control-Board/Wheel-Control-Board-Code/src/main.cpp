@@ -252,20 +252,7 @@ void setup()
   ESP_ERROR_CHECK(adc1_config_channel_atten((adc1_channel_t)COAST_REGEN_KNOB, ADC_ATTEN_0db));
   ESP_ERROR_CHECK(adc1_config_channel_atten((adc1_channel_t)BRAKE_REGEN_KNOB, ADC_ATTEN_0db));
 
-  ESP_ERROR_CHECK(adc1_config_channel_atten(ADC1_CHANNEL_0, ADC_ATTEN_0db));
-
-  // setup adc 2
-  ESP_ERROR_CHECK(adc2_config_channel_atten(ADC2_CHANNEL_1, ADC_ATTEN_0db));
-  ESP_ERROR_CHECK(adc2_config_channel_atten(ADC2_CHANNEL_2, ADC_ATTEN_0db));
-  ESP_ERROR_CHECK(adc2_config_channel_atten(ADC2_CHANNEL_3, ADC_ATTEN_0db));
-  ESP_ERROR_CHECK(adc2_config_channel_atten(ADC2_CHANNEL_4, ADC_ATTEN_0db));
-  ESP_ERROR_CHECK(adc2_config_channel_atten(ADC2_CHANNEL_5, ADC_ATTEN_0db));
-  ESP_ERROR_CHECK(adc2_config_channel_atten(ADC2_CHANNEL_6, ADC_ATTEN_0db));
-  ESP_ERROR_CHECK(adc2_config_channel_atten(ADC2_CHANNEL_7, ADC_ATTEN_0db));
-
-
   // outputs //
-
 
 
   Display_BootScreen(INIT_SENSORS);

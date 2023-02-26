@@ -460,9 +460,9 @@ void ReadSensorsTask(void* pvParameters)
   esp_wifi_stop();
 
   // read regen knobs
-  float coastRegenTmp = adc1_get_raw(COAST_REGEN_KNOB);
+  float coastRegenTmp = adc1_get_raw((adc1_channel_t)COAST_REGEN_KNOB);
   carData.inputs.coastRegen = MapValue(coastRegenTmp, 0, 1024, 0, 255);    // get values through testing
-  float brakeRegenTmp = adc1_get_raw(BRAKE_REGEN_KNOB);
+  float brakeRegenTmp = adc1_get_raw((adc1_channel_t)BRAKE_REGEN_KNOB);
   carData.inputs.brakeRegen = MapValue(brakeRegenTmp, 0, 1024, 0, 255);    // get values through testing
 
   // debugging

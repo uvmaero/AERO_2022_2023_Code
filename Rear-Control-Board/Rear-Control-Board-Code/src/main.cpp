@@ -695,10 +695,6 @@ void ReadSensorsTask(void* pvParameters)
   // turn off wifi for ADC channel 2 to function
   esp_wifi_stop();
 
-  // update wheel speed values
-  carData.sensors.wheelSpeedFR = adc1_get_raw(WHEEL_SPEED_BR_SENSOR);
-  carData.sensors.wheelSpeedFL = adc1_get_raw(WHEEL_HEIGHT_BL_SENSOR);
-
   // update wheel ride height values
   carData.sensors.wheelHeightFR = adc1_get_raw(WHEEL_HEIGHT_BR_SENSOR);
   carData.sensors.wheelHeightFL = adc1_get_raw(WHEEL_HEIGHT_BL_SENSOR);

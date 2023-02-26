@@ -28,7 +28,7 @@
 // custom includes
 #include "displayDriver.h"
 #include "debugger.h"
-#include "pinConfig.h"
+#include "pin_config.h"
 
 
 /*
@@ -159,8 +159,15 @@ CarData carData = {
   }
 };
 
-// ESP-Now Connection
-esp_now_peer_info fcbInfo;
+
+// ESP-Now Peers
+esp_now_peer_info fcbInfo = {
+  .peer_addr = {0xC4, 0xDE, 0xE2, 0xC0, 0x75, 0x81},    // TODO: make this use the address defined in pinConfig.h
+  .channel = 0,
+  .ifidx = WIFI_IF_STA,
+  .encrypt = false,
+};
+
 
 // Display Information
 TFT_eSPI tft = TFT_eSPI();         // Create object "tft"
@@ -203,6 +210,9 @@ void setup()
   // set power configuration
   esp_pm_configure(&power_configuration);
 
+  // delay startup by 5 seconds
+  vTaskDelay(5000);
+
   // -------------------------- initialize serial connection ------------------------ //
   Serial.begin(9600);
   Serial.printf("\n\n|--- STARTING SETUP ---|\n\n");
@@ -233,29 +243,18 @@ void setup()
 
   // -------------------------- initialize GPIO ------------------------------------- //
 
-  // inputs / sensors // 
-  gpio_config_t sensor_config = {
-    .pin_bit_mask = GPIO_INPUT_PIN_SELECT,
-    .mode = GPIO_MODE_INPUT,
-    .pull_up_en = GPIO_PULLUP_DISABLE,
-    .pull_down_en = GPIO_PULLDOWN_DISABLE,
-    .intr_type = GPIO_INTR_DISABLE
-  };
-  ESP_ERROR_CHECK(gpio_config(&sensor_config));
+  // inputs
+  gpio_set_direction((gpio_num_t)LCD_MODE_SELECT_BUTTON, GPIO_MODE_INPUT);
+  
 
   // setup adc 1
   ESP_ERROR_CHECK(adc1_config_width(ADC_WIDTH_BIT_12));
+  ESP_ERROR_CHECK(adc1_config_channel_atten((adc1_channel_t)COAST_REGEN_KNOB, ADC_ATTEN_0db));
+  ESP_ERROR_CHECK(adc1_config_channel_atten((adc1_channel_t)BRAKE_REGEN_KNOB, ADC_ATTEN_0db));
+
   ESP_ERROR_CHECK(adc1_config_channel_atten(ADC1_CHANNEL_0, ADC_ATTEN_0db));
-  ESP_ERROR_CHECK(adc1_config_channel_atten(ADC1_CHANNEL_1, ADC_ATTEN_0db));
-  ESP_ERROR_CHECK(adc1_config_channel_atten(ADC1_CHANNEL_2, ADC_ATTEN_0db));
-  ESP_ERROR_CHECK(adc1_config_channel_atten(ADC1_CHANNEL_3, ADC_ATTEN_0db));
-  ESP_ERROR_CHECK(adc1_config_channel_atten(ADC1_CHANNEL_4, ADC_ATTEN_0db));
-  ESP_ERROR_CHECK(adc1_config_channel_atten(ADC1_CHANNEL_5, ADC_ATTEN_0db));
-  ESP_ERROR_CHECK(adc1_config_channel_atten(ADC1_CHANNEL_6, ADC_ATTEN_0db));
-  ESP_ERROR_CHECK(adc1_config_channel_atten(ADC1_CHANNEL_7, ADC_ATTEN_0db));
 
   // setup adc 2
-  ESP_ERROR_CHECK(adc2_config_channel_atten(ADC2_CHANNEL_0, ADC_ATTEN_0db));
   ESP_ERROR_CHECK(adc2_config_channel_atten(ADC2_CHANNEL_1, ADC_ATTEN_0db));
   ESP_ERROR_CHECK(adc2_config_channel_atten(ADC2_CHANNEL_2, ADC_ATTEN_0db));
   ESP_ERROR_CHECK(adc2_config_channel_atten(ADC2_CHANNEL_3, ADC_ATTEN_0db));
@@ -266,6 +265,7 @@ void setup()
 
 
   // outputs //
+
 
 
   Display_BootScreen(INIT_SENSORS);

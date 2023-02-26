@@ -749,6 +749,7 @@ void UpdateCANTask(void* pvParameters)
     // --- send message --- // 
     can_message_t outgoingMessage;
     bool sentStatus = false;
+    int result;
 
     // build rinehart CONTROL message
     outgoingMessage.identifier = RINE_CONTROL_ADDR;
@@ -764,7 +765,7 @@ void UpdateCANTask(void* pvParameters)
     outgoingMessage.data[7] = 0;                                          // i think this one is min torque or it does nothing
 
     // queue message for transmission
-    int result = can_transmit(&outgoingMessage, pdMS_TO_TICKS(1000));
+    result = can_transmit(&outgoingMessage, pdMS_TO_TICKS(1000));
 
     // build message for RCB - control
     outgoingMessage.identifier = FCB_CONTROL_ADDR;
@@ -780,7 +781,7 @@ void UpdateCANTask(void* pvParameters)
     outgoingMessage.data[7] = 0;
 
     // queue message for transmission
-    int result = can_transmit(&outgoingMessage, pdMS_TO_TICKS(1000));
+    result = can_transmit(&outgoingMessage, pdMS_TO_TICKS(1000));
 
     switch (result) {
       case ESP_OK:

@@ -172,6 +172,8 @@ esp_now_peer_info fcbInfo = {
 
 // Display 
 TFT_eSPI tft = TFT_eSPI();            // Create object "tft"
+
+// init GUI elements
 MeterWidget MainVolts = MeterWidget(&tft);
 MeterWidget MainSpeed = MeterWidget(&tft);
 MeterWidget MainBattery = MeterWidget(&tft);
@@ -181,8 +183,17 @@ MeterWidget ElectricalRinehartVolts = MeterWidget(&tft);
 MeterWidget ElectricalAmps = MeterWidget(&tft);
 MeterWidget ElectricalBattery = MeterWidget(&tft);
 
+// init images
 TFT_eSprite imgBessie = TFT_eSprite(&tft);  // Create Sprite object "img" with pointer to "tft" object
 
+// create mode type and tracker
+typedef enum DisplayMode {
+  BOOT = 0,
+  MAIN = 1,
+  ELECTRICAL = 2,
+  MECHANICAL = 3,
+} DisplayMode;
+DisplayMode currentDisplayMode = BOOT;
 
 /*
 ===============================================================================================
@@ -506,7 +517,29 @@ void ReadSensorsTask(void* pvParameters)
  */
 void UpdateDisplayTask(void* pvParameters)
 {
-  // TODO: update the display
+  switch (currentDisplayMode) {
+    case BOOT:
+      /* code */
+      break;
+
+    case MAIN:
+      /* code */
+      break;
+
+
+    case ELECTRICAL:
+      /* code */
+      break;
+
+
+    case MECHANICAL:
+      /* code */
+      break;
+    
+    default:
+      currentDisplayMode = MAIN;
+      break;
+  }
 
   // debugging
   if (debugger.debugEnabled) {

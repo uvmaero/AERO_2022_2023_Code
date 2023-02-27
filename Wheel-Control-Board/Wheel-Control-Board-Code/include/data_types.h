@@ -2,15 +2,18 @@
  * @file dataTypes.h
  * @author Dominic Gasperini
  * @brief all of the unique data types used to manage the state of the car
- * @version 0.1
- * @date 2023-02-06
+ * @version 1.0
+ * @date 2023-02-21
  * 
  * @copyright Copyright (c) 2023
  * 
  */
 
 
-// Drive Mode Enumeration Type
+/**
+ * @brief the different throttle modes for to modify driving behavior
+ * 
+ */
 typedef enum DriveModes
 {
   SLOW = 0,
@@ -20,7 +23,21 @@ typedef enum DriveModes
 
 
 /**
- * @brief 
+ * @brief each state that the precharge state machine can be in
+ * 
+ */
+typedef enum PrechargeStates
+{
+  PRECHARGE_OFF = 0,
+  PRECHARGE_ON = 1,
+  PRECHARGE_DONE = 2,
+  PRECHARGE_ERROR = 3,
+
+} PrechargeStates;
+
+
+/**
+ * @brief the entire current state of the car
  * 
  */
 typedef struct CarData
@@ -29,6 +46,7 @@ typedef struct CarData
   {
     bool readyToDrive;
     bool enableInverter;
+    PrechargeStates prechargeState;
 
     bool imdFault;
     bool bmsFault;
@@ -70,6 +88,10 @@ typedef struct CarData
     float wheelHeightBL;
 
     uint16_t steeringWheelAngle;
+
+    float vicoreTemp;
+    float pumpTempIn;
+    float pumpTempOut;
   } sensors;
 
   struct Inputs
@@ -80,10 +102,6 @@ typedef struct CarData
     uint16_t brake1;
     uint16_t brakeRegen;
     uint16_t coastRegen;
-
-    float vicoreTemp;
-    float pumpTempIn;
-    float pimpTempOut;
   } inputs;
 
   struct Outputs
@@ -91,6 +109,8 @@ typedef struct CarData
     bool buzzerActive;
     uint8_t buzzerCounter;
     bool brakeLight;
+    bool fansActive;
+    bool pumpActive;
   } outputs;
 
 } CarData;

@@ -26,7 +26,8 @@
 
 
 // custom includes
-#include "displayDriver.h"
+#include "TFT_eSPI.h"
+#include "TFT_eWidget.h"
 #include "debugger.h"
 #include "pin_config.h"
 
@@ -135,6 +136,10 @@ CarData carData = {
     .wheelHeightBL = 0.0f,
 
     .steeringWheelAngle = 0,
+
+    .vicoreTemp = 0.0f,
+    .pumpTempIn = 0.0f,
+    .pumpTempOut = 0.0f,
   },
 
   // Inputs
@@ -145,10 +150,6 @@ CarData carData = {
     .brake1 = 0,
     .brakeRegen = 0,
     .coastRegen = 0,
-
-    .vicoreTemp = 0.0f,
-    .pumpTempIn = 0.0f,
-    .pimpTempOut = 0.0f,
   },
 
   // Outputs
@@ -169,9 +170,18 @@ esp_now_peer_info fcbInfo = {
 };
 
 
-// Display Information
-TFT_eSPI tft = TFT_eSPI();         // Create object "tft"
-TFT_eSprite img = TFT_eSprite(&tft);  // Create Sprite object "img" with pointer to "tft" object
+// Display 
+TFT_eSPI tft = TFT_eSPI();            // Create object "tft"
+MeterWidget MainVolts = MeterWidget(&tft);
+MeterWidget MainSpeed = MeterWidget(&tft);
+MeterWidget MainBattery = MeterWidget(&tft);
+
+MeterWidget ElectricalBusVolts = MeterWidget(&tft);
+MeterWidget ElectricalRinehartVolts = MeterWidget(&tft);
+MeterWidget ElectricalAmps = MeterWidget(&tft);
+MeterWidget ElectricalBattery = MeterWidget(&tft);
+
+TFT_eSprite imgBessie = TFT_eSprite(&tft);  // Create Sprite object "img" with pointer to "tft" object
 
 
 /*
@@ -196,6 +206,13 @@ void FCBDataReceived(const uint8_t* mac, const uint8_t* incomingData, int length
 
 // helpers
 long MapValue(long x, long in_min, long in_max, long out_min, long out_max);
+
+// display
+void DisplayBootScreen();
+void DisplayMain();
+void DisplayElectrical();
+void DisplayMechanical();
+void InitAnalogMeters();
 
 
 /*
@@ -231,10 +248,14 @@ void setup()
 
   // inits and general setup
   tft.init();
-  tft.setRotation(0);
+  tft.setRotation(1);
+  tft.fillScreen(TFT_BLACK);
+
+  // init analog meters
+  InitAnalogMeters();
 
   // show boot screen
-  Display_BootScreen(INIT_DISPLAY);
+  DisplayBootScreen();
 
 
   setup.displayActive = true;
@@ -255,7 +276,7 @@ void setup()
   // outputs //
 
 
-  Display_BootScreen(INIT_SENSORS);
+  DisplayBootScreen();
   setup.ioActive = true;
   // --------------------------------------------------------------------------- //
 
@@ -305,7 +326,6 @@ void setup()
   if (esp_now_add_peer(&fcbInfo) == ESP_OK) {
     Serial.printf("ESP-NOW CONNECTION [ SUCCESS ]\n");
 
-    Display_BootScreen(INIT_ESP_NOW);
     setup.fcbActive = true;
   }
   else {
@@ -554,6 +574,85 @@ void loop()
  */
 long MapValue(long x, long in_min, long in_max, long out_min, long out_max) {
   return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+}
+
+
+/* 
+===============================================================================================
+                                  DISPLAY FUNCTIONS
+================================================================================================
+*/
+
+
+/**
+ * @brief the stuff on the screen during boot
+ * 
+ */
+void DisplayBootScreen() {
+
+}
+
+/**
+ * @brief main driving display
+ * 
+ */
+void DisplayMain() {
+
+}
+
+
+/**
+ * @brief 
+ * 
+ */
+void DisplayElectrical() {
+
+}
+
+
+/**
+ * @brief 
+ * 
+ */
+void DisplayMechanical() {
+
+}
+
+
+/**
+ * @brief 
+ * 
+ */
+void InitAnalogMeters() {
+  // --- main page --- //
+  // main page volts
+  MainVolts.setZones(75, 100, 50, 75, 25, 50, 0, 25); // Example here red starts at 75% and ends at 100% of full scale
+  // Meter is 239 pixels wide and 126 pixels high
+  MainVolts.analogMeter(0, 0, 2.0, "V", "0", "0.5", "1.0", "1.5", "2.0");    // Draw analogue meter at 0, 0
+
+  // main page speed
+  // Colour draw order is red, orange, yellow, green. So red can be full scale with green drawn
+  // last on top to indicate a "safe" zone.
+  //             -Red-   -Org-  -Yell-  -Grn-
+  MainSpeed.setZones(0, 100, 25, 75, 0, 0, 40, 60);
+  MainSpeed.analogMeter(0, 128, 10.0, "mph", "0", "2.5", "5", "7.5", "10"); // Draw analogue meter at 0, 128
+
+  // main page battery
+  MainBattery.setZones(0, 100, 25, 75, 0, 0, 40, 60);
+  MainBattery.analogMeter(0, 128, 10.0, "V", "0", "2.5", "5", "7.5", "10");
+
+  // --- electrical --- //
+  ElectricalBusVolts.setZones(0, 100, 25, 75, 0, 0, 40, 60);
+  ElectricalBusVolts.analogMeter(0, 128, 10.0, "V", "0", "2.5", "5", "7.5", "10");
+
+  ElectricalRinehartVolts.setZones(0, 100, 25, 75, 0, 0, 40, 60);
+  ElectricalRinehartVolts.analogMeter(0, 128, 10.0, "V", "0", "2.5", "5", "7.5", "10");
+
+  ElectricalAmps.setZones(0, 100, 25, 75, 0, 0, 40, 60);
+  ElectricalAmps.analogMeter(0, 128, 10.0, "A", "0", "2.5", "5", "7.5", "10");
+
+  ElectricalBattery.setZones(0, 100, 25, 75, 0, 0, 40, 60);
+  ElectricalBattery.analogMeter(0, 128, 10.0, "%", "0", "2.5", "5", "7.5", "10");
 }
 
 

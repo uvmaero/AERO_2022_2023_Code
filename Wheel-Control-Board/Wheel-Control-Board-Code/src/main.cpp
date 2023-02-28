@@ -179,6 +179,7 @@ TFT_eSPI tft = TFT_eSPI();
 MeterWidget MainVolts = MeterWidget(&tft);
 MeterWidget MainSpeed = MeterWidget(&tft);
 MeterWidget MainBattery = MeterWidget(&tft);
+MeterWidget MainDriveMode = MeterWidget(&tft);
 
 MeterWidget ElectricalBusVolts = MeterWidget(&tft);
 MeterWidget ElectricalRinehartVolts = MeterWidget(&tft);
@@ -199,6 +200,7 @@ typedef enum DisplayMode {
   MECHANICAL = 3,
 } DisplayMode;
 DisplayMode currentDisplayMode = BOOT;
+DisplayMode previousDisplayMode = currentDisplayMode;
 
 // create mode type and tracker
 typedef enum BootMode {
@@ -207,6 +209,8 @@ typedef enum BootMode {
   INIT_ESPNOW = 3,
 } BootMode;
 BootMode currentBootMode = INIT_DISPLAY;
+
+bool refreshDisplay = false;
 
 /*
 ===============================================================================================
@@ -480,6 +484,7 @@ void FCBDataReceived(const uint8_t* mac, const uint8_t* incomingData, int length
   memcpy((uint8_t *) &tmp, incomingData, sizeof(carData));
 
   // copy relevant information
+  // TODO: do that ^
 
   return;
 }
@@ -528,9 +533,14 @@ void ReadSensorsTask(void* pvParameters) {
  */
 void UpdateDisplayTask(void* pvParameters) {
   while (1) {
+    if (currentDisplayMode != previousDisplayMode) {
+      refreshDisplay = true;
+      previousDisplayMode = currentDisplayMode;
+    }
+
     switch (currentDisplayMode) {
       case BOOT:
-        DisplayBootScreen();
+          DisplayBootScreen();
       break;
 
       case MAIN:
@@ -658,7 +668,31 @@ void DisplayBootScreen() {
  * 
  */
 void DisplayMainScreen() {
+  if (refreshDisplay) {
+    // rinehart voltage
+    MainVolts.setZones(0, 70, 70, 80, 80, 90, 90, 100);
+    MainVolts.analogMeter(0, 0, 320, "V", "0", "200", "260", "290", "320");
 
+    // speed
+    MainSpeed.analogMeter(0, 128, 75, "mph", "0", "", "50", "", "75");
+
+    // battery precentage
+    MainBattery.setZones(0, 25, 25, 50, 50, 75, 75, 100);
+    MainBattery.analogMeter(128, 0, 100, "%", "0", "25", "50", "75", "100");
+
+    // drive mode
+    MainDriveMode.analogMeter(128, 128, 3, "Mode", "SLOW", "", "ECO", "", "FAST");
+
+    refreshDisplay = false;
+  }
+
+  // update needles
+  MainVolts.updateNeedle(carData.batteryStatus.rinehartVoltage, 0);
+  MainSpeed.updateNeedle(carData.drivingData.currentSpeed, 0);
+  MainBattery.updateNeedle(carData.batteryStatus.batteryChargeState, 0);
+
+  int tmpMode = (int)carData.drivingData.driveMode;
+  MainDriveMode.updateNeedle(tmpMode, 0);
 }
 
 
@@ -667,6 +701,23 @@ void DisplayMainScreen() {
  * 
  */
 void DisplayElectricalScreen() {
+  if (refreshDisplay) {
+    ElectricalBusVolts.setZones(0, 100, 25, 75, 0, 0, 40, 60);
+    ElectricalBusVolts.analogMeter(0, 128, 10.0, "V", "0", "2.5", "5", "7.5", "10");
+
+    ElectricalRinehartVolts.setZones(0, 100, 25, 75, 0, 0, 40, 60);
+    ElectricalRinehartVolts.analogMeter(0, 128, 10.0, "V", "0", "2.5", "5", "7.5", "10");
+
+    ElectricalAmps.setZones(0, 100, 25, 75, 0, 0, 40, 60);
+    ElectricalAmps.analogMeter(0, 128, 10.0, "A", "0", "2.5", "5", "7.5", "10");
+
+    ElectricalBattery.setZones(0, 100, 25, 75, 0, 0, 40, 60);
+    ElectricalBattery.analogMeter(0, 128, 10.0, "%", "0", "2.5", "5", "7.5", "10");
+    
+    refreshDisplay = false;
+  }
+
+  // update needles
 
 }
 
@@ -686,34 +737,10 @@ void DisplayMechanicalScreen() {
  */
 void InitDisplayElements() {
   // --- main page --- //
-  // main page volts
-  MainVolts.setZones(75, 100, 50, 75, 25, 50, 0, 25); // Example here red starts at 75% and ends at 100% of full scale
-  // Meter is 239 pixels wide and 126 pixels high
-  MainVolts.analogMeter(0, 0, 2.0, "V", "0", "0.5", "1.0", "1.5", "2.0");    // Draw analogue meter at 0, 0
 
-  // main page speed
-  // Colour draw order is red, orange, yellow, green. So red can be full scale with green drawn
-  // last on top to indicate a "safe" zone.
-  //             -Red-   -Org-  -Yell-  -Grn-
-  MainSpeed.setZones(0, 100, 25, 75, 0, 0, 40, 60);
-  MainSpeed.analogMeter(0, 128, 10.0, "mph", "0", "2.5", "5", "7.5", "10"); // Draw analogue meter at 0, 128
-
-  // main page battery
-  MainBattery.setZones(0, 100, 25, 75, 0, 0, 40, 60);
-  MainBattery.analogMeter(0, 128, 10.0, "V", "0", "2.5", "5", "7.5", "10");
 
   // --- electrical --- //
-  ElectricalBusVolts.setZones(0, 100, 25, 75, 0, 0, 40, 60);
-  ElectricalBusVolts.analogMeter(0, 128, 10.0, "V", "0", "2.5", "5", "7.5", "10");
 
-  ElectricalRinehartVolts.setZones(0, 100, 25, 75, 0, 0, 40, 60);
-  ElectricalRinehartVolts.analogMeter(0, 128, 10.0, "V", "0", "2.5", "5", "7.5", "10");
-
-  ElectricalAmps.setZones(0, 100, 25, 75, 0, 0, 40, 60);
-  ElectricalAmps.analogMeter(0, 128, 10.0, "A", "0", "2.5", "5", "7.5", "10");
-
-  ElectricalBattery.setZones(0, 100, 25, 75, 0, 0, 40, 60);
-  ElectricalBattery.analogMeter(0, 128, 10.0, "%", "0", "2.5", "5", "7.5", "10");
 
   // init bessie
   if (png.openFLASH((uint8_t *)bessie, sizeof(bessie), pngDraw) == PNG_SUCCESS) {

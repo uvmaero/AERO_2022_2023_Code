@@ -28,6 +28,8 @@
 // custom includes
 #include "TFT_eSPI.h"
 #include "TFT_eWidget.h"
+#include "PNGdec.h"
+#include "bessie.h"
 #include "debugger.h"
 #include "pin_config.h"
 
@@ -41,7 +43,7 @@
 #define GPIO_INPUT_PIN_SELECT           1       
 
 // definitions
-
+#define MAX_IMAGE_WIDTH                 240         //
 
 // tasks & timers
 #define SENSOR_POLL_INTERVAL            100000      // 0.1 seconds in microseconds
@@ -171,7 +173,7 @@ esp_now_peer_info fcbInfo = {
 
 
 // Display 
-TFT_eSPI tft = TFT_eSPI();            // Create object "tft"
+TFT_eSPI tft = TFT_eSPI();
 
 // init GUI elements
 MeterWidget MainVolts = MeterWidget(&tft);
@@ -185,6 +187,9 @@ MeterWidget ElectricalBattery = MeterWidget(&tft);
 
 // init images
 TFT_eSprite imgBessie = TFT_eSprite(&tft);  // Create Sprite object "img" with pointer to "tft" object
+PNG png;  // image decoder
+int bessieXPos = 0;
+int bessieYPos = 0;
 
 // create mode type and tracker
 typedef enum DisplayMode {
@@ -194,6 +199,14 @@ typedef enum DisplayMode {
   MECHANICAL = 3,
 } DisplayMode;
 DisplayMode currentDisplayMode = BOOT;
+
+// create mode type and tracker
+typedef enum BootMode {
+  INIT_DISPLAY = 1,
+  INIT_SENSORS = 2,
+  INIT_ESPNOW = 3,
+} BootMode;
+BootMode currentBootMode = INIT_DISPLAY;
 
 /*
 ===============================================================================================
@@ -219,11 +232,12 @@ void FCBDataReceived(const uint8_t* mac, const uint8_t* incomingData, int length
 long MapValue(long x, long in_min, long in_max, long out_min, long out_max);
 
 // display
-void DisplayBootScreen();
-void DisplayMain();
-void DisplayElectrical();
-void DisplayMechanical();
-void InitAnalogMeters();
+void DisplayBootScreen(BootMode);
+void DisplayMainScreen();
+void DisplayElectricalScreen();
+void DisplayMechanicalScreen();
+void InitDisplayElements();
+void pngDraw(PNGDRAW*);
 
 
 /*
@@ -263,12 +277,10 @@ void setup()
   tft.fillScreen(TFT_BLACK);
 
   // init analog meters
-  InitAnalogMeters();
+  InitDisplayElements();
 
   // show boot screen
   DisplayBootScreen();
-
-
   setup.displayActive = true;
   // --------------------------------------------------------------------------- //
 
@@ -485,8 +497,7 @@ void FCBDataReceived(const uint8_t* mac, const uint8_t* incomingData, int length
  * 
  * @param pvParameters parameters passed to task
  */
-void ReadSensorsTask(void* pvParameters)
-{
+void ReadSensorsTask(void* pvParameters) {
   // turn off wifi for ADC channel 2 to function
   esp_wifi_stop();
 
@@ -515,35 +526,36 @@ void ReadSensorsTask(void* pvParameters)
  * 
  * @param pvParameters parameters passed to task
  */
-void UpdateDisplayTask(void* pvParameters)
-{
-  switch (currentDisplayMode) {
-    case BOOT:
-      /* code */
+void UpdateDisplayTask(void* pvParameters) {
+  while (1) {
+    switch (currentDisplayMode) {
+      case BOOT:
+        DisplayBootScreen();
       break;
 
-    case MAIN:
-      /* code */
-      break;
-
-
-    case ELECTRICAL:
-      /* code */
+      case MAIN:
+        DisplayMainScreen();
       break;
 
 
-    case MECHANICAL:
-      /* code */
+      case ELECTRICAL:
+        DisplayElectricalScreen();
       break;
-    
-    default:
-      currentDisplayMode = MAIN;
-      break;
-  }
 
-  // debugging
-  if (debugger.debugEnabled) {
-    debugger.displayTaskCount++;
+
+      case MECHANICAL:
+        DisplayMechanicalScreen();
+      break;
+      
+      default:
+        currentDisplayMode = MAIN;
+        break;
+    }
+
+    // debugging
+    if (debugger.debugEnabled) {
+      debugger.displayTaskCount++;
+    }
   }
 
   // end task
@@ -622,14 +634,30 @@ long MapValue(long x, long in_min, long in_max, long out_min, long out_max) {
  * 
  */
 void DisplayBootScreen() {
+  // draw bessie
+  tft.startWrite();
+  int rc = png.decode(NULL, 0);
+  tft.endWrite();
 
+  // boot sequence
+  if (currentBootMode == INIT_DISPLAY) {
+    tft.drawString("DISPLAY INITIALIZED", 0, 0);
+  }
+
+  if (currentBootMode == INIT_SENSORS) {
+    tft.drawString("SENSORS INITIALIZED", 0, 0);
+  }
+
+  if (currentBootMode == INIT_ESPNOW) {
+    tft.drawString("ESP-NOW INITIALIZED", 0, 0);
+  }
 }
 
 /**
  * @brief main driving display
  * 
  */
-void DisplayMain() {
+void DisplayMainScreen() {
 
 }
 
@@ -638,7 +666,7 @@ void DisplayMain() {
  * @brief 
  * 
  */
-void DisplayElectrical() {
+void DisplayElectricalScreen() {
 
 }
 
@@ -647,7 +675,7 @@ void DisplayElectrical() {
  * @brief 
  * 
  */
-void DisplayMechanical() {
+void DisplayMechanicalScreen() {
 
 }
 
@@ -656,7 +684,7 @@ void DisplayMechanical() {
  * @brief 
  * 
  */
-void InitAnalogMeters() {
+void InitDisplayElements() {
   // --- main page --- //
   // main page volts
   MainVolts.setZones(75, 100, 50, 75, 25, 50, 0, 25); // Example here red starts at 75% and ends at 100% of full scale
@@ -686,6 +714,24 @@ void InitAnalogMeters() {
 
   ElectricalBattery.setZones(0, 100, 25, 75, 0, 0, 40, 60);
   ElectricalBattery.analogMeter(0, 128, 10.0, "%", "0", "2.5", "5", "7.5", "10");
+
+  // init bessie
+  if (png.openFLASH((uint8_t *)bessie, sizeof(bessie), pngDraw) == PNG_SUCCESS) {
+    Serial.println("Successfully opened png file");
+    Serial.printf("image specs: (%d x %d), %d bpp, pixel type: %d\n", png.getWidth(), png.getHeight(), png.getBpp(), png.getPixelType());
+  }
+}
+
+
+/**
+ * @brief helper drawing function for pngs
+ * 
+ * @param pDraw 
+ */
+void pngDraw(PNGDRAW *pDraw) {
+  uint16_t lineBuffer[MAX_IMAGE_WIDTH];
+  png.getLineAsRGB565(pDraw, lineBuffer, PNG_RGB565_BIG_ENDIAN, 0xffffffff);
+  tft.pushImage(bessieXPos, bessieYPos + pDraw->y, pDraw->iWidth, 1, lineBuffer);
 }
 
 

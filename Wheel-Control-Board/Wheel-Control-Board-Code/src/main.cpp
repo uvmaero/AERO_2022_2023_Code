@@ -3,7 +3,7 @@
  * @author Dominic Gasperini - UVM '23
  * @brief this drives the wheel control board on clean speed 5.5
  * @version 0.9
- * @date 2023-01-30
+ * @date 2023-02-27
  */
 
 /*
@@ -97,6 +97,23 @@ CarData carData = {
   .drivingData = {
     .readyToDrive = false,
     .enableInverter = false,
+    .prechargeState = PRECHARGE_OFF,
+
+    .imdFault = false,
+    .bmsFault = false,
+
+    .commandedTorque = 0,
+    .currentSpeed = 0.0f,
+    .driveDirection = true,
+    .driveMode = ECO, /**
+ * @brief the dataframe that describes the entire state of the car
+ * 
+ */
+CarData carData = {
+  // driving data
+  .drivingData = {
+    .readyToDrive = false,
+    .enableInverter = false,
 
     .imdFault = false,
     .bmsFault = false,
@@ -162,6 +179,64 @@ CarData carData = {
   }
 };
 
+  },
+
+  // Battery Status
+  .batteryStatus = {
+    .batteryChargeState = 0,
+    .busVoltage = 0,
+    .rinehartVoltage = 0,
+    .pack1Temp = 0.0f,
+    .pack2Temp = 0.0f,
+  },
+
+  // Sensors
+  .sensors = {
+    .rpmCounterFR = 0,
+    .rpmCounterFL = 0,
+    .rpmCounterBR = 0,
+    .rpmCounterBL = 0,
+    .rpmTimeFR = 0,
+    .rpmTimeFL = 0,
+    .rpmTimeBR = 0,
+    .rpmTimeBL = 0,
+
+    .wheelSpeedFR = 0.0f,
+    .wheelSpeedFL = 0.0f,
+    .wheelSpeedBR = 0.0f,
+    .wheelSpeedBL = 0.0f,
+
+    .wheelHeightFR = 0.0f,
+    .wheelHeightFL = 0.0f,
+    .wheelHeightBR = 0.0f,
+    .wheelHeightBL = 0.0f,
+
+    .steeringWheelAngle = 0,
+
+    .vicoreTemp = 0.0f,
+    .pumpTempIn = 0.0f,
+    .pumpTempOut = 0.0f,
+  },
+
+  // Inputs
+  .inputs = {
+    .pedal0 = 0,
+    .pedal1 = 0,
+    .brake0 = 0,
+    .brake1 = 0,
+    .brakeRegen = 0,
+    .coastRegen = 0,
+  },
+
+  // Outputs
+  .outputs = {
+    .buzzerActive = false,
+    .buzzerCounter = 0,
+    .brakeLight = false,
+    .fansActive = false,
+    .pumpActive = false,
+  }
+};
 
 // ESP-Now Peers
 esp_now_peer_info fcbInfo = {
@@ -293,7 +368,7 @@ void setup()
 
   // init bessie
   if (png.openFLASH((uint8_t *)bessie, sizeof(bessie), pngDraw) == PNG_SUCCESS) {
-    Serial.println("Successfully opened png file");
+    Serial.println("Successfully opened bessie file");
     Serial.printf("image specs: (%d x %d), %d bpp, pixel type: %d\n", png.getWidth(), png.getHeight(), png.getBpp(), png.getPixelType());
   }
 

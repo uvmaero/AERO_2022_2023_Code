@@ -47,8 +47,8 @@
 
 // tasks & timers
 #define SENSOR_POLL_INTERVAL            100000      // 0.1 seconds in microseconds
-#define DISPLAY_UPDATE_INTERVAL         250000      // 0.25 seconds in microseconds
-#define FCB_UPDATE_INTERVAL             200000      // 0.2 seconds in microseconds
+#define DISPLAY_UPDATE_INTERVAL         100000      // 0.1 seconds in microseconds
+#define FCB_UPDATE_INTERVAL             150000      // 0.15 seconds in microseconds
 #define TASK_STACK_SIZE                 3500        // in bytes
 
 // debug
@@ -71,7 +71,7 @@ Debugger debugger = {
   // debug toggle
   .debugEnabled = ENABLE_DEBUG,
   .display_debugEnabled = false,
-  .FCB_debugEnabled = true,
+  .FCB_debugEnabled = false,
   .IO_debugEnabled = false,
   .scheduler_debugEnable = true,
 
@@ -321,8 +321,8 @@ void setup()
 
   // setup adc 1
   ESP_ERROR_CHECK(adc1_config_width(ADC_WIDTH_BIT_12));
-  ESP_ERROR_CHECK(adc1_config_channel_atten((adc1_channel_t)COAST_REGEN_KNOB, ADC_ATTEN_0db));
-  ESP_ERROR_CHECK(adc1_config_channel_atten((adc1_channel_t)BRAKE_REGEN_KNOB, ADC_ATTEN_0db));
+  ESP_ERROR_CHECK(adc1_config_channel_atten(ADC1_CHANNEL_0, ADC_ATTEN_0db));
+  ESP_ERROR_CHECK(adc1_config_channel_atten(ADC1_CHANNEL_3, ADC_ATTEN_0db));
 
   // outputs //
 
@@ -334,58 +334,52 @@ void setup()
 
 
   // -------------------------- initialize ESP-NOW  ---------------------------- //
-  // turn on wifi access point 
-  if (esp_netif_init() == ESP_OK) {
-    Serial.printf("TCP/IP INIT: [ SUCCESS ]\n");
-    
-    // init wifi and config
-    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
-    if (esp_wifi_init(&cfg) == ESP_OK) {
-      Serial.printf("WIFI INIT: [ SUCCESS ]\n");
+// init wifi and config
+  wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
+  ESP_ERROR_CHECK(esp_wifi_init(&cfg));
+  ESP_ERROR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_RAM));
+  ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
+  
+  if (esp_wifi_start() == ESP_OK) {
+    Serial.print("WIFI INIT [ SUCCESS ]\n");
 
-      ESP_ERROR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_RAM));
-      ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
-      ESP_ERROR_CHECK(esp_wifi_start());
-      ESP_ERROR_CHECK(esp_wifi_set_channel(1, WIFI_SECOND_CHAN_NONE));
-    }
-    else {
-      Serial.printf("WIFI INIT: [ FAILED ]\n");
-    }
+    // set custom device mac address
+    ESP_ERROR_CHECK(esp_wifi_set_mac(WIFI_IF_STA, deviceAddress));
   }
   else {
-    Serial.printf("ESP TCP/IP STATUS: [ FAILED ]\n");
+    Serial.print("WIFI INIT [ FAILED ]\n");
   }
-  
+
   // init ESP-NOW service
   if (esp_now_init() == ESP_OK) {
     Serial.printf("ESP-NOW INIT [ SUCCESS ]\n");
-    
-    if (esp_wifi_set_mac(WIFI_IF_STA, deviceAddress) == ESP_OK) {
-      Serial.printf("MAC ADDRESS UPDATE: [ SUCCESS ]\n");
-      Serial.printf("Address: %x\n", deviceAddress);
+
+    // register callback functions
+    // ESP_ERROR_CHECK(esp_now_register_send_cb());
+    ESP_ERROR_CHECK(esp_now_register_recv_cb(FCBDataReceived));
+
+    // add peers
+    if (esp_now_add_peer(&fcbInfo) == ESP_OK) {
+      Serial.printf("ESP-NOW WCB CONNECTION [ SUCCESS ]\n");
+      setup.fcbActive = true;
+    }
+    else {
+      Serial.printf("ESP-NOW WCB CONNECTION [ FAILED ]\n");
+    }
+
+    if (esp_now_add_peer(&fcbInfo) == ESP_OK) {
+      Serial.printf("ESP-NOW RCB CONNECTION [ SUCCESS ]\n");
+      setup.fcbActive = true;
+    }
+    else {
+      Serial.printf("ESP-NOW RCB CONNECTION [ FAILED ]\n");
     }
   }
+
   else {
     Serial.printf("ESP-NOW INIT [ FAILED ]\n");
   }
 
-  // get peer informtion about FCB
-  memcpy(fcbInfo.peer_addr, fcbAddress, sizeof(fcbAddress));
-  fcbInfo.channel = 0;
-  fcbInfo.encrypt = false;
-
-  // add FCB as a peer
-  if (esp_now_add_peer(&fcbInfo) == ESP_OK) {
-    Serial.printf("ESP-NOW CONNECTION [ SUCCESS ]\n");
-
-    setup.fcbActive = true;
-  }
-  else {
-    Serial.printf("ESP-NOW CONNECTION [ FAILED ]\n");
-  }
-
-  // attach message received ISR to the data received function
-  esp_now_register_recv_cb(FCBDataReceived);
 
   currentBootMode = INIT_ESPNOW;
   DisplayBootScreen();
@@ -429,9 +423,9 @@ void setup()
   if (setup.fcbActive)
     ESP_ERROR_CHECK(esp_timer_start_periodic(timer3, FCB_UPDATE_INTERVAL));
 
-  Serial.printf("TIMER 1 STATUS: %s\n", esp_timer_is_active(timer1) ? "RUNNING" : "FAILED");
-  Serial.printf("TIMER 2 STATUS: %s\n", esp_timer_is_active(timer2) ? "RUNNING" : "FAILED");
-  Serial.printf("TIMER 3 STATUS: %s\n", esp_timer_is_active(timer3) ? "RUNNING" : "FAILED");
+  Serial.printf("SENSOR STATUS: %s\n", esp_timer_is_active(timer1) ? "RUNNING" : "FAILED");
+  Serial.printf("DISPLAY STATUS: %s\n", esp_timer_is_active(timer2) ? "RUNNING" : "FAILED");
+  Serial.printf("ESP-NOW STATUS: %s\n", esp_timer_is_active(timer3) ? "RUNNING" : "FAILED");
   // ----------------------------------------------------------------------------------------- //
 
 
@@ -582,10 +576,10 @@ void ReadSensorsTask(void* pvParameters) {
   // turn off wifi for ADC channel 2 to function
   esp_wifi_stop();
 
-  // read regen knobs
-  float coastRegenTmp = adc1_get_raw((adc1_channel_t)COAST_REGEN_KNOB);
+  // read regen knobs 
+  float coastRegenTmp = adc1_get_raw(ADC1_GPIO36_CHANNEL);
   carData.inputs.coastRegen = MapValue(coastRegenTmp, 0, 1024, 0, 255);    // get values through testing
-  float brakeRegenTmp = adc1_get_raw((adc1_channel_t)BRAKE_REGEN_KNOB);
+  float brakeRegenTmp = adc1_get_raw(ADC1_GPIO39_CHANNEL);
   carData.inputs.brakeRegen = MapValue(brakeRegenTmp, 0, 1024, 0, 255);    // get values through testing
 
   // update connection LED
@@ -611,40 +605,38 @@ void ReadSensorsTask(void* pvParameters) {
  * @param pvParameters parameters passed to task
  */
 void UpdateDisplayTask(void* pvParameters) {
-  while (1) {
-    if (currentDisplayMode != previousDisplayMode) {
-      refreshDisplay = true;
-      previousDisplayMode = currentDisplayMode;
-    }
+  if (currentDisplayMode != previousDisplayMode) {
+    refreshDisplay = true;
+    previousDisplayMode = currentDisplayMode;
+  }
 
-    switch (currentDisplayMode) {
-      case BOOT:
-          DisplayBootScreen();
+  switch (currentDisplayMode) {
+    case BOOT:
+        DisplayBootScreen();
+    break;
+
+    case MAIN:
+      DisplayMainScreen();
+    break;
+
+
+    case ELECTRICAL:
+      DisplayElectricalScreen();
+    break;
+
+
+    case MECHANICAL:
+      DisplayMechanicalScreen();
+    break;
+    
+    default:
+      currentDisplayMode = MAIN;
       break;
+  }
 
-      case MAIN:
-        DisplayMainScreen();
-      break;
-
-
-      case ELECTRICAL:
-        DisplayElectricalScreen();
-      break;
-
-
-      case MECHANICAL:
-        DisplayMechanicalScreen();
-      break;
-      
-      default:
-        currentDisplayMode = MAIN;
-        break;
-    }
-
-    // debugging
-    if (debugger.debugEnabled) {
-      debugger.displayTaskCount++;
-    }
+  // debugging
+  if (debugger.debugEnabled) {
+    debugger.displayTaskCount++;
   }
 
   // end task
@@ -892,17 +884,17 @@ void PrintDisplayDebug() {
  * 
  */
 void PrintFCBDebug() {
-  Serial.printf("\n--- START WCB DEBUG ---\n");
+  Serial.printf("\n--- START FCB DEBUG ---\n");
 
   // send status
-  Serial.printf("WCB ESP-NOW Update: %s\n", debugger.FCB_updateResult ? "Success" : "Failed");
+  Serial.printf("FCB ESP-NOW Update: %s\n", debugger.FCB_updateResult ? "Success" : "Failed");
 
 
   // message
   Serial.printf("FCB rtd status: %d\n", carData.drivingData.readyToDrive);
   Serial.printf("message rec count: %d\n", debugger.fcbTaskCount);
 
-  Serial.printf("\n--- END WCB DEBUG ---\n");
+  Serial.printf("\n--- END FCB DEBUG ---\n");
 }
 
 

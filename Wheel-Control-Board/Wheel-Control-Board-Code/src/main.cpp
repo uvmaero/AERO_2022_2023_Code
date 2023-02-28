@@ -280,8 +280,11 @@ void setup()
   tft.setRotation(1);
   tft.fillScreen(TFT_BLACK);
 
-  // init analog meters
-  InitDisplayElements();
+  // init bessie
+  if (png.openFLASH((uint8_t *)bessie, sizeof(bessie), pngDraw) == PNG_SUCCESS) {
+    Serial.println("Successfully opened png file");
+    Serial.printf("image specs: (%d x %d), %d bpp, pixel type: %d\n", png.getWidth(), png.getHeight(), png.getBpp(), png.getPixelType());
+  }
 
   // show boot screen
   DisplayBootScreen();
@@ -728,25 +731,6 @@ void DisplayElectricalScreen() {
  */
 void DisplayMechanicalScreen() {
 
-}
-
-
-/**
- * @brief 
- * 
- */
-void InitDisplayElements() {
-  // --- main page --- //
-
-
-  // --- electrical --- //
-
-
-  // init bessie
-  if (png.openFLASH((uint8_t *)bessie, sizeof(bessie), pngDraw) == PNG_SUCCESS) {
-    Serial.println("Successfully opened png file");
-    Serial.printf("image specs: (%d x %d), %d bpp, pixel type: %d\n", png.getWidth(), png.getHeight(), png.getBpp(), png.getPixelType());
-  }
 }
 
 

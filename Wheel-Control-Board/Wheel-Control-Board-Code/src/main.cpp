@@ -705,23 +705,26 @@ void DisplayMainScreen() {
  */
 void DisplayElectricalScreen() {
   if (refreshDisplay) {
-    ElectricalBusVolts.setZones(0, 100, 25, 75, 0, 0, 40, 60);
-    ElectricalBusVolts.analogMeter(0, 128, 10.0, "V", "0", "2.5", "5", "7.5", "10");
+    ElectricalBusVolts.setZones(0, 70, 70, 80, 80, 90, 90, 100);
+    ElectricalBusVolts.analogMeter(0, 0, 320, "V", "0", "200", "260", "290", "320");
 
-    ElectricalRinehartVolts.setZones(0, 100, 25, 75, 0, 0, 40, 60);
-    ElectricalRinehartVolts.analogMeter(0, 128, 10.0, "V", "0", "2.5", "5", "7.5", "10");
+    ElectricalRinehartVolts.setZones(0, 70, 70, 80, 80, 90, 90, 100);
+    ElectricalRinehartVolts.analogMeter(128, 0, 320, "V", "0", "200", "260", "290", "320");
 
     ElectricalAmps.setZones(0, 100, 25, 75, 0, 0, 40, 60);
     ElectricalAmps.analogMeter(0, 128, 10.0, "A", "0", "2.5", "5", "7.5", "10");
 
-    ElectricalBattery.setZones(0, 100, 25, 75, 0, 0, 40, 60);
-    ElectricalBattery.analogMeter(0, 128, 10.0, "%", "0", "2.5", "5", "7.5", "10");
+    ElectricalBattery.setZones(0, 25, 25, 50, 50, 75, 75, 100);
+    ElectricalBattery.analogMeter(128, 128, 100, "%", "0", "25", "50", "75", "100");
     
     refreshDisplay = false;
   }
 
   // update needles
-
+  ElectricalBusVolts.updateNeedle(carData.batteryStatus.busVoltage, 0);
+  ElectricalRinehartVolts.updateNeedle(carData.batteryStatus.rinehartVoltage, 0);
+  ElectricalAmps.updateNeedle(0, 0);
+  ElectricalBattery.updateNeedle(carData.batteryStatus.batteryChargeState, 0);
 }
 
 

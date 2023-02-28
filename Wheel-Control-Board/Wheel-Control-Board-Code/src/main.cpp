@@ -681,6 +681,9 @@ void DisplayBootScreen() {
  */
 void DisplayMainScreen() {
   if (refreshDisplay) {
+    // reset screen
+    tft.fillScreen(TFT_BLACK);
+    
     // rinehart voltage
     MainVolts.setZones(0, 70, 70, 80, 80, 90, 90, 100);
     MainVolts.analogMeter(0, 0, 320, "V", "0", "200", "260", "290", "320");
@@ -714,6 +717,9 @@ void DisplayMainScreen() {
  */
 void DisplayElectricalScreen() {
   if (refreshDisplay) {
+    // reset screen
+    tft.fillScreen(TFT_BLACK);
+
     ElectricalBusVolts.setZones(0, 70, 70, 80, 80, 90, 90, 100);
     ElectricalBusVolts.analogMeter(0, 0, 320, "V", "0", "200", "260", "290", "320");
 
@@ -743,6 +749,9 @@ void DisplayElectricalScreen() {
  */
 void DisplayMechanicalScreen() {
   if (refreshDisplay) {
+    // reset screen
+    tft.fillScreen(TFT_BLACK);
+
     MechanicalFRWheelHeight.setZones(0, 20, 20, 30, 70, 100, 30, 70);
     MechanicalFRWheelHeight.analogMeter(0, 0, 8, "in", "0", "2", "4", "6", "8");
 

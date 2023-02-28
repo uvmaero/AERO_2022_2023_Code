@@ -186,6 +186,15 @@ MeterWidget ElectricalRinehartVolts = MeterWidget(&tft);
 MeterWidget ElectricalAmps = MeterWidget(&tft);
 MeterWidget ElectricalBattery = MeterWidget(&tft);
 
+MeterWidget MechanicalFRWheelHeight = MeterWidget(&tft);
+MeterWidget MechanicalFLWheelHeight = MeterWidget(&tft);
+MeterWidget MechanicalBRWheelHeight = MeterWidget(&tft);
+MeterWidget MechanicalBLWheelHeight = MeterWidget(&tft);
+MeterWidget MechanicalFRWheelSpeed = MeterWidget(&tft);
+MeterWidget MechanicalFLWheelSpeed = MeterWidget(&tft);
+MeterWidget MechanicalBRWheelSpeed = MeterWidget(&tft);
+MeterWidget MechanicalBLWheelSpeed = MeterWidget(&tft);
+
 // init images
 TFT_eSprite imgBessie = TFT_eSprite(&tft);  // Create Sprite object "img" with pointer to "tft" object
 PNG png;  // image decoder
@@ -733,7 +742,40 @@ void DisplayElectricalScreen() {
  * 
  */
 void DisplayMechanicalScreen() {
+  if (refreshDisplay) {
+    MechanicalFRWheelHeight.setZones(0, 20, 20, 30, 70, 100, 30, 70);
+    MechanicalFRWheelHeight.analogMeter(0, 0, 8, "in", "0", "2", "4", "6", "8");
 
+    MechanicalFLWheelHeight.setZones(0, 20, 20, 30, 70, 100, 30, 70);
+    MechanicalFLWheelHeight.analogMeter(0, 0, 8, "in", "0", "2", "4", "6", "8");
+
+    MechanicalBRWheelHeight.setZones(0, 20, 20, 30, 70, 100, 30, 70);
+    MechanicalBRWheelHeight.analogMeter(0, 0, 8, "in", "0", "2", "4", "6", "8");
+
+    MechanicalBLWheelHeight.setZones(0, 20, 20, 30, 70, 100, 30, 70);
+    MechanicalBLWheelHeight.analogMeter(0, 0, 8, "in", "0", "2", "4", "6", "8");
+
+    MechanicalFRWheelSpeed.analogMeter(0, 0, 500, "rpm", "0", "150", "300", "400", "500");
+
+    MechanicalFLWheelSpeed.analogMeter(0, 0, 500, "rpm", "0", "150", "300", "400", "500");
+
+    MechanicalBRWheelSpeed.analogMeter(0, 0, 500, "rpm", "0", "150", "300", "400", "500");
+
+    MechanicalBLWheelSpeed.analogMeter(0, 0, 500, "rpm", "0", "150", "300", "400", "500");
+
+
+    refreshDisplay = false;
+  }
+
+  // update needles
+  MechanicalFRWheelHeight.updateNeedle(carData.sensors.wheelHeightFR, 0);
+  MechanicalFLWheelHeight.updateNeedle(carData.sensors.wheelHeightFL, 0);
+  MechanicalBRWheelHeight.updateNeedle(carData.sensors.wheelHeightBR, 0);
+  MechanicalBLWheelHeight.updateNeedle(carData.sensors.wheelHeightBL, 0);
+  MechanicalFRWheelSpeed.updateNeedle(carData.sensors.wheelSpeedFR, 0);
+  MechanicalFLWheelSpeed.updateNeedle(carData.sensors.wheelSpeedFL, 0); 
+  MechanicalBRWheelSpeed.updateNeedle(carData.sensors.wheelSpeedBR, 0); 
+  MechanicalBLWheelSpeed.updateNeedle(carData.sensors.wheelSpeedBL, 0); 
 }
 
 

@@ -581,6 +581,9 @@ void ReadSensorsTask(void* pvParameters) {
   float brakeRegenTmp = adc1_get_raw((adc1_channel_t)BRAKE_REGEN_KNOB);
   carData.inputs.brakeRegen = MapValue(brakeRegenTmp, 0, 1024, 0, 255);    // get values through testing
 
+  // update connection LED
+  // TODO: add send callback to determine connection status
+
   // debugging
   if (debugger.debugEnabled) {
     debugger.IO_data = carData;

@@ -240,6 +240,8 @@ void UpdateFCBTask(void* pvParameters);
 
 // ISRs
 void FCBDataReceived(const uint8_t* mac, const uint8_t* incomingData, int length);
+void DisplayModeSelectButtonPressed(void* args);
+void DriveModeSelectButtonPressed(void* args);
 
 // helpers
 long MapValue(long x, long in_min, long in_max, long out_min, long out_max);
@@ -302,9 +304,16 @@ void setup()
 
 
   // -------------------------- initialize GPIO ------------------------------------- //
+  ESP_ERROR_CHECK(gpio_install_isr_service(0));
 
   // inputs
   gpio_set_direction((gpio_num_t)LCD_MODE_SELECT_BUTTON, GPIO_MODE_INPUT);
+  gpio_set_intr_type((gpio_num_t)LCD_MODE_SELECT_BUTTON, GPIO_INTR_HIGH_LEVEL);
+  gpio_isr_handler_add((gpio_num_t)LCD_MODE_SELECT_BUTTON, DisplayModeSelectButtonPressed, (void*) (gpio_num_t)LCD_MODE_SELECT_BUTTON);
+
+  gpio_set_direction((gpio_num_t)DRIVE_MODE_SELECT_BUTTON, GPIO_MODE_INPUT);
+  gpio_set_intr_type((gpio_num_t)DRIVE_MODE_SELECT_BUTTON, GPIO_INTR_HIGH_LEVEL);
+  gpio_isr_handler_add((gpio_num_t)DRIVE_MODE_SELECT_BUTTON, DriveModeSelectButtonPressed, (void*) (gpio_num_t)DRIVE_MODE_SELECT_BUTTON);
   
 
   // setup adc 1
@@ -502,6 +511,54 @@ void FCBDataReceived(const uint8_t* mac, const uint8_t* incomingData, int length
 }
 
 
+/**
+ * @brief update display mode
+ * 
+ * @param args - paramenter to be passed
+ */
+void DisplayModeButtonPresssed(void* args) {
+  if (currentDisplayMode == MAIN) {
+    currentDisplayMode = ELECTRICAL;
+  }
+
+  if (currentDisplayMode == ELECTRICAL) {
+    currentDisplayMode = MECHANICAL;
+  }
+
+  if (currentDisplayMode == MECHANICAL) {
+    currentDisplayMode = MAIN;
+  }
+
+  else{
+    currentDisplayMode = MAIN;
+  }
+}
+
+
+/**
+ * @brief update drive mode
+ * 
+ * @param args - paramenter to be passed
+ */
+void DriveModeSelectButtonPressed(void* args) {
+  if (carData.drivingData.driveMode == SLOW) {
+    carData.drivingData.driveMode = ECO;
+  }
+
+  if (carData.drivingData.driveMode == ECO) {
+    carData.drivingData.driveMode = FAST;
+  }
+
+  if (carData.drivingData.driveMode == FAST) {
+    carData.drivingData.driveMode = SLOW;
+  }
+
+  else{
+    carData.drivingData.driveMode = ECO;
+  }
+}
+
+
 /*
 ===============================================================================================
                                 FreeRTOS Task Functions
@@ -683,7 +740,7 @@ void DisplayMainScreen() {
   if (refreshDisplay) {
     // reset screen
     tft.fillScreen(TFT_BLACK);
-    
+
     // rinehart voltage
     MainVolts.setZones(0, 70, 70, 80, 80, 90, 90, 100);
     MainVolts.analogMeter(0, 0, 320, "V", "0", "200", "260", "290", "320");

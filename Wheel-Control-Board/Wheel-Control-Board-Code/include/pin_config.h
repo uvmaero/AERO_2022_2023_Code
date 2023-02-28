@@ -56,7 +56,7 @@ uint8_t deviceAddress[] = {0x1a, 0x1a, 0x1a, 0x1a, 0x1a, 0x1a};
 #define BRAKE_REGEN_KNOB                    ADC1_CHANNEL_3_GPIO_NUM
 
 #define LCD_MODE_SELECT_BUTTON              34
-#define DRIVE_MODE_SELECT_BUTTON            ADC1_GPIO32_CHANNEL
+#define DRIVE_MODE_SELECT_BUTTON            33
 
 // Outputs
 #define FCB_CONNECTION_STATUS_LED           ADC1_GPIO32_CHANNEL

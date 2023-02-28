@@ -105,80 +105,7 @@ CarData carData = {
     .commandedTorque = 0,
     .currentSpeed = 0.0f,
     .driveDirection = true,
-    .driveMode = ECO, /**
- * @brief the dataframe that describes the entire state of the car
- * 
- */
-CarData carData = {
-  // driving data
-  .drivingData = {
-    .readyToDrive = false,
-    .enableInverter = false,
-
-    .imdFault = false,
-    .bmsFault = false,
-
-    .commandedTorque = 0,
-    .currentSpeed = 0.0f,
-    .driveDirection = true,
     .driveMode = ECO, 
-  },
-
-  // Battery Status
-  .batteryStatus = {
-    .batteryChargeState = 0,
-    .busVoltage = 0,
-    .rinehartVoltage = 0,
-    .pack1Temp = 0.0f,
-    .pack2Temp = 0.0f,
-  },
-
-  // Sensors
-  .sensors = {
-    .rpmCounterFR = 0,
-    .rpmCounterFL = 0,
-    .rpmCounterBR = 0,
-    .rpmCounterBL = 0,
-    .rpmTimeFR = 0,
-    .rpmTimeFL = 0,
-    .rpmTimeBR = 0,
-    .rpmTimeBL = 0,
-
-    .wheelSpeedFR = 0.0f,
-    .wheelSpeedFL = 0.0f,
-    .wheelSpeedBR = 0.0f,
-    .wheelSpeedBL = 0.0f,
-
-    .wheelHeightFR = 0.0f,
-    .wheelHeightFL = 0.0f,
-    .wheelHeightBR = 0.0f,
-    .wheelHeightBL = 0.0f,
-
-    .steeringWheelAngle = 0,
-
-    .vicoreTemp = 0.0f,
-    .pumpTempIn = 0.0f,
-    .pumpTempOut = 0.0f,
-  },
-
-  // Inputs
-  .inputs = {
-    .pedal0 = 0,
-    .pedal1 = 0,
-    .brake0 = 0,
-    .brake1 = 0,
-    .brakeRegen = 0,
-    .coastRegen = 0,
-  },
-
-  // Outputs
-  .outputs = {
-    .buzzerActive = false,
-    .buzzerCounter = 0,
-    .brakeLight = false,
-  }
-};
-
   },
 
   // Battery Status
@@ -315,14 +242,14 @@ void UpdateFCBTask(void* pvParameters);
 
 // ISRs
 void FCBDataReceived(const uint8_t* mac, const uint8_t* incomingData, int length);
-void DisplayModeSelectButtonPressed(void* args);
-void DriveModeSelectButtonPressed(void* args);
+void DisplayModeButtonPressed(void* args);
+void DriveModeButtonPressed(void* args);
 
 // helpers
 long MapValue(long x, long in_min, long in_max, long out_min, long out_max);
 
 // display
-void DisplayBootScreen(BootMode);
+void DisplayBootScreen();
 void DisplayMainScreen();
 void DisplayElectricalScreen();
 void DisplayMechanicalScreen();
@@ -373,6 +300,7 @@ void setup()
   }
 
   // show boot screen
+  currentBootMode = INIT_DISPLAY;
   DisplayBootScreen();
   setup.displayActive = true;
   // --------------------------------------------------------------------------- //
@@ -384,11 +312,11 @@ void setup()
   // inputs
   gpio_set_direction((gpio_num_t)LCD_MODE_SELECT_BUTTON, GPIO_MODE_INPUT);
   gpio_set_intr_type((gpio_num_t)LCD_MODE_SELECT_BUTTON, GPIO_INTR_HIGH_LEVEL);
-  gpio_isr_handler_add((gpio_num_t)LCD_MODE_SELECT_BUTTON, DisplayModeSelectButtonPressed, (void*) (gpio_num_t)LCD_MODE_SELECT_BUTTON);
+  gpio_isr_handler_add((gpio_num_t)LCD_MODE_SELECT_BUTTON, DisplayModeButtonPressed, (void*) (gpio_num_t)LCD_MODE_SELECT_BUTTON);
 
   gpio_set_direction((gpio_num_t)DRIVE_MODE_SELECT_BUTTON, GPIO_MODE_INPUT);
   gpio_set_intr_type((gpio_num_t)DRIVE_MODE_SELECT_BUTTON, GPIO_INTR_HIGH_LEVEL);
-  gpio_isr_handler_add((gpio_num_t)DRIVE_MODE_SELECT_BUTTON, DriveModeSelectButtonPressed, (void*) (gpio_num_t)DRIVE_MODE_SELECT_BUTTON);
+  gpio_isr_handler_add((gpio_num_t)DRIVE_MODE_SELECT_BUTTON, DriveModeButtonPressed, (void*) (gpio_num_t)DRIVE_MODE_SELECT_BUTTON);
   
 
   // setup adc 1
@@ -399,6 +327,7 @@ void setup()
   // outputs //
 
 
+  currentBootMode = INIT_SENSORS;
   DisplayBootScreen();
   setup.ioActive = true;
   // --------------------------------------------------------------------------- //
@@ -457,6 +386,9 @@ void setup()
 
   // attach message received ISR to the data received function
   esp_now_register_recv_cb(FCBDataReceived);
+
+  currentBootMode = INIT_ESPNOW;
+  DisplayBootScreen();
   // ------------------------------------------------------------------------ //
 
 
@@ -591,7 +523,7 @@ void FCBDataReceived(const uint8_t* mac, const uint8_t* incomingData, int length
  * 
  * @param args - paramenter to be passed
  */
-void DisplayModeButtonPresssed(void* args) {
+void DisplayModeButtonPressed(void* args) {
   if (currentDisplayMode == MAIN) {
     currentDisplayMode = ELECTRICAL;
   }
@@ -615,7 +547,7 @@ void DisplayModeButtonPresssed(void* args) {
  * 
  * @param args - paramenter to be passed
  */
-void DriveModeSelectButtonPressed(void* args) {
+void DriveModeButtonPressed(void* args) {
   if (carData.drivingData.driveMode == SLOW) {
     carData.drivingData.driveMode = ECO;
   }

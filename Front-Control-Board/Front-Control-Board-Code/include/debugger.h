@@ -40,8 +40,7 @@ typedef struct Debugger
   int sensorTaskCount;
   int canTaskCount;
   int ardanTaskCount;
-  int wcbTaskCount;
-  int rcbTaskCount;
+  int espnowTaskCount;
 } Debugger;
 
 

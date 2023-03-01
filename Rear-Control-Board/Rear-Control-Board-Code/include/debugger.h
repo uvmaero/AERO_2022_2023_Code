@@ -26,12 +26,12 @@ typedef struct Debugger
   byte CAN_sentStatus;
   byte CAN_outgoingMessage[8];
 
-  esp_err_t WCB_updateResult = ESP_OK;
-  CarData WCB_updateMessage = {};
+  esp_err_t WCB_updateResult;
+  CarData WCB_updateMessage;
 
   CarData IO_data;
 
-  
+  PrechargeStates prechargeState;
 
   // scheduler data
   int sensorTaskCount;

@@ -96,8 +96,11 @@ Debugger debugger = {
 
   .IO_data = {},
 
+  .prechargeState = PRECHARGE_OFF,
+
   // scheduler data
   .sensorTaskCount = 0,
+  .prechargeTaskCount = 0,
   .canTaskCount = 0,
   .loggerTaskCount = 0,
   .wcbTaskCount = 0,
@@ -516,7 +519,7 @@ void setup()
   if (setup.loggerActive)
     ESP_ERROR_CHECK(esp_timer_start_periodic(timer3, LOGGER_UPDATE_INTERVAL));
   if (setup.prechargeActive)
-    // ESP_ERROR_CHECK(esp_timer_start_periodic(timer4, PRECHARGE_INTERVAL));
+    ESP_ERROR_CHECK(esp_timer_start_periodic(timer4, PRECHARGE_INTERVAL));
 
   Serial.printf("SENSOR TASK STATUS: %s\n", esp_timer_is_active(timer1) ? "RUNNING" : "DISABLED");
   Serial.printf("CAN TASK STATUS: %s\n", esp_timer_is_active(timer2) ? "RUNNING" : "DISABLED");
@@ -573,7 +576,7 @@ void PrechargeCallback(void* args) {
   // queue precharge task
   static uint8_t ucParameterToPass;
   TaskHandle_t xHandle = NULL;
-  xTaskCreate(PrechargeTask, "Precharge-Data", TASK_STACK_SIZE, &ucParameterToPass, 5, &xHandle);
+  xTaskCreate(PrechargeTask, "Precharge-Data", TASK_STACK_SIZE, &ucParameterToPass, 6, &xHandle);
 }
 
 
@@ -923,7 +926,16 @@ void PrechargeTask(void* pvParameters) {
       // if we've entered an undefined state, go to error mode
       carData.drivingData.prechargeState = PRECHARGE_ERROR;
     break;
-    }
+  }
+
+  // debugging 
+  if (debugger.debugEnabled) {
+    debugger.prechargeState = carData.drivingData.prechargeState;
+    debugger.prechargeTaskCount++;
+  }
+
+  // end task
+  vTaskDelete(NULL);
 }
 
 
@@ -1298,6 +1310,6 @@ void PrintDebug() {
 
   // Scheduler
   if (debugger.scheduler_debugEnable) {
-    Serial.printf("sensor: %d | can: %d | logger: %d\n", debugger.sensorTaskCount, debugger.canTaskCount, debugger.loggerTaskCount);
+    Serial.printf("sensor: %d | can: %d | precharge: %d | logger: %d\n", debugger.sensorTaskCount, debugger.canTaskCount, debugger.prechargeTaskCount, debugger.loggerTaskCount);
   }
 }

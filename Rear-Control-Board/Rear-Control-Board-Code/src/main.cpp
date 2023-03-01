@@ -27,10 +27,8 @@
 #include "driver/can.h"
 #include "esp_adc_cal.h"
 #include "esp_vfs_fat.h"
-#include "driver/sdmmc_host.h"
-#include "driver/sdspi_host.h"
-#include "driver/spi_common.h"
 #include "sdmmc_cmd.h"
+#include "driver/sdmmc_host.h"
 
 // custom includes
 #include "pin_config.h"
@@ -60,14 +58,15 @@
 #define RINE_VOLT_INFO_ADDR             0x0A7
 
 // tasks & timers
-#define SENSOR_POLL_INTERVAL            100000      // 0.1 seconds in microseconds
-#define CAN_WRITE_INTERVAL              100000      // 0.1 seconds in microseconds
-#define LOGGER_UPDATE_INTERVAL          250000      // 0.25 seconds in microseconds
-#define TASK_STACK_SIZE                 3500        // in bytes
+#define SENSOR_POLL_INTERVAL            10000       // 0.01 seconds in microseconds
+#define PRECHARGE_INTERVAL              10000       // 0.01 seconds in microseconds
+#define CAN_WRITE_INTERVAL              10000       // 0.01 seconds in microseconds
+#define LOGGER_UPDATE_INTERVAL          100000      // 0.1 seconds in microseconds
+#define TASK_STACK_SIZE                 4096        // in bytes
 
 // debug
 #define ENABLE_DEBUG                    true        // master debug message control
-#define MAIN_LOOP_DELAY                 1           // delay in main loop (should be set to 1 when not testing)
+#define MAIN_LOOP_DELAY                 1000        // delay in main loop (should be set to 1 when not testing)
 
 
 /*
@@ -84,9 +83,9 @@
 Debugger debugger = {
   // debug toggle
   .debugEnabled = ENABLE_DEBUG,
-  .CAN_debugEnabled = true,
+  .CAN_debugEnabled = false,
   .IO_debugEnabled = false,
-  .scheduler_debugEnable = false,
+  .scheduler_debugEnable = true,
 
   // debug data
   .CAN_sentStatus = 0,
@@ -231,7 +230,8 @@ char sdLogFilename[SD_BUFF];
 
 
 // callbacks
-void SensorPrechargeCallback(void* args);
+void SensorCallback(void* args);
+void PrechargeCallback(void* args);
 void CANCallback(void* args);
 void ESPNOWCallback(void* args);
 void LoggerCallback(void* args);
@@ -279,8 +279,10 @@ void setup()
     bool canActive = false;
     bool fcbActive = false;
     bool loggerActive = false;
+    bool prechargeActive = false;
   };
   setup setup;
+
 
   // -------------------------- initialize GPIO ------------------------------------- //
   ESP_ERROR_CHECK(gpio_install_isr_service(0));
@@ -322,6 +324,7 @@ void setup()
 
 
   setup.ioActive = true;
+  setup.prechargeActive = true;
   // -------------------------------------------------------------------------- //
 
 
@@ -401,11 +404,11 @@ void setup()
 
     // SD connected pins should have external 10k pull-ups.
     // uncomment if those are not enough
-    ESP_ERROR_CHECK(gpio_set_pull_mode((gpio_num_t)SD_CMD_PIN, GPIO_PULLUP_ONLY));
-    ESP_ERROR_CHECK(gpio_set_pull_mode((gpio_num_t)SD_D0_PIN, GPIO_PULLUP_ONLY));
-    ESP_ERROR_CHECK(gpio_set_pull_mode((gpio_num_t)SD_D1_PIN, GPIO_PULLUP_ONLY));
-    ESP_ERROR_CHECK(gpio_set_pull_mode((gpio_num_t)SD_D2_PIN, GPIO_PULLUP_ONLY));
-    ESP_ERROR_CHECK(gpio_set_pull_mode((gpio_num_t)SD_D3_PIN, GPIO_PULLUP_ONLY));
+    // ESP_ERROR_CHECK(gpio_set_pull_mode((gpio_num_t)SD_CMD_PIN, GPIO_PULLUP_ONLY));
+    // ESP_ERROR_CHECK(gpio_set_pull_mode((gpio_num_t)SD_D0_PIN, GPIO_PULLUP_ONLY));
+    // ESP_ERROR_CHECK(gpio_set_pull_mode((gpio_num_t)SD_D1_PIN, GPIO_PULLUP_ONLY));
+    // ESP_ERROR_CHECK(gpio_set_pull_mode((gpio_num_t)SD_D2_PIN, GPIO_PULLUP_ONLY));
+    // ESP_ERROR_CHECK(gpio_set_pull_mode((gpio_num_t)SD_D3_PIN, GPIO_PULLUP_ONLY));
 
     // check for sd card inserted
     if (gpio_get_level((gpio_num_t) SD_DETECT_PIN)) {
@@ -471,7 +474,7 @@ void setup()
   // ---------------------- initialize timer interrupts ---------------------- //
   // timer 1 - Read Sensors & Update Precharge
   const esp_timer_create_args_t timer1_args = {
-    .callback = &SensorPrechargeCallback,
+    .callback = &SensorCallback,
     .dispatch_method = ESP_TIMER_TASK,
     .name = "Sensor Timer"
   };
@@ -496,6 +499,15 @@ void setup()
   esp_timer_handle_t timer3;
   ESP_ERROR_CHECK(esp_timer_create(&timer3_args, &timer3));
 
+  // timer 3 - Precharge Update
+  const esp_timer_create_args_t timer4_args = {
+    .callback = &PrechargeCallback,
+    .dispatch_method = ESP_TIMER_TASK,
+    .name = "Precharge Update Timer"
+  };
+  esp_timer_handle_t timer4;
+  ESP_ERROR_CHECK(esp_timer_create(&timer4_args, &timer4));
+
   // start timers
   if (setup.ioActive)
     ESP_ERROR_CHECK(esp_timer_start_periodic(timer1, SENSOR_POLL_INTERVAL));
@@ -503,10 +515,14 @@ void setup()
     ESP_ERROR_CHECK(esp_timer_start_periodic(timer2, CAN_WRITE_INTERVAL));
   if (setup.loggerActive)
     ESP_ERROR_CHECK(esp_timer_start_periodic(timer3, LOGGER_UPDATE_INTERVAL));
+  if (setup.prechargeActive)
+    // ESP_ERROR_CHECK(esp_timer_start_periodic(timer4, PRECHARGE_INTERVAL));
 
   Serial.printf("SENSOR TASK STATUS: %s\n", esp_timer_is_active(timer1) ? "RUNNING" : "DISABLED");
   Serial.printf("CAN TASK STATUS: %s\n", esp_timer_is_active(timer2) ? "RUNNING" : "DISABLED");
   Serial.printf("LOGGER TASK STATUS: %s\n", esp_timer_is_active(timer3) ? "RUNNING" : "DISABLED");
+  Serial.printf("PRECHARGE TASK STATUS: %s\n", esp_timer_is_active(timer4) ? "RUNNING" : "DISABLED");
+
   // ----------------------------------------------------------------------------------------- //
 
 
@@ -540,14 +556,24 @@ void setup()
  * 
  * @param args arguments to be passed to the task
  */
-void SensorPrechargeCallback(void* args) {
+void SensorCallback(void* args) {
   // queue sensor task
   static uint8_t ucParameterToPass;
   TaskHandle_t xHandle = NULL;
   xTaskCreate(ReadSensorsTask, "Poll-Senser-Data", TASK_STACK_SIZE, &ucParameterToPass, 5, &xHandle);
+}
 
-  // queue precharge task 
-  xTaskCreate(PrechargeTask, "Update-Precharge", TASK_STACK_SIZE, &ucParameterToPass, 6, &xHandle);
+
+/**
+ * @brief callback function for creating a new precharge task
+ * 
+ * @param args arguments to be passed to the task
+ */
+void PrechargeCallback(void* args) {
+  // queue precharge task
+  static uint8_t ucParameterToPass;
+  TaskHandle_t xHandle = NULL;
+  xTaskCreate(PrechargeTask, "Precharge-Data", TASK_STACK_SIZE, &ucParameterToPass, 5, &xHandle);
 }
 
 
@@ -781,7 +807,7 @@ void PrechargeTask(void* pvParameters) {
 
 
       // queue message for transmission
-      result = can_transmit(&outgoingMessage, pdMS_TO_TICKS(1000));
+      result = can_transmit(&outgoingMessage, pdMS_TO_TICKS(100));
 
       // ensure message was successfully sent
       if (result == ESP_OK) {
@@ -819,7 +845,7 @@ void PrechargeTask(void* pvParameters) {
         outgoingMessage.data[7] = 0;            // N/A
 
         // queue message for transmission
-        result = can_transmit(&outgoingMessage, pdMS_TO_TICKS(1000));
+        result = can_transmit(&outgoingMessage, pdMS_TO_TICKS(100));
 
         // ensure message was successfully sent
         if (result == ESP_OK) {
@@ -846,7 +872,7 @@ void PrechargeTask(void* pvParameters) {
       outgoingMessage.data[7] = 0;            // N/A
 
       // queue message for transmission
-      result = can_transmit(&outgoingMessage, pdMS_TO_TICKS(1000));
+      result = can_transmit(&outgoingMessage, pdMS_TO_TICKS(100));
 
       // ensure message was successfully sent
       if (result != ESP_OK) {
@@ -880,7 +906,7 @@ void PrechargeTask(void* pvParameters) {
       outgoingMessage.data[7] = 0;            // N/A
 
       // queue message for transmission
-      result = can_transmit(&outgoingMessage, pdMS_TO_TICKS(1000));
+      result = can_transmit(&outgoingMessage, pdMS_TO_TICKS(100));
 
       // ensure car cannot drive
       carData.drivingData.readyToDrive = false;
@@ -908,117 +934,116 @@ void PrechargeTask(void* pvParameters) {
  */
 void UpdateCANTask(void* pvParameters)
 {
-  // do this until RTOS tell it to stop
-  while (1) {
-    // inits
-    can_message_t incomingMessage;
-    int result;
+  // inits
+  can_message_t incomingMessage;
+  int result;
 
-    // --- receive messages --- //
-    // check for new messages in the CAN buffer
-    if (can_receive(&incomingMessage, pdMS_TO_TICKS(1000))) {
+  // --- receive messages --- //
+  // check for new messages in the CAN buffer
+  if (can_receive(&incomingMessage, pdMS_TO_TICKS(100))) {
 
-      if (incomingMessage.flags & CAN_MSG_FLAG_NONE) {
-        // filter for only the IDs we are interested in
-        switch (incomingMessage.identifier)
-        {
-          // Rinehart: voltage
-          case RINE_VOLT_INFO_ADDR:
-          if (!(incomingMessage.flags & CAN_MSG_FLAG_RTR)) {
-            // rinehart voltage is spread across the first 2 bytes
-            int rine1 = incomingMessage.data[0];
-            int rine2 = incomingMessage.data[1];
+    if (incomingMessage.flags & CAN_MSG_FLAG_NONE) {
+      // filter for only the IDs we are interested in
+      switch (incomingMessage.identifier)
+      {
+        // Rinehart: voltage
+        case RINE_VOLT_INFO_ADDR:
+        if (!(incomingMessage.flags & CAN_MSG_FLAG_RTR)) {
+          // rinehart voltage is spread across the first 2 bytes
+          int rine1 = incomingMessage.data[0];
+          int rine2 = incomingMessage.data[1];
 
-            // combine the first two bytes and assign that to the rinehart voltage
-            carData.batteryStatus.rinehartVoltage = (rine2 << 8) | rine1;
-          }
-          break;
-
-          // BMS: voltage and maybe other things
-          case 0x101:   // TODO: update this
-          if (!(incomingMessage.flags & CAN_MSG_FLAG_RTR)) {
-            // do stuff with the data in the message
-          }        
-          break;
-
-          default:
-          // do nothing because we didn't get any messages of interest
-          break;
+          // combine the first two bytes and assign that to the rinehart voltage
+          carData.batteryStatus.rinehartVoltage = (rine2 << 8) | rine1;
         }
+        break;
+
+        // BMS: voltage and maybe other things
+        case 0x101:   // TODO: update this
+        if (!(incomingMessage.flags & CAN_MSG_FLAG_RTR)) {
+          // do stuff with the data in the message
+        }        
+        break;
+
+        default:
+        // do nothing because we didn't get any messages of interest
+        break;
+      }
+    }
+  }
+
+  // --- send message --- // 
+  can_message_t outgoingMessage;
+  bool sentStatus = false;
+
+  // build message for FCB 
+  outgoingMessage.identifier = RCB_CONTROL_ADDR;
+  outgoingMessage.flags = CAN_MSG_FLAG_NONE;
+  outgoingMessage.data_length_code = 8;
+
+  outgoingMessage.data[0] = carData.drivingData.readyToDrive;
+  outgoingMessage.data[1] = carData.drivingData.imdFault;
+  outgoingMessage.data[2] = carData.drivingData.bmsFault;
+  outgoingMessage.data[3] = 0;
+  outgoingMessage.data[4] = 0;
+  outgoingMessage.data[5] = 0;
+  outgoingMessage.data[6] = 0;
+  outgoingMessage.data[7] = 0;
+
+  // queue message for transmission
+  result = can_transmit(&outgoingMessage, pdMS_TO_TICKS(100));
+
+  // build message for FCB 
+  outgoingMessage.identifier = RCB_DATA_ADDR;
+  outgoingMessage.flags = CAN_MSG_FLAG_NONE;
+  outgoingMessage.data_length_code = 8;
+
+  outgoingMessage.data[0] = carData.sensors.wheelSpeedBR;
+  outgoingMessage.data[1] = carData.sensors.wheelSpeedBL;
+  outgoingMessage.data[2] = carData.sensors.wheelHeightBR;
+  outgoingMessage.data[3] = carData.sensors.wheelHeightBL;
+  outgoingMessage.data[4] = 0;
+  outgoingMessage.data[5] = 0;
+  outgoingMessage.data[6] = 0;
+  outgoingMessage.data[7] = 0;
+
+  // queue message for transmission
+  result = can_transmit(&outgoingMessage, pdMS_TO_TICKS(100));
+
+  if (result == ESP_OK) {
+    sentStatus = true;
+  }
+
+  // debugging
+  if (debugger.debugEnabled) {
+    if (debugger.CAN_debugEnabled) {
+      switch (result) {
+        case ESP_ERR_INVALID_ARG:
+          Serial.printf("Arguments are invalid\n");
+        break;
+
+        case ESP_ERR_TIMEOUT:
+          Serial.printf("Timed out waiting for space on TX queue\n");
+        break;
+
+        case ESP_FAIL:
+          Serial.printf("TX queue is disabled and another message is currently transmitting\n");
+        break;
+
+        case ESP_ERR_INVALID_STATE:
+          Serial.printf("TWAI driver is not in running state, or is not installed\n");
+        break;
+
+        default:
+          break;
       }
     }
 
-    // --- send message --- // 
-    can_message_t outgoingMessage;
-    bool sentStatus = false;
-
-    // build message for FCB 
-    outgoingMessage.identifier = RCB_CONTROL_ADDR;
-    outgoingMessage.flags = CAN_MSG_FLAG_NONE;
-    outgoingMessage.data_length_code = 8;
-
-    outgoingMessage.data[0] = carData.drivingData.readyToDrive;
-    outgoingMessage.data[1] = carData.drivingData.imdFault;
-    outgoingMessage.data[2] = carData.drivingData.bmsFault;
-    outgoingMessage.data[3] = 0;
-    outgoingMessage.data[4] = 0;
-    outgoingMessage.data[5] = 0;
-    outgoingMessage.data[6] = 0;
-    outgoingMessage.data[7] = 0;
-
-    // queue message for transmission
-    result = can_transmit(&outgoingMessage, pdMS_TO_TICKS(1000));
-
-    // build message for FCB 
-    outgoingMessage.identifier = RCB_DATA_ADDR;
-    outgoingMessage.flags = CAN_MSG_FLAG_NONE;
-    outgoingMessage.data_length_code = 8;
-
-    outgoingMessage.data[0] = carData.sensors.wheelSpeedBR;
-    outgoingMessage.data[1] = carData.sensors.wheelSpeedBL;
-    outgoingMessage.data[2] = carData.sensors.wheelHeightBR;
-    outgoingMessage.data[3] = carData.sensors.wheelHeightBL;
-    outgoingMessage.data[4] = 0;
-    outgoingMessage.data[5] = 0;
-    outgoingMessage.data[6] = 0;
-    outgoingMessage.data[7] = 0;
-
-    // queue message for transmission
-    result = can_transmit(&outgoingMessage, pdMS_TO_TICKS(1000));
-
-    switch (result) {
-      case ESP_OK:
-        sentStatus = true;
-        break;
-
-      case ESP_ERR_INVALID_ARG:
-        Serial.printf("Arguments are invalid\n");
-      break;
-
-      case ESP_ERR_TIMEOUT:
-        Serial.printf("Timed out waiting for space on TX queue\n");
-      break;
-
-      case ESP_FAIL:
-        Serial.printf("TX queue is disabled and another message is currently transmitting\n");
-      break;
-
-      case ESP_ERR_INVALID_STATE:
-        Serial.printf("TWAI driver is not in running state, or is not installed\n");
-      break;
-
-      default:
-        break;
+    debugger.CAN_sentStatus = sentStatus;
+    for (int i = 0; i < 8; ++i) {
+      debugger.CAN_outgoingMessage[i] = outgoingMessage.data[i];
     }
-
-    // debugging
-    if (debugger.debugEnabled) {
-      debugger.CAN_sentStatus = sentStatus;
-      for (int i = 0; i < 8; ++i) {
-        debugger.CAN_outgoingMessage[i] = outgoingMessage.data[i];
-      }
-      debugger.canTaskCount++;
-    }
+    debugger.canTaskCount++;
   }
 
   // end task
@@ -1053,7 +1078,7 @@ void UpdateWCBTask(void* pvParameters) {
  * @param pvParameters parameters passed to task
  */
 void UpdateLoggerTask(void* pvParameters) {
-  // inits
+//   // inits
   char tmpStr[SD_BUFF];
   bool logWritten = false;
   float timeStamp = (float)esp_timer_get_time() * 1000000;    // convert uptime from microseconds to seconds

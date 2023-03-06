@@ -1,6 +1,5 @@
 # AERO_2022-2023
-All of the code for each board that runs the car for the year 2022-2023
-and board designs.
+All of the code that drives each board and runs the car for the year 2022-2023!
 
 ## Boards
 ### Front Board

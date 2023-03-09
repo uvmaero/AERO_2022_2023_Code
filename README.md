@@ -7,8 +7,23 @@ Each board is managed by an ESP32-WROOM, in the form of the official Dev-Kit-C V
 ## Boards
 ### Front Board
 #### Description
+Located in the front of the car, this board manages all driver input, the remote data aquisition system, and wireless communications with the steering wheel.
 #### I/O
+##### Inputs
+- Accelorator pedal
+- Brake pedal 
+- Ready to drive button
+- front wheel hall effect sensors
+- front wheel ride height potentiometers
+- CAN bus
+##### Outputs
+- CAN bus
+- LoRa Radio
+- ESP NOW data to wheel board
+- Ready to drive LED
+- Ready to drive buzzer 
 #### Libraries
+- LoRa
 
 ### Rear Board
 #### Description

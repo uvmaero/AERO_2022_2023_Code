@@ -51,6 +51,7 @@
 #define MAX_TORQUE                      225         // MAX TORQUE RINEHART CAN ACCEPT, DO NOT EXCEED 230!!!
 
 // CAN
+#define NUM_CAN_READS                   5           // the number of messages to read each time the CAN task is called
 #define FCB_CONTROL_ADDR                0x0A
 #define FCB_DATA_ADDR                   0x0B
 #define RCB_CONTROL_ADDR                0x0C
@@ -60,10 +61,10 @@
 #define RINE_VOLT_INFO_ADDR             0x0A7
 
 // tasks & timers
-#define SENSOR_POLL_INTERVAL            10000       // 0.01 seconds in microseconds
-#define CAN_WRITE_INTERVAL              10000       // 0.01 seconds in microseconds
-#define ARDAN_UPDATE_INTERVAL           100000      // 0.1 seconds in microseconds
-#define ESP_NOW_UPDATE_INTERVAL         100000      // 0.1 seconds in microseconds
+#define SENSOR_POLL_INTERVAL            100000      // 0.1 seconds in microseconds
+#define CAN_WRITE_INTERVAL              100000      // 0.1 seconds in microseconds
+#define ARDAN_UPDATE_INTERVAL           200000      // 0.2 seconds in microseconds
+#define ESP_NOW_UPDATE_INTERVAL         200000      // 0.2 seconds in microseconds
 #define TASK_STACK_SIZE                 4096        // in bytes
 
 // debug
@@ -252,8 +253,10 @@ void setup()
   // set power configuration
   esp_pm_configure(&power_configuration);
 
-  // delay startup by 5 seconds
-  vTaskDelay(5000);
+  if (debugger.debugEnabled) {
+    // delay startup by 5 seconds
+    vTaskDelay(5000);
+  }
 
   // -------------------------- initialize serial connection ------------------------ //
   Serial.begin(9600);
@@ -290,15 +293,13 @@ void setup()
 
   // setup adc pins
   ESP_ERROR_CHECK(adc1_config_width(ADC_WIDTH_BIT_12));
-  ESP_ERROR_CHECK(adc1_config_channel_atten(ADC1_CHANNEL_0, ADC_ATTEN_0db));
-  ESP_ERROR_CHECK(adc1_config_channel_atten(ADC1_CHANNEL_3, ADC_ATTEN_0db));
-  ESP_ERROR_CHECK(adc1_config_channel_atten(ADC1_CHANNEL_4, ADC_ATTEN_0db));
-  ESP_ERROR_CHECK(adc1_config_channel_atten(ADC1_CHANNEL_5, ADC_ATTEN_0db));
-  ESP_ERROR_CHECK(adc1_config_channel_atten(ADC1_CHANNEL_6, ADC_ATTEN_0db));
-  ESP_ERROR_CHECK(adc1_config_channel_atten(ADC1_CHANNEL_7, ADC_ATTEN_0db));
+  ESP_ERROR_CHECK(adc1_config_channel_atten(ADC1_CHANNEL_5, ADC_ATTEN_0db));    // pedal 0 potentiometer
+  ESP_ERROR_CHECK(adc1_config_channel_atten(ADC1_CHANNEL_6, ADC_ATTEN_0db));    // wheel height sensor
+  ESP_ERROR_CHECK(adc1_config_channel_atten(ADC1_CHANNEL_7, ADC_ATTEN_0db));    // wheel height sensor
 
-  ESP_ERROR_CHECK(adc2_config_channel_atten(ADC2_CHANNEL_0, ADC_ATTEN_0db));
-  ESP_ERROR_CHECK(adc2_config_channel_atten(ADC2_CHANNEL_1, ADC_ATTEN_0db));
+  ESP_ERROR_CHECK(adc2_config_channel_atten(ADC2_CHANNEL_0, ADC_ATTEN_0db));    // brake 0 potentiometer
+  ESP_ERROR_CHECK(adc2_config_channel_atten(ADC2_CHANNEL_1, ADC_ATTEN_0db));    // brake 1 potentiometer
+  ESP_ERROR_CHECK(adc2_config_channel_atten(ADC2_CHANNEL_8, ADC_ATTEN_0db));    // pedal 1 potentiometer
 
   // outputs //
   // setup WCB connection status LED
@@ -615,6 +616,8 @@ void ReadyToDriveButtonPressed(void* args) {
     // turn on buzzer to indicate TSV is live
     carData.outputs.buzzerActive = true;
   }
+
+  return;
 }
 
 
@@ -712,27 +715,29 @@ void UpdateCANTask(void* pvParameters)
 
   // --- receive messages --- //
   // check for new messages in the CAN buffer
-  if (can_receive(&incomingMessage, pdMS_TO_TICKS(100))) {
-    if (incomingMessage.flags & CAN_MSG_FLAG_NONE) {
+  for (int i = 0; i < NUM_CAN_READS; ++i) {
+    if (can_receive(&incomingMessage, pdMS_TO_TICKS(100))) {
+      if (incomingMessage.flags & CAN_MSG_FLAG_NONE) {
 
-      // filter for only the IDs we are interested in
-      switch (incomingMessage.identifier) {
+        // filter for only the IDs we are interested in
+        switch (incomingMessage.identifier) {
 
-        case RCB_CONTROL_ADDR:
-          incomingMessage.data[0] = carData.drivingData.readyToDrive;
-          incomingMessage.data[1] = carData.drivingData.imdFault;
-          incomingMessage.data[2] = carData.drivingData.bmsFault;
-        break;
+          case RCB_CONTROL_ADDR:
+            incomingMessage.data[0] = carData.drivingData.readyToDrive;
+            incomingMessage.data[1] = carData.drivingData.imdFault;
+            incomingMessage.data[2] = carData.drivingData.bmsFault;
+          break;
 
-        case RCB_DATA_ADDR:
-          incomingMessage.data[0] = carData.sensors.wheelSpeedBR;
-          incomingMessage.data[1] = carData.sensors.wheelSpeedBL;
-          incomingMessage.data[2] = carData.sensors.wheelHeightBR;
-          incomingMessage.data[3] = carData.sensors.wheelHeightBL;
-        break;
+          case RCB_DATA_ADDR:
+            incomingMessage.data[0] = carData.sensors.wheelSpeedBR;
+            incomingMessage.data[1] = carData.sensors.wheelSpeedBL;
+            incomingMessage.data[2] = carData.sensors.wheelHeightBR;
+            incomingMessage.data[3] = carData.sensors.wheelHeightBL;
+          break;
 
-        default:
-        break;
+          default:
+          break;
+        }
       }
     }
   }
@@ -1021,10 +1026,6 @@ void PrintWCBDebug() {
   Serial.printf("WCB ESP-NOW Update: %s\n", debugger.WCB_updateResult ? "Success" : "Failed");
 
 
-  // message
-  Serial.printf("ready to drive status: %d\n", debugger.WCB_updateMessage.drivingData.readyToDrive);
-  
-
   Serial.printf("\n--- END WCB DEBUG ---\n");
 }
 
@@ -1036,7 +1037,22 @@ void PrintWCBDebug() {
 void PrintIODebug() {
   Serial.printf("\n--- START I/O DEBUG ---\n");
 
-  // 
+  // INPUTS
+  // pedal 0 & 1
+  Serial.printf("Pedal 0: %d\tPedal 1: %d\n", debugger.IO_data.inputs.pedal0, debugger.IO_data.inputs.pedal1);	
+
+  // brake 0 & 1
+  Serial.printf("Brake 0: %d\tBrake 1: %d\n", debugger.IO_data.inputs.brake0, debugger.IO_data.inputs.brake1);
+
+  // brake regen
+  Serial.printf("Brake Regen: %d\n", debugger.IO_data.inputs.brakeRegen);
+
+  // coast regen
+  Serial.printf("Coast Regen: %d\n", debugger.IO_data.inputs.coastRegen);
+
+  // OUTPUTS
+  // buzzer status
+  Serial.printf("Buzzer Status: %s, Buzzer Counter: %d\n", debugger.IO_data.outputs.buzzerActive ? "On" : "Off", debugger.IO_data.outputs.buzzerCounter);
 
   Serial.printf("\n--- END I/O DEBUG ---\n");
 }

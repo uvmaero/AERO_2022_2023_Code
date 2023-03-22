@@ -2,8 +2,8 @@
  * @file debugger.h
  * @author your name (you@domain.com)
  * @brief 
- * @version 0.1
- * @date 2023-01-29
+ * @version 1.0
+ * @date 2023-03-22
  * 
  * @copyright Copyright (c) 2023
  * 

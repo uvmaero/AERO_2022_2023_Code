@@ -2,8 +2,8 @@
  * @file main.cpp
  * @author Dominic Gasperini - UVM '23
  * @brief this drives the front control board on clean speed 5.5
- * @version 0.9
- * @date 2023-02-06
+ * @version 1.0
+ * @date 2023-03-22
  */
 
 /*

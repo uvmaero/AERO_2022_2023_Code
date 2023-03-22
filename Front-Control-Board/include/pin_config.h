@@ -2,8 +2,8 @@
  * @file pinConfig.h
  * @author dominic gasperini 
  * @brief this file holds the pin layout for the board I/O
- * @version 0.1
- * @date 2022-07-27
+ * @version 1.0
+ * @date 2023-03-22
  * 
  * @copyright Copyright (c) 2022
  * 

@@ -72,7 +72,7 @@ uint8_t deviceAddress[] = {0x1a, 0x1a, 0x1a, 0x1a, 0x1a, 0x1a};
 // Outputs
 #define RTD_BUTTON_LED_PIN                  21
 #define WCB_CONNECTION_LED                  26
-#define BUZZER_PIN                          12
-#define ARDAN_SS_PIN                        10
-#define ARDAN_RST_PIN                       11
-#define ARDAN_DIO_PIN                       14
+#define BUZZER_PIN                          16
+#define ARDAN_MISO_PIN                      12
+#define ARDAN_MOSI_PIN                      13
+#define ARDAN_CS_PIN                        10

@@ -25,9 +25,10 @@
 #include "driver/adc.h"
 #include "driver/can.h"
 #include "esp_adc_cal.h"
+#include "SPI.h"
 
 // custom includes
-#include <LoRa.h>
+#include "RadioLib.h"
 #include "debugger.h"
 #include "pin_config.h"
 
@@ -102,6 +103,8 @@ Debugger debugger = {
   .WCB_updateMessage = {},
 
   .IO_data = {},
+
+  .ardanTransmitResult = 0,
 
   // scheduler data
   .sensorTaskCount = 0,
@@ -210,6 +213,9 @@ can_general_config_t canConfig = CAN_GENERAL_CONFIG_DEFAULT((gpio_num_t)CAN_TX_P
 can_timing_config_t canTimingConfig = CAN_TIMING_CONFIG_500KBITS();         // the timing of the CAN bus
 can_filter_config_t canFilterConfig = CAN_FILTER_CONFIG_ACCEPT_ALL();       // filter so we only receive certain messages
 
+
+// LoRa Interface
+RFM95 lora = new Module(15, RADIOLIB_NC, RADIOLIB_NC, RADIOLIB_NC);
 
 /*
 ===============================================================================================
@@ -389,14 +395,15 @@ void setup()
 
 
   // ------------------- initialize ARDAN Connection ------------------------ //
-  if (LoRa.begin(915E6)) {         // 915E6 is for use in North America 
+  // LoRa Interface
+  SPI.begin();
+
+  // init lora
+  if (lora.begin()) {
     Serial.printf("ARDAN INIT [SUCCESSS ]\n");
 
-    // init LoRa chip pins
-    LoRa.setPins(ARDAN_SS_PIN, ARDAN_RST_PIN, ARDAN_DIO_PIN);
-
     // set the sync word so the car and monitoring station can communicate
-    LoRa.setSyncWord(0xA1);         // the channel to be transmitting on (range: 0x00 - 0xFF)
+    lora.setSyncWord(0xA1);         // the channel to be transmitting on (range: 0x00 - 0xFF)
 
     setup.ardanActive = true;
   }
@@ -857,12 +864,11 @@ void UpdateESPNOWTask(void* pvParameters)
 void UpdateARDANTask(void* pvParameters)
 {
   // send LoRa update
-  LoRa.beginPacket();
-  LoRa.write((uint8_t *) &carData, sizeof(carData));
-  LoRa.endPacket();
+  int result = lora.transmit((uint8_t *) &carData, sizeof(carData));
 
   // debugging
   if (debugger.debugEnabled) {
+    debugger.ardanTransmitResult = result;
     debugger.ardanTaskCount++;
   }
 

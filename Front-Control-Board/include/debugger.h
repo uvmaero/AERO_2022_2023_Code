@@ -25,8 +25,8 @@ typedef struct Debugger
   bool scheduler_debugEnable;
 
   // debug data
-  byte CAN_sentStatus;
-  byte CAN_outgoingMessage[8];
+  int CAN_sentStatus;
+  int CAN_outgoingMessage[8];
 
   esp_err_t RCB_updateResult = ESP_OK;
   CarData RCB_updateMessage = {};
@@ -35,6 +35,8 @@ typedef struct Debugger
   CarData WCB_updateMessage;
 
   CarData IO_data;
+
+  int ardanTransmitResult;
 
   // scheduler data
   int sensorTaskCount;

@@ -23,11 +23,10 @@
 #include <esp_wifi.h>
 #include "esp_netif.h"
 #include "driver/adc.h"
-#include "driver/can.h"
 #include "esp_adc_cal.h"
-#include "SPI.h"
 
 // custom includes
+#include "CAN.h"
 #include "RadioLib.h"
 #include "debugger.h"
 #include "pin_config.h"
@@ -45,10 +44,10 @@
 #define TIRE_DIAMETER                   20.0        // diameter of the vehicle's tires in inches
 #define WHEEL_RPM_CALC_THRESHOLD        100         // the number of times the hall effect sensor is tripped before calculating vehicle speed
 #define BRAKE_LIGHT_THRESHOLD           10          // 
-#define PEDAL_DEADBAND                  10
-#define PEDAL_MIN                       128
-#define PEDAL_MAX                       600
-#define TORQUE_DEADBAND                 5
+#define PEDAL_DEADBAND                  5
+#define PEDAL_MIN                       0
+#define PEDAL_MAX                       255
+#define TORQUE_DEADBAND                 128         // 5% of 2550
 #define MAX_TORQUE                      225         // MAX TORQUE RINEHART CAN ACCEPT, DO NOT EXCEED 230!!!
 
 // CAN
@@ -89,8 +88,8 @@ Debugger debugger = {
   .debugEnabled = ENABLE_DEBUG,
   .CAN_debugEnabled = false,
   .WCB_debugEnabled = false,
-  .IO_debugEnabled = false,
-  .scheduler_debugEnable = true,
+  .IO_debugEnabled = true,
+  .scheduler_debugEnable = false,
 
   // debug data
   .CAN_sentStatus = 0,
@@ -131,7 +130,7 @@ CarData carData = {
     .commandedTorque = 0,
     .currentSpeed = 0.0f,
     .driveDirection = true,
-    .driveMode = ECO, 
+    .driveMode = FAST, 
   },
 
   // Battery Status
@@ -206,12 +205,6 @@ esp_now_peer_info rcbInfo = {
   .ifidx = WIFI_IF_STA,
   .encrypt = false,
 };
-
-
-// CAN Interface
-can_general_config_t canConfig = CAN_GENERAL_CONFIG_DEFAULT((gpio_num_t)CAN_TX_PIN, (gpio_num_t)CAN_RX_PIN, CAN_MODE_NORMAL);   // set pins controller will use
-can_timing_config_t canTimingConfig = CAN_TIMING_CONFIG_500KBITS();         // the timing of the CAN bus
-can_filter_config_t canFilterConfig = CAN_FILTER_CONFIG_ACCEPT_ALL();       // filter so we only receive certain messages
 
 
 // LoRa Interface
@@ -299,13 +292,13 @@ void setup()
 
   // setup adc pins
   ESP_ERROR_CHECK(adc1_config_width(ADC_WIDTH_BIT_12));
-  ESP_ERROR_CHECK(adc1_config_channel_atten(ADC1_CHANNEL_5, ADC_ATTEN_0db));    // pedal 0 potentiometer
-  ESP_ERROR_CHECK(adc1_config_channel_atten(ADC1_CHANNEL_6, ADC_ATTEN_0db));    // wheel height sensor
-  ESP_ERROR_CHECK(adc1_config_channel_atten(ADC1_CHANNEL_7, ADC_ATTEN_0db));    // wheel height sensor
+  ESP_ERROR_CHECK(adc1_config_channel_atten(PEDAL_0_PIN, ADC_ATTEN_11db));    // pedal 0 potentiometer
+  ESP_ERROR_CHECK(adc1_config_channel_atten(ADC1_CHANNEL_6, ADC_ATTEN_11db)); // wheel height sensor
+  ESP_ERROR_CHECK(adc1_config_channel_atten(ADC1_CHANNEL_7, ADC_ATTEN_11db)); // wheel height sensor
 
-  ESP_ERROR_CHECK(adc2_config_channel_atten(ADC2_CHANNEL_0, ADC_ATTEN_0db));    // brake 0 potentiometer
-  ESP_ERROR_CHECK(adc2_config_channel_atten(ADC2_CHANNEL_1, ADC_ATTEN_0db));    // brake 1 potentiometer
-  ESP_ERROR_CHECK(adc2_config_channel_atten(ADC2_CHANNEL_8, ADC_ATTEN_0db));    // pedal 1 potentiometer
+  ESP_ERROR_CHECK(adc2_config_channel_atten(BRAKE_0_PIN, ADC_ATTEN_11db));    // brake 0 potentiometer
+  ESP_ERROR_CHECK(adc2_config_channel_atten(BRAKE_0_PIN, ADC_ATTEN_11db));    // brake 1 potentiometer
+  ESP_ERROR_CHECK(adc2_config_channel_atten(PEDAL_1_PIN, ADC_ATTEN_11db));    // pedal 1 potentiometer
 
   // outputs //
   // setup WCB connection status LED
@@ -320,24 +313,16 @@ void setup()
 
 
   // --------------------- initialize CAN Controller -------------------------- //
-  if (can_driver_install(&canConfig, &canTimingConfig, &canFilterConfig) == ESP_OK) {
+
+  if (CAN.begin(500E3)) {
     Serial.printf("CAN INIT [ SUCCESS ]\n");
+    
+    // set can pins
+    CAN.setPins(CAN_RX_PIN, CAN_TX_PIN);
 
-    // start CAN interface
-    if (can_start() == ESP_OK) {
-      Serial.printf("CAN STARTED [ SUCCESS ]\n");
-
-      // track all alerts
-      if (can_reconfigure_alerts(CAN_ALERT_ALL, NULL) == ESP_OK) {
-        Serial.printf("CAN ALERTS [ SUCCESS ]\n");
-      } 
-      else {
-        Serial.printf("CAN ALERTS [ FAILED ]\n");
-      }
-
-      setup.canActive = true;
-    }
+    setup.canActive = true;
   }
+
   else {
     Serial.printf("CAN INIT [ FAILED ]\n");
   }
@@ -646,14 +631,44 @@ void ReadSensorsTask(void* pvParameters)
   esp_wifi_stop();
 
   // get pedal positions
-  float tmpPedal0 = adc1_get_raw(ADC1_GPIO32_CHANNEL);
-  carData.inputs.pedal0 = MapValue(tmpPedal0, 0, 1024, 0, 255);   // starting min and max values must be found via testing!!!
+  float tmpPedal0 = adc1_get_raw(PEDAL_0_PIN);
+  carData.inputs.pedal0 = MapValue(tmpPedal0, 575, 2810, 0, 255);   // starting min and max values must be found via testing!!! (0.59V - 2.75V)
+  if (carData.inputs.pedal0 > 255) {
+    carData.inputs.pedal0 = 255;
+  }
 
-  float tmpPedal1 = adc1_get_raw(PEDAL_1_PIN);
-  carData.inputs.pedal1 = MapValue(tmpPedal1, 0, 1024, 0, 255);   // starting min and max values must be found via testing!!!
+  int tmpPedal1 = 0;
+  esp_err_t resultPedal1 = adc2_get_raw(PEDAL_1_PIN, ADC_WIDTH_12Bit, &tmpPedal1);
+  if (resultPedal1 == ESP_OK) {
+    carData.inputs.pedal1 = MapValue(tmpPedal1, 250, 1400, 0, 255);   // starting min and max values must be found via testing!!! (0.29V - 1.379V)
+  }
+  if (carData.inputs.pedal1 > 255) {
+    carData.inputs.pedal1 = 255;
+  }
 
   // Calculate commanded torque
   GetCommandedTorque();
+
+
+  // get brake positions
+  int tmpBrake0;
+  esp_err_t resultBrake0 = adc2_get_raw(BRAKE_0_PIN, ADC_WIDTH_12Bit, &tmpBrake0);
+  carData.inputs.brake0 = MapValue(tmpBrake0, 0, 1024, 0, 255);   // starting min and max values must be found via testing!!! 
+
+  int tmpBrake1;
+  esp_err_t resultBrake1 = adc2_get_raw(BRAKE_1_PIN, ADC_WIDTH_12Bit, &tmpBrake1);
+  carData.inputs.brake1 = MapValue(tmpBrake1, 0, 1024, 0, 255);   // starting min and max values must be found via testing!!!
+
+  // brake light logic 
+  int brakeAverage = (carData.inputs.brake0 + carData.inputs.brake1) / 2;
+  if (brakeAverage >= BRAKE_LIGHT_THRESHOLD) {
+    carData.outputs.brakeLight = true;      // turn it on 
+  }
+
+  else {
+    carData.outputs.brakeLight = false;     // turn it off
+  }
+
 
   // update wheel ride height values
   carData.sensors.wheelHeightFR = adc1_get_raw(WHEEL_HEIGHT_FR_SENSOR);
@@ -678,24 +693,8 @@ void ReadSensorsTask(void* pvParameters)
       carData.drivingData.enableInverter = true;                // enable the inverter so that we can tell rinehart to turn inverter on
     }
   }
-
-  // get brake positions
-  float tmpBrake0 = adc1_get_raw(BRAKE_0_PIN);
-  carData.inputs.brake0 = MapValue(tmpBrake0, 0, 1024, 0, 255);   // starting min and max values must be found via testing!!!
-
-  float tmpBrake1 = adc1_get_raw(BRAKE_1_PIN);
-  carData.inputs.brake1 = MapValue(tmpBrake1, 0, 1024, 0, 255);   // starting min and max values must be found via testing!!!
-
-  // brake light logic 
-  int brakeAverage = (carData.inputs.brake0 + carData.inputs.brake1) / 2;
-  if (brakeAverage >= BRAKE_LIGHT_THRESHOLD) {
-    carData.outputs.brakeLight = true;      // turn it on 
-  }
-
-  else {
-    carData.outputs.brakeLight = false;     // turn it off
-  }
   
+
   // debugging
   if (debugger.debugEnabled) {
     debugger.IO_data = carData;
@@ -718,109 +717,83 @@ void ReadSensorsTask(void* pvParameters)
 void UpdateCANTask(void* pvParameters)
 {
   // inits
-  can_message_t incomingMessage;
+  CAN.setPins(CAN_RX_PIN, CAN_TX_PIN);
+  unsigned char incomingMessage[8];
+  long id;
 
   // --- receive messages --- //
   // check for new messages in the CAN buffer
   for (int i = 0; i < NUM_CAN_READS; ++i) {
-    if (can_receive(&incomingMessage, pdMS_TO_TICKS(100))) {
-      if (incomingMessage.flags & CAN_MSG_FLAG_NONE) {
+    int packetSize = CAN.parsePacket();
 
-        // filter for only the IDs we are interested in
-        switch (incomingMessage.identifier) {
+    if (packetSize || CAN.packetId() != -1) {
+      id = CAN.packetId();
 
+      // parse out data
+      switch (id) {
           case RCB_CONTROL_ADDR:
-            incomingMessage.data[0] = carData.drivingData.readyToDrive;
-            incomingMessage.data[1] = carData.drivingData.imdFault;
-            incomingMessage.data[2] = carData.drivingData.bmsFault;
+            incomingMessage[0] = carData.drivingData.readyToDrive;
+            incomingMessage[1] = carData.drivingData.imdFault;
+            incomingMessage[2] = carData.drivingData.bmsFault;
           break;
 
           case RCB_DATA_ADDR:
-            incomingMessage.data[0] = carData.sensors.wheelSpeedBR;
-            incomingMessage.data[1] = carData.sensors.wheelSpeedBL;
-            incomingMessage.data[2] = carData.sensors.wheelHeightBR;
-            incomingMessage.data[3] = carData.sensors.wheelHeightBL;
+            incomingMessage[0] = carData.sensors.wheelSpeedBR;
+            incomingMessage[1] = carData.sensors.wheelSpeedBL;
+            incomingMessage[2] = carData.sensors.wheelHeightBR;
+            incomingMessage[3] = carData.sensors.wheelHeightBL;
           break;
 
           default:
           break;
-        }
       }
     }
   }
 
   // --- send message --- // 
-  can_message_t outgoingMessage;
+  unsigned char outgoingMessage[8];
   bool sentStatus = false;
   int result;
 
   // build rinehart CONTROL message
-  outgoingMessage.identifier = RINE_CONTROL_ADDR;
-  outgoingMessage.flags = CAN_MSG_FLAG_NONE;
-  outgoingMessage.data_length_code = 8;
-  outgoingMessage.data[0] = carData.drivingData.commandedTorque & 0xFF; // commanded torque is sent across two bytes
-  outgoingMessage.data[1] = carData.drivingData.commandedTorque >> 8;
-  outgoingMessage.data[2] = 0;                                          // speed command NOT USING
-  outgoingMessage.data[3] = 0;                                          // speed command NOT USING
-  outgoingMessage.data[4] = carData.drivingData.driveDirection;         // 1: forward | 0: reverse (we run in reverse!)
-  outgoingMessage.data[5] = carData.drivingData.enableInverter;         // 
-  outgoingMessage.data[6] = MAX_TORQUE;                                 // this is the max torque value that we are establishing that can be sent to rinehart
-  outgoingMessage.data[7] = 0;                                          // i think this one is min torque or it does nothing
+  outgoingMessage[0] = carData.drivingData.commandedTorque & 0xFF; // commanded torque is sent across two bytes
+  outgoingMessage[1] = carData.drivingData.commandedTorque >> 8;
+  outgoingMessage[2] = 0;                                          // speed command NOT USING
+  outgoingMessage[3] = 0;                                          // speed command NOT USING
+  outgoingMessage[4] = carData.drivingData.driveDirection;         // 1: forward | 0: reverse (we run in reverse!)
+  outgoingMessage[5] = carData.drivingData.enableInverter;         // 
+  outgoingMessage[6] = MAX_TORQUE;                                 // this is the max torque value that we are establishing that can be sent to rinehart
+  outgoingMessage[7] = 0;                                          // i think this one is min torque or it does nothing
 
-  // queue message for transmission
-  result = can_transmit(&outgoingMessage, pdMS_TO_TICKS(100));
+  // send message
+  CAN.beginPacket(RINE_CONTROL_ADDR);
+  CAN.write((uint8_t *) &outgoingMessage, sizeof(outgoingMessage));
+  // CAN.endPacket();
+
 
   // build message for RCB - control
-  outgoingMessage.identifier = FCB_CONTROL_ADDR;
-  outgoingMessage.flags = CAN_MSG_FLAG_NONE;
-  outgoingMessage.data_length_code = 8;
-  outgoingMessage.data[0] = carData.outputs.brakeLight;
-  outgoingMessage.data[1] = 0;
-  outgoingMessage.data[2] = 0;
-  outgoingMessage.data[3] = 0;
-  outgoingMessage.data[4] = 0;
-  outgoingMessage.data[5] = 0;
-  outgoingMessage.data[6] = 0;
-  outgoingMessage.data[7] = 0;
+  outgoingMessage[0] = carData.outputs.brakeLight;
+  outgoingMessage[1] = 0;
+  outgoingMessage[2] = 0;
+  outgoingMessage[3] = 0;
+  outgoingMessage[4] = 0;
+  outgoingMessage[5] = 0;
+  outgoingMessage[6] = 0;
+  outgoingMessage[7] = 0;
 
-  // queue message for transmission
-  result = can_transmit(&outgoingMessage, pdMS_TO_TICKS(100));
+  // send message
+  CAN.beginPacket(FCB_CONTROL_ADDR);
+  CAN.write((uint8_t *) &outgoingMessage, sizeof(outgoingMessage));
+  // result = CAN.endPacket();
 
-  if (result == ESP_OK) {
+  if (result == 0) {
     sentStatus = true;
   }
 
-
   // debugging
   if (debugger.debugEnabled) {
-    // full error messages 
-    if (debugger.CAN_debugEnabled) {
-      switch (result) {
-        case ESP_ERR_INVALID_ARG:
-          Serial.printf("Arguments are invalid\n");
-        break;
-
-        case ESP_ERR_TIMEOUT:
-          Serial.printf("Timed out waiting for space on TX queue\n");
-        break;
-
-        case ESP_FAIL:
-          Serial.printf("TX queue is disabled and another message is currently transmitting\n");
-        break;
-
-        case ESP_ERR_INVALID_STATE:
-          Serial.printf("TWAI driver is not in running state, or is not installed\n");
-        break;
-
-        default:
-          Serial.printf("Undefined CAN error :/\n");
-        break;
-      }
-    }
-  
-    debugger.CAN_sentStatus = sentStatus;
     for (int i = 0; i < 8; ++i) {
-      debugger.CAN_outgoingMessage[i] = outgoingMessage.data[i];
+      debugger.CAN_outgoingMessage[i] = outgoingMessage[i];
     }
     debugger.canTaskCount++;
   }
@@ -906,21 +879,21 @@ void loop()
 void GetCommandedTorque()
 {
   // get the pedal average
-  int pedalAverage = (carData.inputs.pedal0 + carData.inputs.pedal0) / 2;
+  int pedalAverage = (carData.inputs.pedal0 + carData.inputs.pedal1) / 2;
 
   // drive mode logic
   switch (carData.drivingData.driveMode)
   {
     case SLOW:  // runs at 50% power
-      carData.drivingData.commandedTorque = MapValue(pedalAverage, PEDAL_MIN, PEDAL_MAX, 0, MAX_TORQUE * 0.50);
+      carData.drivingData.commandedTorque = MapValue(pedalAverage, PEDAL_MIN, PEDAL_MAX, 0, (MAX_TORQUE * 10) * 0.50);
     break;
 
     case ECO:   // runs at 75% power
-      carData.drivingData.commandedTorque = MapValue(pedalAverage, PEDAL_MIN, PEDAL_MAX, 0, MAX_TORQUE * 0.75);
+      carData.drivingData.commandedTorque = MapValue(pedalAverage, PEDAL_MIN, PEDAL_MAX, 0, (MAX_TORQUE * 10) * 0.75);
     break;
 
     case FAST:  // runs at 100% power
-      carData.drivingData.commandedTorque = MapValue(pedalAverage, PEDAL_MIN, PEDAL_MAX, 0, MAX_TORQUE);
+      carData.drivingData.commandedTorque = MapValue(pedalAverage, PEDAL_MIN, PEDAL_MAX, 0, (MAX_TORQUE * 10));
     break;
     
     // error state, set the mode to ECO
@@ -933,11 +906,18 @@ void GetCommandedTorque()
     break;
   }
 
-  // calculate rinehart command value
-  carData.drivingData.commandedTorque = map(pedalAverage, PEDAL_DEADBAND, 255, 0, (MAX_TORQUE * 10));   // rinehart expects the value as 10x
-
-
   // --- safety checks --- //
+
+  // pedal difference 
+  int pedalDifference = carData.inputs.pedal0 - carData.inputs.pedal1;
+  if (_abs(pedalDifference > (PEDAL_MAX * 0.1))) {
+    carData.drivingData.commandedTorque = 0;
+  }
+  
+  // buffer overflow / too much torque somehow
+  if (carData.drivingData.commandedTorque > (MAX_TORQUE * 10)) {
+    carData.drivingData.commandedTorque = 0;
+  }
 
   // for throttle safety, we will have a deadband
   if (carData.drivingData.commandedTorque <= TORQUE_DEADBAND)   // if less than 5% power is requested, just call it 0
@@ -945,10 +925,10 @@ void GetCommandedTorque()
     carData.drivingData.commandedTorque = 0;
   }
 
-  // check if ready to drive
-  if (!carData.drivingData.readyToDrive) {
-    carData.drivingData.commandedTorque = 0;    // if not ready to drive then block all torque
-  }
+  // // check if ready to drive
+  // if (!carData.drivingData.readyToDrive) {
+  //   carData.drivingData.commandedTorque = 0;    // if not ready to drive then block all torque
+  // }
 } 
 
 
@@ -963,7 +943,7 @@ void GetCommandedTorque()
  * @return              the remapped value
  */
 long MapValue(long x, long in_min, long in_max, long out_min, long out_max) {
-  return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+  return ((x - in_min) * (out_max - out_min)) / ((in_max - in_min) + out_min);
 }
 
 
@@ -980,33 +960,6 @@ long MapValue(long x, long in_min, long in_max, long out_min, long out_max) {
  */
 void PrintCANDebug() {
   Serial.printf("\n--- START CAN DEBUG ---\n");
-
-  // alerts
-  uint32_t alerts;
-  can_read_alerts(&alerts, pdMS_TO_TICKS(1000));
-  
-  if (alerts & CAN_ALERT_ABOVE_ERR_WARN) {
-      Serial.printf("ERROR: Surpassed Error Warning Limit\n");
-  }
-  if (alerts & CAN_ALERT_ERR_PASS) {
-          Serial.printf("ERROR: Entered Error Passive state\n");
-  }
-  if (alerts & CAN_ALERT_BUS_OFF) {
-      Serial.printf("ERROR: Bus Off state\n");
-      //Prepare to initiate bus recovery, reconfigure alerts to detect bus recovery completion
-      can_reconfigure_alerts(CAN_ALERT_BUS_RECOVERED, NULL);
-      for (int i = 3; i > 0; i--) {
-          Serial.printf("Initiate bus recovery in %d\n", i);
-          vTaskDelay(pdMS_TO_TICKS(1000));
-      }
-      can_initiate_recovery();    //Needs 128 occurrences of bus free signal
-      Serial.printf("Initiate bus recovery\n");
-  }
-  if (alerts & CAN_ALERT_BUS_RECOVERED) {
-      //Bus recovery was successful, exit control task to uninstall driver
-      Serial.printf("Bus Recovered!\n");
-  }
-
 
   // sent status
   Serial.printf("CAN Message Send Status: %s\n", debugger.CAN_sentStatus ? "Success" : "Failed");
@@ -1059,6 +1012,10 @@ void PrintIODebug() {
   // OUTPUTS
   // buzzer status
   Serial.printf("Buzzer Status: %s, Buzzer Counter: %d\n", debugger.IO_data.outputs.buzzerActive ? "On" : "Off", debugger.IO_data.outputs.buzzerCounter);
+
+  Serial.printf("Commanded Torque: %d\n", carData.drivingData.commandedTorque);
+  
+  Serial.printf("Drive Mode: %d\n", (int)carData.drivingData.driveMode);
 
   Serial.printf("\n--- END I/O DEBUG ---\n");
 }

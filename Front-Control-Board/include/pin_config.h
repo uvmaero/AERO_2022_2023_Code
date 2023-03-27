@@ -55,17 +55,15 @@ uint8_t deviceAddress[] = {0x1a, 0x1a, 0x1a, 0x1a, 0x1a, 0x1a};
 
 #define STEERING_WHEEL_POT                  ADC1_GPIO32_CHANNEL
 
-#define PEDAL_0_PIN                         ADC1_GPIO32_CHANNEL // use these things to config pins based on gpio #
-#define PEDAL_1_PIN                         ADC1_GPIO32_CHANNEL
-#define BRAKE_0_PIN                         ADC1_GPIO32_CHANNEL
-#define BRAKE_1_PIN                         ADC1_GPIO32_CHANNEL
+#define PEDAL_0_PIN                         ADC1_CHANNEL_5
+#define PEDAL_1_PIN                         ADC2_CHANNEL_8
+#define BRAKE_0_PIN                         ADC2_CHANNEL_0
+#define BRAKE_1_PIN                         ADC2_CHANNEL_1
 
 // Inputs
 #define RTD_BUTTON_PIN                      17
 
 // CAN
-#define CAN_CS_PIN                          18
-#define CAN_MESSAGE_INTERRUPT_PIN           15   
 #define CAN_TX_PIN                          23
 #define CAN_RX_PIN                          19
 

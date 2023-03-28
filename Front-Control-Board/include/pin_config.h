@@ -66,6 +66,7 @@ uint8_t deviceAddress[] = {0x1a, 0x1a, 0x1a, 0x1a, 0x1a, 0x1a};
 // CAN
 #define CAN_TX_PIN                          23
 #define CAN_RX_PIN                          19
+#define CAN_ENABLE_PIN                      5
 
 // Outputs
 #define RTD_BUTTON_LED_PIN                  21

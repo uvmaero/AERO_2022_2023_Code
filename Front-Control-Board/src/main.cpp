@@ -307,13 +307,16 @@ void setup()
   // setup RTD button LED
   gpio_set_direction((gpio_num_t)RTD_BUTTON_LED_PIN, GPIO_MODE_OUTPUT);
 
+  // setup CAN enable
+  gpio_set_direction((gpio_num_t)CAN_ENABLE_PIN, GPIO_MODE_OUTPUT);
+
 
   setup.ioActive = true;
   // -------------------------------------------------------------------------- //
 
 
   // --------------------- initialize CAN Controller -------------------------- //
-
+  gpio_set_level((gpio_num_t)CAN_ENABLE_PIN, 0);  // set low
   if (CAN.begin(500E3)) {
     Serial.printf("CAN INIT [ SUCCESS ]\n");
     

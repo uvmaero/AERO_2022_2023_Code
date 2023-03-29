@@ -86,9 +86,9 @@
 Debugger debugger = {
   // debug toggle
   .debugEnabled = ENABLE_DEBUG,
-  .CAN_debugEnabled = false,
+  .CAN_debugEnabled = true,
   .WCB_debugEnabled = false,
-  .IO_debugEnabled = true,
+  .IO_debugEnabled = false,
   .scheduler_debugEnable = false,
 
   // debug data
@@ -273,21 +273,41 @@ void setup()
   setup setup;
 
   // -------------------------- initialize GPIO ------------------------------------- //
+
+  // * Let's say, GPIO_INPUT_IO_0=4, GPIO_INPUT_IO_1=5
+  // * In binary representation,
+  // * 1ULL<<GPIO_INPUT_IO_0 is equal to 0000000000000000000000000000000000010000 and
+  // * 1ULL<<GPIO_INPUT_IO_1 is equal to 0000000000000000000000000000000000100000
+  // * GPIO_INPUT_PIN_SEL                0000000000000000000000000000000000110000
+
+  gpio_config_t input_interrupt_config = {
+    .pin_bit_mask = ((1ULL<<36) | (1ULL<<39) | (1ULL<<34) | (1ULL<<35) | (1ULL<<32)),
+    .mode = GPIO_MODE_INPUT,
+    .pull_up_en = GPIO_PULLUP_DISABLE,
+    .pull_down_en = GPIO_PULLDOWN_DISABLE,
+    .intr_type = GPIO_INTR_HIGH_LEVEL,
+  };
+  ESP_ERROR_CHECK(gpio_config(&input_interrupt_config));
+
+
+  gpio_config_t output_config = {
+    .pin_bit_mask = ((1ULL<<26) | (1ULL<<21) | (1ULL<<5)),
+    .mode = GPIO_MODE_OUTPUT,
+    .pull_up_en = GPIO_PULLUP_DISABLE,
+    .pull_down_en = GPIO_PULLDOWN_DISABLE,
+    .intr_type = GPIO_INTR_DISABLE,
+  };
+  ESP_ERROR_CHECK(gpio_config(&output_config));
+
   ESP_ERROR_CHECK(gpio_install_isr_service(0));
 
   // setup front right wheel speed sensor
-  gpio_set_direction((gpio_num_t)WHEEL_HEIGHT_FR_SENSOR, GPIO_MODE_INPUT);
-  gpio_set_intr_type((gpio_num_t)WHEEL_HEIGHT_FR_SENSOR, GPIO_INTR_HIGH_LEVEL);
   gpio_isr_handler_add((gpio_num_t)WHEEL_HEIGHT_FR_SENSOR, FRWheelSensorCallback, (void*) (gpio_num_t)WHEEL_HEIGHT_FR_SENSOR);
   
   // setup front left wheel speed sensor
-  gpio_set_direction((gpio_num_t)WHEEL_HEIGHT_FL_SENSOR, GPIO_MODE_INPUT);
-  gpio_set_intr_type((gpio_num_t)WHEEL_HEIGHT_FL_SENSOR, GPIO_INTR_HIGH_LEVEL);
   gpio_isr_handler_add((gpio_num_t)WHEEL_HEIGHT_FL_SENSOR, FLWheelSensorCallback, (void*) (gpio_num_t)WHEEL_HEIGHT_FL_SENSOR);
 
   // setup RTD button
-  gpio_set_direction((gpio_num_t)RTD_BUTTON_PIN, GPIO_MODE_INPUT);
-  gpio_set_intr_type((gpio_num_t)RTD_BUTTON_PIN, GPIO_INTR_HIGH_LEVEL);
   gpio_isr_handler_add((gpio_num_t)RTD_BUTTON_PIN, ReadyToDriveButtonPressed, (void*) (gpio_num_t)RTD_BUTTON_PIN);
 
   // setup adc pins
@@ -300,23 +320,11 @@ void setup()
   ESP_ERROR_CHECK(adc2_config_channel_atten(BRAKE_0_PIN, ADC_ATTEN_11db));    // brake 1 potentiometer
   ESP_ERROR_CHECK(adc2_config_channel_atten(PEDAL_1_PIN, ADC_ATTEN_11db));    // pedal 1 potentiometer
 
-  // outputs //
-  // setup WCB connection status LED
-  gpio_set_direction((gpio_num_t)WCB_CONNECTION_LED, GPIO_MODE_OUTPUT);
-
-  // setup RTD button LED
-  gpio_set_direction((gpio_num_t)RTD_BUTTON_LED_PIN, GPIO_MODE_OUTPUT);
-
-  // setup CAN enable
-  gpio_set_direction((gpio_num_t)CAN_ENABLE_PIN, GPIO_MODE_OUTPUT);
-
-
   setup.ioActive = true;
   // -------------------------------------------------------------------------- //
 
 
   // --------------------- initialize CAN Controller -------------------------- //
-  gpio_set_level((gpio_num_t)CAN_ENABLE_PIN, 0);  // set low
   if (CAN.begin(500E3)) {
     Serial.printf("CAN INIT [ SUCCESS ]\n");
     

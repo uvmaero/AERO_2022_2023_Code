@@ -47,13 +47,13 @@ uint8_t deviceAddress[] = {0x1a, 0x1a, 0x1a, 0x1a, 0x1a, 0x1a};
 
 
 // Sensors
-#define WHEEL_SPEED_FR_SENSOR               ADC1_GPIO32_CHANNEL
-#define WHEEL_SPEED_FL_SENSOR               ADC1_GPIO32_CHANNEL
+#define WHEEL_SPEED_FR_SENSOR               ADC1_CHANNEL_0
+#define WHEEL_SPEED_FL_SENSOR               ADC1_CHANNEL_3
 
-#define WHEEL_HEIGHT_FR_SENSOR              ADC1_GPIO32_CHANNEL
-#define WHEEL_HEIGHT_FL_SENSOR              ADC1_GPIO32_CHANNEL
+#define WHEEL_HEIGHT_FR_SENSOR              ADC1_CHANNEL_6
+#define WHEEL_HEIGHT_FL_SENSOR              ADC1_CHANNEL_7
 
-#define STEERING_WHEEL_POT                  ADC1_GPIO32_CHANNEL
+#define STEERING_WHEEL_POT                  ADC1_CHANNEL_4
 
 #define PEDAL_0_PIN                         ADC1_CHANNEL_5
 #define PEDAL_1_PIN                         ADC2_CHANNEL_8

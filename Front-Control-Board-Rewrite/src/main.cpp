@@ -32,8 +32,6 @@
                                     Definitions
 ===============================================================================================
 */
-// GPIO
-#define GPIO_INPUT_PIN_SELECT           1       
 
 // definitions
 #define TIRE_DIAMETER                   20.0        // diameter of the vehicle's tires in inches
@@ -69,7 +67,11 @@
 
 // debug
 #define ENABLE_DEBUG                    true        // master debug message control
-#define MAIN_LOOP_DELAY                 1000        // delay in main loop (should be set to 1 when not testing)
+#if ENABLE_DEBUG
+  #define MAIN_LOOP_DELAY               1000        // delay in main loop
+#else
+  #define MAIN_LOOP_DELAY               1
+#endif
 
 
 /*
@@ -242,7 +244,7 @@ void UpdateESPNOWTask(void* pvParameters);
 
 // ISRs
 void WCBDataReceived(const uint8_t* mac, const uint8_t* incomingData, int length);
-void ReadyToDriveButtonPressed(void* args);
+void ReadyToDriveButtonPressed();
 
 // helpers
 void GetCommandedTorque();
@@ -260,7 +262,7 @@ void setup() {
 
   if (debugger.debugEnabled) {
     // delay startup by 5 seconds
-    vTaskDelay(5000);
+    vTaskDelay(3000);
   }
 
   // -------------------------- initialize serial connection ------------------------ //
@@ -307,7 +309,12 @@ void setup() {
   pinMode(CAN_ENABLE_PIN, OUTPUT);
 
   // interrupts
+  attachInterrupt(RTD_BUTTON_PIN, ReadyToDriveButtonPressed, ONHIGH);
 
+  attachInterrupt(WHEEL_HEIGHT_FR_SENSOR, FRWheelSensorCallback, ONHIGH);
+  attachInterrupt(WHEEL_HEIGHT_FL_SENSOR, FLWheelSensorCallback, ONHIGH);
+
+  Serial.printf("GPIO INIT [ SUCCESS ]\n");
   setup.ioActive = true;
   // -------------------------------------------------------------------------- //
 
@@ -327,27 +334,30 @@ void setup() {
   // }
   // --------------------------------------------------------------------------- //
 
+
   // -------------------------- initialize ESP-NOW  ---------------------------- //
 
   // init wifi and config
-  WiFi.mode(WIFI_STA);
-  esp_wifi_set_channel(1, WIFI_SECOND_CHAN_NONE);
-  Serial.print("STA MAC: "); Serial.println(WiFi.macAddress());
-  Serial.print("STA CHANNEL "); Serial.println(WiFi.channel());
+  if (WiFi.mode(WIFI_STA)) {
+    Serial.printf("WIFI INIT [ SUCCESS ]\n");
 
+    esp_wifi_set_channel(1, WIFI_SECOND_CHAN_NONE);
+    Serial.print("WIFI MAC: "); Serial.println(WiFi.macAddress());
+    Serial.print("WIFI CHANNEL: "); Serial.println(WiFi.channel());
 
+    WiFi.disconnect();
+    if (esp_now_init() == ESP_OK) {
+      Serial.printf("ESP-NOW INIT [ SUCCESS ]\n");
+    }
 
-  WiFi.disconnect();
-  if (esp_now_init() == ESP_OK) {
-    Serial.printf("ESP-NOW INIT [ SUCCESS ]\n");
+    else {
+      Serial.printf("ESP-NOW INIT [ FAILED ]\n");
+    }
+
+    setup.rcbActive = true;
+    setup.wcbActive = true;
   }
 
-  else {
-    Serial.printf("ESP-NOW INIT [ FAILED ]\n");
-  }
-
-  setup.rcbActive = true;
-  setup.wcbActive = true;
   // ------------------------------------------------------------------------ //
 
 

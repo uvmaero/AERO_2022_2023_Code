@@ -136,7 +136,7 @@ typedef struct Debugger
 
   // debug data
   int CAN_sentStatus;
-  int CAN_outgoingMessage[8];
+  uint8_t CAN_outgoingMessage[8];
 
   esp_err_t RCB_updateResult = ESP_OK;
   CarData RCB_updateMessage = {};

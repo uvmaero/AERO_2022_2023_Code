@@ -20,11 +20,10 @@
 #include <esp_now.h>
 #include <WiFi.h>
 #include <esp_wifi.h>
-
+#include "driver/can.h"
 #include "rtc.h"
 #include "rtc_clk_common.h"
 
-#include "ACAN_ESP32.h"
 #include "LoRaLib.h"
 
 #include <data_types.h>
@@ -63,7 +62,7 @@
 
 // tasks & timers
 #define SENSOR_POLL_INTERVAL            100000      // 0.1 seconds in microseconds
-#define CAN_WRITE_INTERVAL              100000      // 0.1 seconds in microseconds
+#define CAN_WRITE_INTERVAL              10000       // 0.01 seconds in microseconds
 #define ARDAN_UPDATE_INTERVAL           200000      // 0.2 seconds in microseconds
 #define ESP_NOW_UPDATE_INTERVAL         200000      // 0.2 seconds in microseconds
 #define TASK_STACK_SIZE                 4096        // in bytes
@@ -91,10 +90,10 @@
 Debugger debugger = {
   // debug toggle
   .debugEnabled = ENABLE_DEBUG,
-  .CAN_debugEnabled = false,
+  .CAN_debugEnabled = true,
   .WCB_debugEnabled = false,
   .IO_debugEnabled = false,
-  .scheduler_debugEnable = true,
+  .scheduler_debugEnable = false,
 
   // debug data
   .CAN_sentStatus = 0,
@@ -220,8 +219,21 @@ esp_now_peer_info_t rcbInfo = {
 };
 
 
+// CAN
+static const can_timing_config_t can_timing_config = CAN_TIMING_CONFIG_500KBITS();
+//Filter all other IDs except MSG_ID
+static const can_filter_config_t can_filter_config = CAN_FILTER_CONFIG_ACCEPT_ALL();
+// {
+//   .acceptance_code = (MSG_ID << 21),
+//   .acceptance_mask = ~(CAN_STD_ID_MASK << 21),
+//   .single_filter = true
+// };
+//Set to NO_ACK mode due to self testing with single module
+static const can_general_config_t can_general_config = CAN_GENERAL_CONFIG_DEFAULT((gpio_num_t)CAN_TX_PIN, (gpio_num_t)CAN_RX_PIN, CAN_MODE_NO_ACK);
+
+
 // LoRa Interface
-RFM95 lora = new LoRa();
+// RFM95 lora = new LoRa();
 
 
 /*
@@ -325,25 +337,27 @@ void setup() {
   // --------------------- initialize CAN Controller -------------------------- //
   digitalWrite(CAN_ENABLE_PIN, LOW);
 
-  ACAN_ESP32_Settings canSettings(500);
-  canSettings.mRequestedCANMode = ACAN_ESP32_Settings::NormalMode;
-  canSettings.mRxPin = (gpio_num_t)CAN_RX_PIN;
-  canSettings.mTxPin = (gpio_num_t)CAN_TX_PIN;
+  // install CAN driver
+  if(can_driver_install(&can_general_config, &can_timing_config, &can_filter_config) == ESP_OK) {
+    Serial.printf("CAN DRIVER INSTALL [ SUCCESS ]\n");
 
-  const ACAN_ESP32_Filter canFilter = ACAN_ESP32_Filter::singleStandardFilter(ACAN_ESP32_Filter::data, 0x34, 0x03);  // allows addresses 34 - 37
+    // start CAN bus
+    if (can_start() == ESP_OK) {
+      Serial.printf("CAN INIT [ SUCCESS ]\n");
 
-  const uint32_t canResult = ACAN_ESP32::can.begin(canSettings, canFilter);
-  if (canResult) {
-    Serial.printf("CAN INIT [ SUCCESS ]\n");
-    
-    Serial.printf("CAN BIT RATE: %d\n", canSettings.actualBitRate());
+      setup.canActive = true;
+    }
 
-    setup.canActive = true;
+    else {
+      Serial.printf("CAN INIT [ FAILED ]\n");
+    }
   }
 
   else {
-    Serial.printf("CAN INIT [ FAILED ]\n");
+    Serial.printf("CAN DRIVER INSTALL [ FAILED ]\n");
   }
+
+
   // --------------------------------------------------------------------------- //
 
 
@@ -376,18 +390,18 @@ void setup() {
   // ------------------- initialize ARDAN Connection ------------------------ //
   // LoRa Interface
 
-  // init lora
-  if (lora.begin() == ERR_NONE) {
-    Serial.printf("ARDAN INIT [SUCCESSS ]\n");
+  // // init lora
+  // if (lora.begin() == ERR_NONE) {
+  //   Serial.printf("ARDAN INIT [SUCCESSS ]\n");
 
-    // set the sync word so the car and monitoring station can communicate
-    lora.setSyncWord(0xA1);         // the channel to be transmitting on (range: 0x00 - 0xFF)
+  //   // set the sync word so the car and monitoring station can communicate
+  //   lora.setSyncWord(0xA1);         // the channel to be transmitting on (range: 0x00 - 0xFF)
 
-  setup.ardanActive = true;
-  }
-  else { 
-    Serial.printf("ARDAN INIT [ FAILED ]\n");
-  }
+  // setup.ardanActive = true;
+  // }
+  // else { 
+  //   Serial.printf("ARDAN INIT [ FAILED ]\n");
+  // }send message
   // ------------------------------------------------------------------------- //
 
 
@@ -464,7 +478,7 @@ void SensorCallback() {
 
   static uint8_t ucParameterToPass;
   TaskHandle_t xHandle = NULL;
-  xTaskCreate(ReadSensorsTask, "Poll-Senser-Data", TASK_STACK_SIZE, &ucParameterToPass, 6, &xHandle);
+  xTaskCreate(ReadSensorsTask, "Poll-Senser-Data", TASK_STACK_SIZE, &ucParameterToPass, tskIDLE_PRIORITY, &xHandle);
   
   portEXIT_CRITICAL_ISR(&timerMux);
 
@@ -482,7 +496,7 @@ void CANCallback() {
 
   static uint8_t ucParameterToPass;
   TaskHandle_t xHandle = NULL;
-  xTaskCreate(UpdateCANTask, "CAN-Update", TASK_STACK_SIZE, &ucParameterToPass, 5, &xHandle);
+  xTaskCreate(UpdateCANTask, "CAN-Update", TASK_STACK_SIZE, &ucParameterToPass, tskIDLE_PRIORITY, &xHandle);
 
   portEXIT_CRITICAL_ISR(&timerMux);
   
@@ -500,7 +514,7 @@ void ARDANCallback() {
 
   static uint8_t ucParameterToPass;
   TaskHandle_t xHandle = NULL;
-  xTaskCreate(UpdateARDANTask, "ARDAN-Update", TASK_STACK_SIZE, &ucParameterToPass, 3, &xHandle);
+  xTaskCreate(UpdateARDANTask, "ARDAN-Update", TASK_STACK_SIZE, &ucParameterToPass, tskIDLE_PRIORITY, &xHandle);
 
   portEXIT_CRITICAL_ISR(&timerMux);
 
@@ -519,7 +533,7 @@ void ESPNOWCallback() {
   // queue wcb update
   static uint8_t ucParameterToPassWCB;
   TaskHandle_t xHandleWCB = NULL;
-  xTaskCreate(UpdateESPNOWTask, "ESP-NOW-Update", TASK_STACK_SIZE, &ucParameterToPassWCB, 4, &xHandleWCB);
+  xTaskCreate(UpdateESPNOWTask, "ESP-NOW-Update", TASK_STACK_SIZE, &ucParameterToPassWCB, tskIDLE_PRIORITY, &xHandleWCB);
 
   portEXIT_CRITICAL_ISR(&timerMux);
 
@@ -731,13 +745,15 @@ void ReadSensorsTask(void* pvParameters)
 void UpdateCANTask(void* pvParameters)
 {
   // inits
-  CANMessage incomingMessage;
-  long id;
+  can_message_t incomingMessage;
+  int id;
 
   // --- receive messages --- //
   // check for new messages in the CAN buffer
   for (int i = 0; i < NUM_CAN_READS; ++i) {
-    if (ACAN_ESP32::can.receive(incomingMessage)) { // if there are messages to be read
+    if (can_receive(&incomingMessage, pdMS_TO_TICKS(10)) == ESP_OK) { // if there are messages to be read
+      id = incomingMessage.identifier;
+      
       // parse out data
       switch (id) {
         case RCB_CONTROL_ADDR:
@@ -759,36 +775,49 @@ void UpdateCANTask(void* pvParameters)
     }
   }
 
-  // --- send message --- // 
-  CANMessage outgoingMessage;
-  bool sentStatus = false;
+  // --- send messages --- // 
+  bool sentStatus = false;  
 
-  // build rinehart CONTROL message
-  outgoingMessage.data[0] = carData.drivingData.commandedTorque & 0xFF; // commanded torque is sent across two bytes
-  outgoingMessage.data[1] = carData.drivingData.commandedTorque >> 8;
-  outgoingMessage.data[2] = 0;                                          // speed command NOT USING
-  outgoingMessage.data[3] = 0;                                          // speed command NOT USING
-  outgoingMessage.data[4] = carData.drivingData.driveDirection;         // 1: forward | 0: reverse (we run in reverse!)
-  outgoingMessage.data[5] = carData.drivingData.enableInverter;         // 
-  outgoingMessage.data[6] = MAX_TORQUE;                                 // this is the max torque value that we are establishing that can be sent to rinehart
-  outgoingMessage.data[7] = 0;                                          // i think this one is min torque or it does nothing
+  can_message_t outgoingMessage;
+  outgoingMessage.identifier = RINE_CONTROL_ADDR;
+  outgoingMessage.flags = CAN_MSG_FLAG_NONE;
+  outgoingMessage.data_length_code = 8;
 
-  // send message
-  ACAN_ESP32::can.tryToSend(outgoingMessage);
+  // build message
+  uint8_t firstTorqByte = carData.drivingData.commandedTorque & 0xFF;
+  uint8_t secondTorqByte = carData.drivingData.commandedTorque >> 8;
 
+  outgoingMessage.data[0] = firstTorqByte;                                    // commanded torque is sent across two bytes
+  outgoingMessage.data[1] = secondTorqByte;
+  outgoingMessage.data[2] = 0x00;                                             // speed command NOT USING
+  outgoingMessage.data[3] = 0x00;                                             // speed command NOT USING
+  outgoingMessage.data[4] = (uint8_t)(carData.drivingData.driveDirection);    // 1: forward | 0: reverse (we run in reverse!)
+  outgoingMessage.data[5] = (uint8_t)(carData.drivingData.enableInverter);    // 
+  outgoingMessage.data[6] = (uint8_t)MAX_TORQUE;                              // this is the max torque value that we are establishing t
+  outgoingMessage.data[7] = 0x00;                                             // i think this one is min torque or it does nothing
+
+  // queue message for transmission
+  if (can_transmit(&outgoingMessage, pdMS_TO_TICKS(10)) == ESP_OK) {
+    sentStatus = true;
+  }
+
+  // setup RCB message
+  outgoingMessage.identifier = RCB_CONTROL_ADDR;
+  outgoingMessage.flags = CAN_MSG_FLAG_NONE;
+  outgoingMessage.data_length_code = 8;
 
   // build message for RCB - control
-  outgoingMessage.data[0] = carData.outputs.brakeLight;
-  outgoingMessage.data[1] = 0;
-  outgoingMessage.data[2] = 0;
-  outgoingMessage.data[3] = 0;
-  outgoingMessage.data[4] = 0;
-  outgoingMessage.data[5] = 0;
-  outgoingMessage.data[6] = 0;
-  outgoingMessage.data[7] = 0;
+  outgoingMessage.data[0] = (uint8_t)carData.outputs.brakeLight;
+  outgoingMessage.data[1] = 0x01;
+  outgoingMessage.data[2] = 0x02;
+  outgoingMessage.data[3] = 0x03;
+  outgoingMessage.data[4] = 0x04;
+  outgoingMessage.data[5] = 0x05;
+  outgoingMessage.data[6] = 0x06;
+  outgoingMessage.data[7] = 0x07;
 
-  // send message
-  sentStatus = ACAN_ESP32::can.tryToSend(outgoingMessage);
+  // queue message for transmission
+  esp_err_t result = can_transmit(&outgoingMessage, pdMS_TO_TICKS(10));
 
   // debugging
   if (debugger.debugEnabled) {
@@ -796,6 +825,8 @@ void UpdateCANTask(void* pvParameters)
     for (int i = 0; i < 8; ++i) {
       debugger.CAN_outgoingMessage[i] = outgoingMessage.data[i];
     }
+
+    // Serial.printf("result status: 0x%X\n", result);
     debugger.canTaskCount++;
   }
 
@@ -839,17 +870,17 @@ void UpdateESPNOWTask(void* pvParameters)
  */
 void UpdateARDANTask(void* pvParameters)
 {
-  // convert car data to byte array
-  char* carDataBytes = reinterpret_cast<char*>(&carData);
+  // // convert car data to byte array
+  // char* carDataBytes = reinterpret_cast<char*>(&carData);
 
-  // send LoRa update
-  int result = lora.transmit(carDataBytes, sizeof(carDataBytes));
+  // // send LoRa update
+  // int result = lora.transmit(carDataBytes, sizeof(carDataBytes));
 
-  // debugging
-  if (debugger.debugEnabled) {
-    // debugger.ardanTransmitResult = result;
-    debugger.ardanTaskCount++;
-  }
+  // // debugging
+  // if (debugger.debugEnabled) {
+  //   // debugger.ardanTransmitResult = result;
+  //   debugger.ardanTaskCount++;
+  // }
 
   // end task
   vTaskDelete(NULL);
@@ -957,7 +988,7 @@ void PrintCANDebug() {
 
   // message
   for (int i = 0; i < 8; ++i) {
-    Serial.printf("CAN Raw Data Byte %d: %d\t", i, debugger.CAN_outgoingMessage[i]);
+    Serial.printf("Byte %d: %02X\t", i, debugger.CAN_outgoingMessage[i]);
   }
   Serial.printf("\n");
 

@@ -1,9 +1,9 @@
 /**
  * @file main.cpp
  * @author dominic gasperini
- * @brief 
- * @version 0.1
- * @date 2023-03-31
+ * @brief front control board 
+ * @version 1.0
+ * @date 2023-04-03
  * 
  * @copyright Copyright (c) 2023
  * 
@@ -826,7 +826,7 @@ void UpdateCANTask(void* pvParameters)
       debugger.CAN_outgoingMessage[i] = outgoingMessage.data[i];
     }
 
-    // Serial.printf("result status: 0x%X\n", result);
+    Serial.printf("result status: 0x%X\n", result);
     debugger.canTaskCount++;
   }
 

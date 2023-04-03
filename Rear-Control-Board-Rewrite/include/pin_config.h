@@ -50,8 +50,8 @@ esp_pm_config_esp32_t power_configuration {
 #define BMS_FAULT_PIN                       33
 
 // CAN
-#define CAN_RX_PIN                          19
-#define CAN_TX_PIN                          23
+#define CAN_RX_PIN                          23
+#define CAN_TX_PIN                          19
 
 
 // Outputs

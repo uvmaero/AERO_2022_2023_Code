@@ -232,7 +232,8 @@ static const can_general_config_t can_general_config = CAN_GENERAL_CONFIG_DEFAUL
 
 // SD Card Interface
 int sdLogfileNumber;
-char sdLogFilename[SD_BUFF] = "/tracker.txt";
+char sdLogFilename[SD_BUFF];
+char sdTrackerFilename[SD_BUFF] = "/tracker.txt";
 
 /*
 ===============================================================================================
@@ -259,6 +260,9 @@ void PrechargeTask(void* pvParameters);
 
 // ISRs
 void FCBDataReceived(const uint8_t* mac, const uint8_t* incomingData, int length);
+
+// helpers
+void GenerateFilename();
 
 
 /*
@@ -397,7 +401,7 @@ void setup()
       Serial.printf("SD CARD USED STORAGE: %lluMB\n", SD_MMC.usedBytes() / (1024 * 1024));
 
       // collect tracker information from SD & update it
-      File trackerFile = SD_MMC.open(sdLogFilename, FILE_READ);
+      File trackerFile = SD_MMC.open(sdTrackerFilename, FILE_READ);
       if (trackerFile) {
         Serial.printf("SD CARD TRACKER FILE READ [ SUCCESS ]\n");
 
@@ -418,10 +422,10 @@ void setup()
         }
 
         // delete old tracker file 
-        SD_MMC.remove(sdLogFilename);
+        SD_MMC.remove(sdTrackerFilename);
 
         // rename tmp file
-        SD_MMC.rename("/tmp.txt", sdLogFilename);
+        SD_MMC.rename("/tmp.txt", sdTrackerFilename);
 
         setup.loggerActive = true;
       }
@@ -1036,7 +1040,7 @@ void UpdateLoggerTask(void* pvParameters) {
   float timeStamp = (float)esp_timer_get_time() * 1000000;    // convert uptime from microseconds to seconds
 
   // open file
-  File logFile = SD_MMC.open(sdLogFilename, FILE_WRITE);
+  File logFile = SD_MMC.open(sdTrackerFilename, FILE_WRITE);
 
   // write start of block seperator
   logFile.printf("\n------------------------------\n");
@@ -1079,6 +1083,27 @@ void UpdateLoggerTask(void* pvParameters) {
 
   // end task
   vTaskDelete(NULL);
+}
+
+
+/*
+===============================================================================================
+                                    Helpers
+===============================================================================================
+*/
+
+
+/**
+ * @brief generate a new log filename based on tracker.txt
+ * 
+ */
+void GenerateFilename() {
+  // inits
+  char logNum[SD_BUFF];
+  char baseName[SD_BUFF] = "/poop_aids_";
+
+  // strcat(baseName, atoi);
+  strcat(sdTrackerFilename, ".txt");
 }
 
 

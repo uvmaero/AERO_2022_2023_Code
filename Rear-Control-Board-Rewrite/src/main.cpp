@@ -127,8 +127,8 @@ CarData carData = {
     .enableInverter = false,
     .prechargeState = PRECHARGE_OFF,
 
-    .imdFault = false,
-    .bmsFault = false,
+    .imdFault = LOW,
+    .bmsFault = LOW,
 
     .commandedTorque = 0,
     .currentSpeed = 0.0f,
@@ -764,7 +764,9 @@ void PrechargeTask(void* pvParameters) {
 
       // ensure message was successfully sent
       if (result == ESP_OK) {
-        carData.drivingData.prechargeState = PRECHARGE_ON;
+        if (carData.drivingData.imdFault == HIGH && carData.drivingData.bmsFault == HIGH) { // HIGH = clear | LOW = fault
+          carData.drivingData.prechargeState = PRECHARGE_ON;
+        }
       }
       else {
         carData.drivingData.prechargeState = PRECHARGE_ERROR;

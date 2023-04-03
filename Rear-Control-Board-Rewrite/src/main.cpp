@@ -60,7 +60,7 @@
 #define DEVICE_ADDRESS                  {0x1a, 0x1a, 0x1a, 0x1a, 0x1a, 0x1a}
 
 // tasks & timers
-#define SENSOR_POLL_INTERVAL            10000       // 0.01 seconds in microseconds
+#define SENSOR_POLL_INTERVAL            100000      // 0.01 seconds in microseconds
 #define PRECHARGE_INTERVAL              10000       // 0.01 seconds in microseconds
 #define CAN_WRITE_INTERVAL              10000       // 0.01 seconds in microseconds
 #define LOGGER_UPDATE_INTERVAL          100000      // 0.1 seconds in microseconds
@@ -68,7 +68,11 @@
 
 // debug
 #define ENABLE_DEBUG                    true        // master debug message control
-#define MAIN_LOOP_DELAY                 1000        // delay in main loop (should be set to 1 when not testing)
+#if ENABLE_DEBUG
+  #define MAIN_LOOP_DELAY               1000        // delay in main loop
+#else
+  #define MAIN_LOOP_DELAY               1
+#endif
 
 
 /*
@@ -256,9 +260,6 @@ void PrechargeTask(void* pvParameters);
 // ISRs
 void FCBDataReceived(const uint8_t* mac, const uint8_t* incomingData, int length);
 
-// helpers
-void GenerateFilename();
-
 
 /*
 ===============================================================================================
@@ -271,8 +272,8 @@ void setup()
   // set power configuration
   esp_pm_configure(&power_configuration);
 
-  // delay startup by 5 seconds
-  vTaskDelay(5000);
+  // delay startup by 3 seconds
+  vTaskDelay(3000);
 
   // -------------------------- initialize serial connection ------------------------ //
   Serial.begin(9600);
@@ -288,7 +289,6 @@ void setup()
     bool prechargeActive = false;
   };
   setup setup;
-
 
   // -------------------------- initialize GPIO ------------------------------------- //
   analogReadResolution(12);
@@ -311,7 +311,7 @@ void setup()
   pinMode(FAN_ENABLE_PIN, OUTPUT);
   pinMode(PUMP_ENABLE_PIN, OUTPUT);
   pinMode(BRAKE_LIGHT_PIN, OUTPUT);
-  
+
   // interrupts
   attachInterrupt(WHEEL_SPEED_BR_SENSOR, BRWheelSensorCallback, ONHIGH);
   attachInterrupt(WHEEL_SPEED_BL_SENSOR, BLWheelSensorCallback, ONHIGH);
@@ -912,6 +912,13 @@ void UpdateCANTask(void* pvParameters)
       
       // parse out data
       switch (id) {
+        // get data from FCB 
+        case FCB_CONTROL_ADDR:
+        {
+          carData.outputs.brakeLight = incomingMessage.data[0];
+        }
+        break;
+
         // Rinehart: voltage
         case RINE_VOLT_INFO_ADDR:
         {
@@ -1094,20 +1101,6 @@ void loop()
   if (debugger.debugEnabled) {
     PrintDebug();
   }
-}
-
-
-/**
- * @brief generate a new log filename based on tracker.txt
- * 
- */
-void GenerateFilename() {
-  // inits
-  char num[SD_BUFF];
-
-  strcat(sdLogFilename, SD_MOUNT_POINT"/poop-aids-");
-  strcat(sdLogFilename, itoa(sdLogfileNumber, num, SD_BUFF));
-  strcat(sdLogFilename, ".txt");
 }
 
 

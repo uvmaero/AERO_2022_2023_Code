@@ -43,8 +43,8 @@ esp_pm_config_esp32_t power_configuration {
 
 
 // Inputs
-#define RAD_TEMP_IN_PIN                     6
-#define RAD_TEMP_OUT_PIN                    7
+#define RAD_TEMP_IN_PIN                     4
+#define RAD_TEMP_OUT_PIN                    0
 
 #define IMD_FAULT_PIN                       32
 #define BMS_FAULT_PIN                       33
@@ -67,4 +67,3 @@ esp_pm_config_esp32_t power_configuration {
 #define SD_D2_PIN                           30
 #define SD_D3_PIN                           29
 #define SD_DETECT_PIN                       39
-#define SD_MOUNT_POINT                      "/sdcard"

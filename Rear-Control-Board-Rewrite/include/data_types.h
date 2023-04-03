@@ -134,8 +134,11 @@ typedef struct Debugger
   bool scheduler_debugEnable;
 
   // debug data
-  bool CAN_sentStatus;
-  uint8_t CAN_outgoingMessage[8];
+  esp_err_t fcbCtrlResult;
+  esp_err_t fcbDataResult;
+
+  uint8_t CAN_fcbDataOutgoingMessage[8];
+  uint8_t CAN_fcbCtrlOutgoingMessage[8];
 
   esp_err_t WCB_updateResult;
   CarData WCB_updateMessage;

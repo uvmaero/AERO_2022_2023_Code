@@ -1,44 +1,39 @@
 /**
  * @file main.cpp
- * @author Dominic Gasperini - UVM '23
- * @brief this drives the front control board on clean speed 5.5
- * @version 1.0
- * @date 2023-03-22
+ * @author dominic gasperini
+ * @brief 
+ * @version 0.1
+ * @date 2023-03-31
+ * 
+ * @copyright Copyright (c) 2023
+ * 
+ * @ref https://espressif-docs.readthedocs-hosted.com/projects/arduino-esp32/en/latest/libraries.html#apis
  */
+
 
 /*
 ===============================================================================================
                                     Includes 
 ===============================================================================================
 */
-// standard includes 
-#include <stdio.h>
-#include <stdlib.h>
-#include "esp_now.h"
-#include "esp_err.h"
-#include "esp_pm.h"
+#include <Arduino.h>
+#include <esp_now.h>
+#include <WiFi.h>
+#include <esp_wifi.h>
+#include "driver/can.h"
 #include "rtc.h"
 #include "rtc_clk_common.h"
-#include <esp_timer.h>
-#include <esp_wifi.h>
-#include "esp_netif.h"
-#include "driver/adc.h"
-#include "esp_adc_cal.h"
 
-// custom includes
-#include "CAN.h"
-#include "RadioLib.h"
-#include "debugger.h"
-#include "pin_config.h"
+#include "LoRaLib.h"
 
+#include <data_types.h>
+#include <pin_config.h>
 
 /*
 ===============================================================================================
                                     Definitions
 ===============================================================================================
 */
-// GPIO
-#define GPIO_INPUT_PIN_SELECT           1       
 
 // definitions
 #define TIRE_DIAMETER                   20.0        // diameter of the vehicle's tires in inches
@@ -60,16 +55,25 @@
 #define RINE_MOTOR_INFO_ADDR            0x0A5
 #define RINE_VOLT_INFO_ADDR             0x0A7
 
+// esp now
+#define WCB_ADDRESS                     {0xC4, 0xDE, 0xE2, 0xC0, 0x75, 0x80}
+#define RCB_ADDRESS                     {0xC4, 0xDE, 0xE2, 0xC0, 0x75, 0x81}
+#define DEVICE_ADDRESS                  {0x1a, 0x1a, 0x1a, 0x1a, 0x1a, 0x1a}
+
 // tasks & timers
 #define SENSOR_POLL_INTERVAL            100000      // 0.1 seconds in microseconds
-#define CAN_WRITE_INTERVAL              100000      // 0.1 seconds in microseconds
+#define CAN_WRITE_INTERVAL              10000       // 0.01 seconds in microseconds
 #define ARDAN_UPDATE_INTERVAL           200000      // 0.2 seconds in microseconds
 #define ESP_NOW_UPDATE_INTERVAL         200000      // 0.2 seconds in microseconds
 #define TASK_STACK_SIZE                 4096        // in bytes
 
 // debug
 #define ENABLE_DEBUG                    true        // master debug message control
-#define MAIN_LOOP_DELAY                 1000        // delay in main loop (should be set to 1 when not testing)
+#if ENABLE_DEBUG
+  #define MAIN_LOOP_DELAY               1000        // delay in main loop
+#else
+  #define MAIN_LOOP_DELAY               1
+#endif
 
 
 /*
@@ -191,24 +195,46 @@ CarData carData = {
 };
 
 
-// ESP-Now Peers
-esp_now_peer_info wcbInfo = {
-  .peer_addr = {0xC4, 0xDE, 0xE2, 0xC0, 0x75, 0x80},    // TODO: make this use the address defined in pinConfig.h
-  .channel = 0,
+// Hardware Timers
+hw_timer_t *timer1 = NULL;
+hw_timer_t *timer2 = NULL;
+hw_timer_t *timer3 = NULL;
+hw_timer_t *timer4 = NULL;
+portMUX_TYPE timerMux = portMUX_INITIALIZER_UNLOCKED;
+
+
+// ESP-NOW Peers
+esp_now_peer_info_t wcbInfo = {
+  .peer_addr = WCB_ADDRESS,
+  .channel = 1,
   .ifidx = WIFI_IF_STA,
   .encrypt = false,
 };
 
-esp_now_peer_info rcbInfo = {
-  .peer_addr = {0xC4, 0xDE, 0xE2, 0xC0, 0x75, 0x81},    // TODO: make this use the address defined in pinConfig.h
-  .channel = 0,
+esp_now_peer_info_t rcbInfo = {
+  .peer_addr = RCB_ADDRESS,
+  .channel = 1,
   .ifidx = WIFI_IF_STA,
   .encrypt = false,
 };
+
+
+// CAN
+static const can_timing_config_t can_timing_config = CAN_TIMING_CONFIG_500KBITS();
+//Filter all other IDs except MSG_ID
+static const can_filter_config_t can_filter_config = CAN_FILTER_CONFIG_ACCEPT_ALL();
+// {
+//   .acceptance_code = (MSG_ID << 21),
+//   .acceptance_mask = ~(CAN_STD_ID_MASK << 21),
+//   .single_filter = true
+// };
+//Set to NO_ACK mode due to self testing with single module
+static const can_general_config_t can_general_config = CAN_GENERAL_CONFIG_DEFAULT((gpio_num_t)CAN_TX_PIN, (gpio_num_t)CAN_RX_PIN, CAN_MODE_NO_ACK);
 
 
 // LoRa Interface
-RFM95 lora = new Module(15, RADIOLIB_NC, RADIOLIB_NC, RADIOLIB_NC);
+// RFM95 lora = new LoRa();
+
 
 /*
 ===============================================================================================
@@ -218,12 +244,12 @@ RFM95 lora = new Module(15, RADIOLIB_NC, RADIOLIB_NC, RADIOLIB_NC);
 
 
 // callbacks
-void SensorCallback(void* args);
-void CANCallback(void* args);
-void ARDANCallback(void* args);
-void ESPNOWCallback(void* args);
-void FRWheelSensorCallback(void* args);
-void FLWheelSensorCallback(void* args);
+void SensorCallback();
+void CANCallback();
+void ARDANCallback();
+void ESPNOWCallback();
+void FRWheelSensorCallback();
+void FLWheelSensorCallback();
 
 // tasks
 void ReadSensorsTask(void* pvParameters);
@@ -233,11 +259,10 @@ void UpdateESPNOWTask(void* pvParameters);
 
 // ISRs
 void WCBDataReceived(const uint8_t* mac, const uint8_t* incomingData, int length);
-void ReadyToDriveButtonPressed(void* args);
+void ReadyToDriveButtonPressed();
 
 // helpers
 void GetCommandedTorque();
-long MapValue(long x, long in_min, long in_max, long out_min, long out_max);
 
 
 /*
@@ -246,15 +271,13 @@ long MapValue(long x, long in_min, long in_max, long out_min, long out_max);
 ===============================================================================================
 */
 
-
-void setup()
-{
+void setup() {
   // set power configuration
   esp_pm_configure(&power_configuration);
 
   if (debugger.debugEnabled) {
     // delay startup by 5 seconds
-    vTaskDelay(5000);
+    vTaskDelay(3000);
   }
 
   // -------------------------- initialize serial connection ------------------------ //
@@ -272,194 +295,152 @@ void setup()
   };
   setup setup;
 
-  // -------------------------- initialize GPIO ------------------------------------- //
 
-  // * Let's say, GPIO_INPUT_IO_0=4, GPIO_INPUT_IO_1=5
-  // * In binary representation,
-  // * 1ULL<<GPIO_INPUT_IO_0 is equal to 0000000000000000000000000000000000010000 and
-  // * 1ULL<<GPIO_INPUT_IO_1 is equal to 0000000000000000000000000000000000100000
-  // * GPIO_INPUT_PIN_SEL                0000000000000000000000000000000000110000
-
-  gpio_config_t input_interrupt_config = {
-    .pin_bit_mask = ((1ULL<<36) | (1ULL<<39) | (1ULL<<34) | (1ULL<<35) | (1ULL<<32)),
-    .mode = GPIO_MODE_INPUT,
-    .pull_up_en = GPIO_PULLUP_DISABLE,
-    .pull_down_en = GPIO_PULLDOWN_DISABLE,
-    .intr_type = GPIO_INTR_HIGH_LEVEL,
-  };
-  ESP_ERROR_CHECK(gpio_config(&input_interrupt_config));
-
-
-  gpio_config_t output_config = {
-    .pin_bit_mask = ((1ULL<<26) | (1ULL<<21) | (1ULL<<5)),
-    .mode = GPIO_MODE_OUTPUT,
-    .pull_up_en = GPIO_PULLUP_DISABLE,
-    .pull_down_en = GPIO_PULLDOWN_DISABLE,
-    .intr_type = GPIO_INTR_DISABLE,
-  };
-  ESP_ERROR_CHECK(gpio_config(&output_config));
-
-  ESP_ERROR_CHECK(gpio_install_isr_service(0));
-
-  // setup front right wheel speed sensor
-  gpio_isr_handler_add((gpio_num_t)WHEEL_HEIGHT_FR_SENSOR, FRWheelSensorCallback, (void*) (gpio_num_t)WHEEL_HEIGHT_FR_SENSOR);
+  // -------------------------- initialize GPIO ------------------------------ //
+  analogReadResolution(12);
+  // analogSetAttenuation();
   
-  // setup front left wheel speed sensor
-  gpio_isr_handler_add((gpio_num_t)WHEEL_HEIGHT_FL_SENSOR, FLWheelSensorCallback, (void*) (gpio_num_t)WHEEL_HEIGHT_FL_SENSOR);
+  // inputs
+  pinMode(RTD_BUTTON_PIN ,INPUT);
 
-  // setup RTD button
-  gpio_isr_handler_add((gpio_num_t)RTD_BUTTON_PIN, ReadyToDriveButtonPressed, (void*) (gpio_num_t)RTD_BUTTON_PIN);
+  pinMode(PEDAL_0_PIN, INPUT);
+  pinMode(PEDAL_1_PIN, INPUT);
 
-  // setup adc pins
-  ESP_ERROR_CHECK(adc1_config_width(ADC_WIDTH_BIT_12));
-  ESP_ERROR_CHECK(adc1_config_channel_atten(PEDAL_0_PIN, ADC_ATTEN_11db));    // pedal 0 potentiometer
-  ESP_ERROR_CHECK(adc1_config_channel_atten(ADC1_CHANNEL_6, ADC_ATTEN_11db)); // wheel height sensor
-  ESP_ERROR_CHECK(adc1_config_channel_atten(ADC1_CHANNEL_7, ADC_ATTEN_11db)); // wheel height sensor
+  pinMode(BRAKE_0_PIN, INPUT);
+  pinMode(BRAKE_1_PIN, INPUT);
+  
+  pinMode(WHEEL_SPEED_FL_SENSOR, INPUT);
+  pinMode(WHEEL_SPEED_FR_SENSOR, INPUT);
 
-  ESP_ERROR_CHECK(adc2_config_channel_atten(BRAKE_0_PIN, ADC_ATTEN_11db));    // brake 0 potentiometer
-  ESP_ERROR_CHECK(adc2_config_channel_atten(BRAKE_0_PIN, ADC_ATTEN_11db));    // brake 1 potentiometer
-  ESP_ERROR_CHECK(adc2_config_channel_atten(PEDAL_1_PIN, ADC_ATTEN_11db));    // pedal 1 potentiometer
+  pinMode(WHEEL_HEIGHT_FL_SENSOR, INPUT);
+  pinMode(WHEEL_HEIGHT_FR_SENSOR, INPUT);
 
+  pinMode(STEERING_WHEEL_POT, INPUT);
+
+  // outputs
+  pinMode(RTD_BUTTON_LED_PIN, OUTPUT);
+  pinMode(WCB_CONNECTION_LED, OUTPUT);
+  pinMode(BUZZER_PIN, OUTPUT);
+  pinMode(CAN_ENABLE_PIN, OUTPUT);
+
+  // interrupts
+  attachInterrupt(RTD_BUTTON_PIN, ReadyToDriveButtonPressed, ONHIGH);
+
+  attachInterrupt(WHEEL_HEIGHT_FR_SENSOR, FRWheelSensorCallback, ONHIGH);
+  attachInterrupt(WHEEL_HEIGHT_FL_SENSOR, FLWheelSensorCallback, ONHIGH);
+
+  Serial.printf("GPIO INIT [ SUCCESS ]\n");
   setup.ioActive = true;
   // -------------------------------------------------------------------------- //
 
 
   // --------------------- initialize CAN Controller -------------------------- //
-  if (CAN.begin(500E3)) {
-    Serial.printf("CAN INIT [ SUCCESS ]\n");
-    
-    // set can pins
-    CAN.setPins(CAN_RX_PIN, CAN_TX_PIN);
+  digitalWrite(CAN_ENABLE_PIN, LOW);
 
-    setup.canActive = true;
+  // install CAN driver
+  if(can_driver_install(&can_general_config, &can_timing_config, &can_filter_config) == ESP_OK) {
+    Serial.printf("CAN DRIVER INSTALL [ SUCCESS ]\n");
+
+    // start CAN bus
+    if (can_start() == ESP_OK) {
+      Serial.printf("CAN INIT [ SUCCESS ]\n");
+
+      setup.canActive = true;
+    }
+
+    else {
+      Serial.printf("CAN INIT [ FAILED ]\n");
+    }
   }
 
   else {
-    Serial.printf("CAN INIT [ FAILED ]\n");
+    Serial.printf("CAN DRIVER INSTALL [ FAILED ]\n");
   }
+
+
   // --------------------------------------------------------------------------- //
 
 
   // -------------------------- initialize ESP-NOW  ---------------------------- //
 
   // init wifi and config
-  wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
-  ESP_ERROR_CHECK(esp_wifi_init(&cfg));
-  ESP_ERROR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_RAM));
-  ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
-  
-  if (esp_wifi_start() == ESP_OK) {
-    Serial.print("WIFI INIT [ SUCCESS ]\n");
+  if (WiFi.mode(WIFI_STA)) {
+    Serial.printf("WIFI INIT [ SUCCESS ]\n");
 
-    // set custom device mac address
-    ESP_ERROR_CHECK(esp_wifi_set_mac(WIFI_IF_STA, deviceAddress));
-  }
-  else {
-    Serial.print("WIFI INIT [ FAILED ]\n");
-  }
+    esp_wifi_set_channel(1, WIFI_SECOND_CHAN_NONE);
+    Serial.print("WIFI MAC: "); Serial.println(WiFi.macAddress());
+    Serial.print("WIFI CHANNEL: "); Serial.println(WiFi.channel());
 
-  // init ESP-NOW service
-  if (esp_now_init() == ESP_OK) {
-    Serial.printf("ESP-NOW INIT [ SUCCESS ]\n");
-
-    // register callback functions
-    // ESP_ERROR_CHECK(esp_now_register_send_cb());
-    ESP_ERROR_CHECK(esp_now_register_recv_cb(WCBDataReceived));
-
-    // add peers
-    if (esp_now_add_peer(&wcbInfo) == ESP_OK) {
-      Serial.printf("ESP-NOW WCB CONNECTION [ SUCCESS ]\n");
-      setup.wcbActive = true;
+    WiFi.disconnect();
+    if (esp_now_init() == ESP_OK) {
+      Serial.printf("ESP-NOW INIT [ SUCCESS ]\n");
     }
+
     else {
-      Serial.printf("ESP-NOW WCB CONNECTION [ FAILED ]\n");
+      Serial.printf("ESP-NOW INIT [ FAILED ]\n");
     }
 
-    if (esp_now_add_peer(&rcbInfo) == ESP_OK) {
-      Serial.printf("ESP-NOW RCB CONNECTION [ SUCCESS ]\n");
-      setup.rcbActive = true;
-    }
-    else {
-      Serial.printf("ESP-NOW RCB CONNECTION [ FAILED ]\n");
-    }
+    setup.rcbActive = true;
+    setup.wcbActive = true;
   }
 
-  else {
-    Serial.printf("ESP-NOW INIT [ FAILED ]\n");
-  }
   // ------------------------------------------------------------------------ //
 
 
   // ------------------- initialize ARDAN Connection ------------------------ //
   // LoRa Interface
-  SPI.begin();
 
-  // init lora
-  if (lora.begin()) {
-    Serial.printf("ARDAN INIT [SUCCESSS ]\n");
+  // // init lora
+  // if (lora.begin() == ERR_NONE) {
+  //   Serial.printf("ARDAN INIT [SUCCESSS ]\n");
 
-    // set the sync word so the car and monitoring station can communicate
-    lora.setSyncWord(0xA1);         // the channel to be transmitting on (range: 0x00 - 0xFF)
+  //   // set the sync word so the car and monitoring station can communicate
+  //   lora.setSyncWord(0xA1);         // the channel to be transmitting on (range: 0x00 - 0xFF)
 
-    setup.ardanActive = true;
-  }
-  else { 
-    Serial.printf("ARDAN INIT [ FAILED ]\n");
-  }
+  // setup.ardanActive = true;
+  // }
+  // else { 
+  //   Serial.printf("ARDAN INIT [ FAILED ]\n");
+  // }send message
   // ------------------------------------------------------------------------- //
 
 
-  // ---------------------- initialize timer interrupts ---------------------- //
+  // ---------------------- initialize timer interrupts --------------------- //
   // timer 1 - Read Sensors 
-  const esp_timer_create_args_t timer1_args = {
-    .callback = &SensorCallback,
-    .dispatch_method = ESP_TIMER_TASK,
-    .name = "Sensor Timer"
-  };
-  esp_timer_handle_t timer1;
-  ESP_ERROR_CHECK(esp_timer_create(&timer1_args, &timer1));
+  // Create semaphore to inform us when the timer has fired
+  timer1 = timerBegin(0, 80, true);
+  timerAttachInterrupt(timer1, &SensorCallback, true);
+  timerAlarmWrite(timer1, SENSOR_POLL_INTERVAL, true);
 
   // timer 2 - CAN Update
-  const esp_timer_create_args_t timer2_args = {
-    .callback = &CANCallback,
-    .dispatch_method = ESP_TIMER_TASK,
-    .name = "CAN Write Timer"
-  };
-  esp_timer_handle_t timer2;
-  ESP_ERROR_CHECK(esp_timer_create(&timer2_args, &timer2));
+  timer2 = timerBegin(1, 80, true);
+  timerAttachInterrupt(timer2, &CANCallback, true);
+  timerAlarmWrite(timer2, CAN_WRITE_INTERVAL, true);
 
   // timer 3 - ARDAN Update
-  const esp_timer_create_args_t timer3_args = {
-    .callback = &ARDANCallback,
-    .dispatch_method = ESP_TIMER_TASK,
-    .name = "ARDAN Update Timer"
-  };
-  esp_timer_handle_t timer3;
-  ESP_ERROR_CHECK(esp_timer_create(&timer3_args, &timer3));
+  timer3 = timerBegin(2, 80, true);
+  timerAttachInterrupt(timer3, &ARDANCallback, true);
+  timerAlarmWrite(timer3, ARDAN_UPDATE_INTERVAL, true);
 
   // timer 4 - ESP-NOW Update
-  const esp_timer_create_args_t timer4_args = {
-    .callback = &ESPNOWCallback,
-    .dispatch_method = ESP_TIMER_TASK,
-    .name = "ESP-NOW Update Timer"
-  };
-  esp_timer_handle_t timer4;
-  ESP_ERROR_CHECK(esp_timer_create(&timer4_args, &timer4));
+  timer4 = timerBegin(3, 80, true);
+  timerAttachInterrupt(timer4, &ESPNOWCallback, true);
+  timerAlarmWrite(timer4, ESP_NOW_UPDATE_INTERVAL, true);
 
   // start timers
   if (setup.ioActive)
-    ESP_ERROR_CHECK(esp_timer_start_periodic(timer1, SENSOR_POLL_INTERVAL));
+    timerAlarmEnable(timer1);
   if (setup.canActive)
-    ESP_ERROR_CHECK(esp_timer_start_periodic(timer2, CAN_WRITE_INTERVAL));
+    timerAlarmEnable(timer2);
   if (setup.ardanActive)
-    ESP_ERROR_CHECK(esp_timer_start_periodic(timer3, ARDAN_UPDATE_INTERVAL));
+    timerAlarmEnable(timer3);
   if (setup.wcbActive && setup.rcbActive)
-    ESP_ERROR_CHECK(esp_timer_start_periodic(timer4, ESP_NOW_UPDATE_INTERVAL));
+    timerAlarmEnable(timer4);
 
-  Serial.printf("SENSOR TASK STATUS: %s\n", esp_timer_is_active(timer1) ? "RUNNING" : "DISABLED");
-  Serial.printf("CAN TASK STATUS: %s\n", esp_timer_is_active(timer2) ? "RUNNING" : "DISABLED");
-  Serial.printf("ARDAN TASK STATUS: %s\n", esp_timer_is_active(timer3) ? "RUNNING" : "DISABLED");
-  Serial.printf("ESP-NOW TASK STATUS: %s\n", esp_timer_is_active(timer4) ? "RUNNING" : "DISABLED");
+  Serial.printf("SENSOR TASK STATUS: %s\n", timerAlarmEnabled(timer1) ? "RUNNING" : "DISABLED");
+  Serial.printf("CAN TASK STATUS: %s\n", timerAlarmEnabled(timer2) ? "RUNNING" : "DISABLED");
+  Serial.printf("ARDAN TASK STATUS: %s\n", timerAlarmEnabled(timer3) ? "RUNNING" : "DISABLED");
+  Serial.printf("ESP-NOW TASK STATUS: %s\n", timerAlarmEnabled(timer4) ? "RUNNING" : "DISABLED");
   // ----------------------------------------------------------------------------------------- //
 
 
@@ -468,9 +449,9 @@ void setup()
     Serial.printf("\nScheduler Status: RUNNING\n");
 
     // clock frequency
-    rtc_cpu_freq_config_t conf;
-    rtc_clk_cpu_freq_get_config(&conf);
-    Serial.printf("CPU Frequency: %dMHz\n", conf.freq_mhz);
+    rtc_cpu_freq_config_t clock_config;
+    rtc_clk_cpu_freq_get_config(&clock_config);
+    Serial.printf("CPU Frequency: %dMHz\n", clock_config.freq_mhz);
   }
   else {
     Serial.printf("\nScheduler STATUS: FAILED\nHALTING OPERATIONS");
@@ -479,7 +460,6 @@ void setup()
   Serial.printf("\n\n|--- END SETUP ---|\n\n");
   // ---------------------------------------------------------------------------------------- //
 }
-
 
 /*
 ===============================================================================================
@@ -493,10 +473,16 @@ void setup()
  * 
  * @param args arguments to be passed to the task
  */
-void SensorCallback(void* args) {
+void SensorCallback() {
+  portENTER_CRITICAL_ISR(&timerMux);
+
   static uint8_t ucParameterToPass;
   TaskHandle_t xHandle = NULL;
-  xTaskCreate(ReadSensorsTask, "Poll-Senser-Data", TASK_STACK_SIZE, &ucParameterToPass, 6, &xHandle);
+  xTaskCreate(ReadSensorsTask, "Poll-Senser-Data", TASK_STACK_SIZE, &ucParameterToPass, tskIDLE_PRIORITY, &xHandle);
+  
+  portEXIT_CRITICAL_ISR(&timerMux);
+
+  return;
 }
 
 
@@ -505,10 +491,16 @@ void SensorCallback(void* args) {
  * 
  * @param args arguments to be passed to the task
  */
-void CANCallback(void* args) {
+void CANCallback() {
+  portENTER_CRITICAL_ISR(&timerMux);
+
   static uint8_t ucParameterToPass;
   TaskHandle_t xHandle = NULL;
-  xTaskCreate(UpdateCANTask, "CAN-Update", TASK_STACK_SIZE, &ucParameterToPass, 5, &xHandle);
+  xTaskCreate(UpdateCANTask, "CAN-Update", TASK_STACK_SIZE, &ucParameterToPass, tskIDLE_PRIORITY, &xHandle);
+
+  portEXIT_CRITICAL_ISR(&timerMux);
+  
+  return;
 }
 
 
@@ -517,10 +509,16 @@ void CANCallback(void* args) {
  * 
  * @param args arguments to be passed to the task
  */
-void ARDANCallback(void* args) {
+void ARDANCallback() {
+  portENTER_CRITICAL_ISR(&timerMux);
+
   static uint8_t ucParameterToPass;
   TaskHandle_t xHandle = NULL;
-  xTaskCreate(UpdateARDANTask, "ARDAN-Update", TASK_STACK_SIZE, &ucParameterToPass, 3, &xHandle);
+  xTaskCreate(UpdateARDANTask, "ARDAN-Update", TASK_STACK_SIZE, &ucParameterToPass, tskIDLE_PRIORITY, &xHandle);
+
+  portEXIT_CRITICAL_ISR(&timerMux);
+
+  return;
 }
 
 
@@ -529,11 +527,17 @@ void ARDANCallback(void* args) {
  * 
  * @param args arguments to be passed to the task
  */
-void ESPNOWCallback(void* args) {
+void ESPNOWCallback() {
+  portENTER_CRITICAL_ISR(&timerMux);
+
   // queue wcb update
   static uint8_t ucParameterToPassWCB;
   TaskHandle_t xHandleWCB = NULL;
-  xTaskCreate(UpdateESPNOWTask, "ESP-NOW-Update", TASK_STACK_SIZE, &ucParameterToPassWCB, 4, &xHandleWCB);
+  xTaskCreate(UpdateESPNOWTask, "ESP-NOW-Update", TASK_STACK_SIZE, &ucParameterToPassWCB, tskIDLE_PRIORITY, &xHandleWCB);
+
+  portEXIT_CRITICAL_ISR(&timerMux);
+
+  return;
 }
 
 
@@ -546,8 +550,12 @@ void ESPNOWCallback(void* args) {
  */
 void WCBDataReceived(const uint8_t* mac, const uint8_t* incomingData, int length)
 {
+  portENTER_CRITICAL_ISR(&timerMux);
+
   // copy data to the wcbData struct 
   memcpy((uint8_t *) &carData, incomingData, sizeof(carData));
+
+  portEXIT_CRITICAL_ISR(&timerMux);
 
   return;
 }
@@ -558,7 +566,9 @@ void WCBDataReceived(const uint8_t* mac, const uint8_t* incomingData, int length
  * 
  * @param args arguments to be passed to the task
  */
-void FRWheelSensorCallback(void* args) {
+void FRWheelSensorCallback() {
+  portENTER_CRITICAL_ISR(&timerMux);
+
   // increment pass counter
   carData.sensors.rpmCounterFR++;
 
@@ -577,6 +587,8 @@ void FRWheelSensorCallback(void* args) {
     carData.sensors.rpmCounterFR = 0;
   }
 
+  portEXIT_CRITICAL_ISR(&timerMux);
+
   return;
 }
 
@@ -586,7 +598,9 @@ void FRWheelSensorCallback(void* args) {
  * 
  * @param args arguments to be passed to the task
  */
-void FLWheelSensorCallback(void* args) {
+void FLWheelSensorCallback() {
+  portENTER_CRITICAL_ISR(&timerMux);
+
   // increment pass counter
   carData.sensors.rpmCounterFL++;
 
@@ -605,6 +619,8 @@ void FLWheelSensorCallback(void* args) {
     carData.sensors.rpmCounterFL = 0;
   }
 
+  portEXIT_CRITICAL_ISR(&timerMux);
+
   return;
 }
 
@@ -614,11 +630,15 @@ void FLWheelSensorCallback(void* args) {
  * 
  * @param args arguments to be passed to the task
  */
-void ReadyToDriveButtonPressed(void* args) {
+void ReadyToDriveButtonPressed() {
+  portENTER_CRITICAL_ISR(&timerMux);
+
   if (carData.drivingData.readyToDrive) {
     // turn on buzzer to indicate TSV is live
     carData.outputs.buzzerActive = true;
   }
+
+  portEXIT_CRITICAL_ISR(&timerMux);
 
   return;
 }
@@ -642,17 +662,16 @@ void ReadSensorsTask(void* pvParameters)
   esp_wifi_stop();
 
   // get pedal positions
-  float tmpPedal0 = adc1_get_raw(PEDAL_0_PIN);
-  carData.inputs.pedal0 = MapValue(tmpPedal0, 575, 2810, 0, 255);   // starting min and max values must be found via testing!!! (0.59V - 2.75V)
+  float tmpPedal0 = analogRead(PEDAL_0_PIN);
+  carData.inputs.pedal0 = map(tmpPedal0, 575, 2810, 0, 255);   // starting min and max values must be found via testing!!! (0.59V - 2.75V)
+  
   if (carData.inputs.pedal0 > 255) {
     carData.inputs.pedal0 = 255;
   }
 
-  int tmpPedal1 = 0;
-  esp_err_t resultPedal1 = adc2_get_raw(PEDAL_1_PIN, ADC_WIDTH_12Bit, &tmpPedal1);
-  if (resultPedal1 == ESP_OK) {
-    carData.inputs.pedal1 = MapValue(tmpPedal1, 250, 1400, 0, 255);   // starting min and max values must be found via testing!!! (0.29V - 1.379V)
-  }
+  float tmpPedal1 = analogRead(PEDAL_1_PIN);
+  carData.inputs.pedal1 = map(tmpPedal1, 250, 1400, 0, 255);   // starting min and max values must be found via testing!!! (0.29V - 1.379V)
+
   if (carData.inputs.pedal1 > 255) {
     carData.inputs.pedal1 = 255;
   }
@@ -662,13 +681,11 @@ void ReadSensorsTask(void* pvParameters)
 
 
   // get brake positions
-  int tmpBrake0;
-  esp_err_t resultBrake0 = adc2_get_raw(BRAKE_0_PIN, ADC_WIDTH_12Bit, &tmpBrake0);
-  carData.inputs.brake0 = MapValue(tmpBrake0, 0, 1024, 0, 255);   // starting min and max values must be found via testing!!! 
+  float tmpBrake0 = analogRead(BRAKE_0_PIN);
+  carData.inputs.brake0 = map(tmpBrake0, 0, 1024, 0, 255);   // starting min and max values must be found via testing!!! 
 
-  int tmpBrake1;
-  esp_err_t resultBrake1 = adc2_get_raw(BRAKE_1_PIN, ADC_WIDTH_12Bit, &tmpBrake1);
-  carData.inputs.brake1 = MapValue(tmpBrake1, 0, 1024, 0, 255);   // starting min and max values must be found via testing!!!
+  float tmpBrake1 = analogRead(BRAKE_1_PIN);
+  carData.inputs.brake1 = map(tmpBrake1, 0, 1024, 0, 255);   // starting min and max values must be found via testing!!!
 
   // brake light logic 
   int brakeAverage = (carData.inputs.brake0 + carData.inputs.brake1) / 2;
@@ -682,23 +699,23 @@ void ReadSensorsTask(void* pvParameters)
 
 
   // update wheel ride height values
-  carData.sensors.wheelHeightFR = adc1_get_raw(WHEEL_HEIGHT_FR_SENSOR);
-  carData.sensors.wheelHeightFL = adc1_get_raw(WHEEL_HEIGHT_FL_SENSOR);
+  carData.sensors.wheelHeightFR = analogRead(WHEEL_HEIGHT_FR_SENSOR);
+  carData.sensors.wheelHeightFL = analogRead(WHEEL_HEIGHT_FL_SENSOR);
 
   // update steering wheel position
-  carData.sensors.steeringWheelAngle = adc1_get_raw(STEERING_WHEEL_POT);
+  carData.sensors.steeringWheelAngle = analogRead(STEERING_WHEEL_POT);
 
   // buzzer logic
   if (carData.outputs.buzzerActive)
   {
-    gpio_set_level((gpio_num_t)BUZZER_PIN, carData.outputs.buzzerActive);
+    digitalWrite(BUZZER_PIN, carData.outputs.buzzerActive);
     carData.outputs.buzzerCounter++;
 
     if (carData.outputs.buzzerCounter >= (2 * (SENSOR_POLL_INTERVAL / 10000)))    // convert to activations per second and multiply by 2
     {
       // update buzzer state and turn off the buzzer
       carData.outputs.buzzerActive = false;
-      gpio_set_level((gpio_num_t)BUZZER_PIN, carData.outputs.buzzerActive);
+      digitalWrite(BUZZER_PIN, carData.outputs.buzzerActive);
 
       carData.outputs.buzzerCounter = 0;                        // reset buzzer count
       carData.drivingData.enableInverter = true;                // enable the inverter so that we can tell rinehart to turn inverter on
@@ -728,84 +745,88 @@ void ReadSensorsTask(void* pvParameters)
 void UpdateCANTask(void* pvParameters)
 {
   // inits
-  CAN.setPins(CAN_RX_PIN, CAN_TX_PIN);
-  unsigned char incomingMessage[8];
-  long id;
+  can_message_t incomingMessage;
+  int id;
 
   // --- receive messages --- //
   // check for new messages in the CAN buffer
   for (int i = 0; i < NUM_CAN_READS; ++i) {
-    int packetSize = CAN.parsePacket();
-
-    if (packetSize || CAN.packetId() != -1) {
-      id = CAN.packetId();
-
+    if (can_receive(&incomingMessage, pdMS_TO_TICKS(10)) == ESP_OK) { // if there are messages to be read
+      id = incomingMessage.identifier;
+      
       // parse out data
       switch (id) {
-          case RCB_CONTROL_ADDR:
-            incomingMessage[0] = carData.drivingData.readyToDrive;
-            incomingMessage[1] = carData.drivingData.imdFault;
-            incomingMessage[2] = carData.drivingData.bmsFault;
-          break;
+        case RCB_CONTROL_ADDR:
+          incomingMessage.data[0] = carData.drivingData.readyToDrive;
+          incomingMessage.data[1] = carData.drivingData.imdFault;
+          incomingMessage.data[2] = carData.drivingData.bmsFault;
+        break;
 
-          case RCB_DATA_ADDR:
-            incomingMessage[0] = carData.sensors.wheelSpeedBR;
-            incomingMessage[1] = carData.sensors.wheelSpeedBL;
-            incomingMessage[2] = carData.sensors.wheelHeightBR;
-            incomingMessage[3] = carData.sensors.wheelHeightBL;
-          break;
+        case RCB_DATA_ADDR:
+          incomingMessage.data[0] = carData.sensors.wheelSpeedBR;
+          incomingMessage.data[1] = carData.sensors.wheelSpeedBL;
+          incomingMessage.data[2] = carData.sensors.wheelHeightBR;
+          incomingMessage.data[3] = carData.sensors.wheelHeightBL;
+        break;
 
-          default:
-          break;
+        default:
+        break;
       }
     }
   }
 
-  // --- send message --- // 
-  unsigned char outgoingMessage[8];
-  bool sentStatus = false;
-  int result;
+  // --- send messages --- // 
+  bool sentStatus = false;  
 
-  // build rinehart CONTROL message
-  outgoingMessage[0] = carData.drivingData.commandedTorque & 0xFF; // commanded torque is sent across two bytes
-  outgoingMessage[1] = carData.drivingData.commandedTorque >> 8;
-  outgoingMessage[2] = 0;                                          // speed command NOT USING
-  outgoingMessage[3] = 0;                                          // speed command NOT USING
-  outgoingMessage[4] = carData.drivingData.driveDirection;         // 1: forward | 0: reverse (we run in reverse!)
-  outgoingMessage[5] = carData.drivingData.enableInverter;         // 
-  outgoingMessage[6] = MAX_TORQUE;                                 // this is the max torque value that we are establishing that can be sent to rinehart
-  outgoingMessage[7] = 0;                                          // i think this one is min torque or it does nothing
+  can_message_t outgoingMessage;
+  outgoingMessage.identifier = RINE_CONTROL_ADDR;
+  outgoingMessage.flags = CAN_MSG_FLAG_NONE;
+  outgoingMessage.data_length_code = 8;
 
-  // send message
-  CAN.beginPacket(RINE_CONTROL_ADDR);
-  CAN.write((uint8_t *) &outgoingMessage, sizeof(outgoingMessage));
-  // CAN.endPacket();
+  // build message
+  uint8_t firstTorqByte = carData.drivingData.commandedTorque & 0xFF;
+  uint8_t secondTorqByte = carData.drivingData.commandedTorque >> 8;
 
+  outgoingMessage.data[0] = firstTorqByte;                                    // commanded torque is sent across two bytes
+  outgoingMessage.data[1] = secondTorqByte;
+  outgoingMessage.data[2] = 0x00;                                             // speed command NOT USING
+  outgoingMessage.data[3] = 0x00;                                             // speed command NOT USING
+  outgoingMessage.data[4] = (uint8_t)(carData.drivingData.driveDirection);    // 1: forward | 0: reverse (we run in reverse!)
+  outgoingMessage.data[5] = (uint8_t)(carData.drivingData.enableInverter);    // 
+  outgoingMessage.data[6] = (uint8_t)MAX_TORQUE;                              // this is the max torque value that we are establishing t
+  outgoingMessage.data[7] = 0x00;                                             // i think this one is min torque or it does nothing
 
-  // build message for RCB - control
-  outgoingMessage[0] = carData.outputs.brakeLight;
-  outgoingMessage[1] = 0;
-  outgoingMessage[2] = 0;
-  outgoingMessage[3] = 0;
-  outgoingMessage[4] = 0;
-  outgoingMessage[5] = 0;
-  outgoingMessage[6] = 0;
-  outgoingMessage[7] = 0;
-
-  // send message
-  CAN.beginPacket(FCB_CONTROL_ADDR);
-  CAN.write((uint8_t *) &outgoingMessage, sizeof(outgoingMessage));
-  // result = CAN.endPacket();
-
-  if (result == 0) {
+  // queue message for transmission
+  if (can_transmit(&outgoingMessage, pdMS_TO_TICKS(10)) == ESP_OK) {
     sentStatus = true;
   }
 
+  // setup RCB message
+  outgoingMessage.identifier = RCB_CONTROL_ADDR;
+  outgoingMessage.flags = CAN_MSG_FLAG_NONE;
+  outgoingMessage.data_length_code = 8;
+
+  // build message for RCB - control
+  outgoingMessage.data[0] = (uint8_t)carData.outputs.brakeLight;
+  outgoingMessage.data[1] = 0x01;
+  outgoingMessage.data[2] = 0x02;
+  outgoingMessage.data[3] = 0x03;
+  outgoingMessage.data[4] = 0x04;
+  outgoingMessage.data[5] = 0x05;
+  outgoingMessage.data[6] = 0x06;
+  outgoingMessage.data[7] = 0x07;
+
+  // queue message for transmission
+  esp_err_t result = can_transmit(&outgoingMessage, pdMS_TO_TICKS(10));
+
   // debugging
   if (debugger.debugEnabled) {
+    debugger.CAN_sentStatus = sentStatus;
     for (int i = 0; i < 8; ++i) {
-      debugger.CAN_outgoingMessage[i] = outgoingMessage[i];
+      debugger.CAN_outgoingMessage[i] = outgoingMessage.data[i];
     }
+
+    // Serial.printf("result status: 0x%X\n", result);
     debugger.canTaskCount++;
   }
 
@@ -822,6 +843,8 @@ void UpdateCANTask(void* pvParameters)
 void UpdateESPNOWTask(void* pvParameters)
 {
   // send message
+  const uint8_t wcbAddress[6] = WCB_ADDRESS;
+  const uint8_t rcbAddress[6] = RCB_ADDRESS;
   esp_err_t wcbResult = esp_now_send(wcbAddress, (uint8_t *) &carData, sizeof(carData));
   esp_err_t rcbResult = esp_now_send(rcbAddress, (uint8_t *) &carData, sizeof(carData));
 
@@ -847,14 +870,17 @@ void UpdateESPNOWTask(void* pvParameters)
  */
 void UpdateARDANTask(void* pvParameters)
 {
-  // send LoRa update
-  int result = lora.transmit((uint8_t *) &carData, sizeof(carData));
+  // // convert car data to byte array
+  // char* carDataBytes = reinterpret_cast<char*>(&carData);
 
-  // debugging
-  if (debugger.debugEnabled) {
-    debugger.ardanTransmitResult = result;
-    debugger.ardanTaskCount++;
-  }
+  // // send LoRa update
+  // int result = lora.transmit(carDataBytes, sizeof(carDataBytes));
+
+  // // debugging
+  // if (debugger.debugEnabled) {
+  //   // debugger.ardanTransmitResult = result;
+  //   debugger.ardanTaskCount++;
+  // }
 
   // end task
   vTaskDelete(NULL);
@@ -896,15 +922,15 @@ void GetCommandedTorque()
   switch (carData.drivingData.driveMode)
   {
     case SLOW:  // runs at 50% power
-      carData.drivingData.commandedTorque = MapValue(pedalAverage, PEDAL_MIN, PEDAL_MAX, 0, (MAX_TORQUE * 10) * 0.50);
+      carData.drivingData.commandedTorque = map(pedalAverage, PEDAL_MIN, PEDAL_MAX, 0, (MAX_TORQUE * 10) * 0.50);
     break;
 
     case ECO:   // runs at 75% power
-      carData.drivingData.commandedTorque = MapValue(pedalAverage, PEDAL_MIN, PEDAL_MAX, 0, (MAX_TORQUE * 10) * 0.75);
+      carData.drivingData.commandedTorque = map(pedalAverage, PEDAL_MIN, PEDAL_MAX, 0, (MAX_TORQUE * 10) * 0.75);
     break;
 
     case FAST:  // runs at 100% power
-      carData.drivingData.commandedTorque = MapValue(pedalAverage, PEDAL_MIN, PEDAL_MAX, 0, (MAX_TORQUE * 10));
+      carData.drivingData.commandedTorque = map(pedalAverage, PEDAL_MIN, PEDAL_MAX, 0, (MAX_TORQUE * 10));
     break;
     
     // error state, set the mode to ECO
@@ -943,21 +969,6 @@ void GetCommandedTorque()
 } 
 
 
-/**
- * @brief scale a value inside a range of values to a new range of values
- * 
- * @param x             input value to be re-mapped
- * @param in_min        input value min of range
- * @param in_max        input value max of range
- * @param out_min       output value min of range
- * @param out_max       output value max of range
- * @return              the remapped value
- */
-long MapValue(long x, long in_min, long in_max, long out_min, long out_max) {
-  return ((x - in_min) * (out_max - out_min)) / ((in_max - in_min) + out_min);
-}
-
-
 /* 
 ===============================================================================================
                                     DEBUG FUNCTIONS
@@ -977,7 +988,7 @@ void PrintCANDebug() {
 
   // message
   for (int i = 0; i < 8; ++i) {
-    Serial.printf("CAN Raw Data Byte %d: %d\t", i, debugger.CAN_outgoingMessage[i]);
+    Serial.printf("Byte %d: %02X\t", i, debugger.CAN_outgoingMessage[i]);
   }
   Serial.printf("\n");
 

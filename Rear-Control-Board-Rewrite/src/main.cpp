@@ -992,7 +992,6 @@ void UpdateCANTask(void* pvParameters)
       debugger.CAN_fcbDataOutgoingMessage[i] = outgoingMessage.data[i];
     }
 
-    // Serial.printf("result status: 0x%X\n", result);
     debugger.canTaskCount++;
   }
 
@@ -1119,11 +1118,10 @@ void PrintCANDebug() {
   Serial.printf("\n--- START CAN DEBUG ---\n");
 
   // sent status
-  Serial.printf("FCB Ctrl Send Status: %s\n", debugger.fcbCtrlResult ? "Success" : "Failed");
-  Serial.printf("FCB Data Send Status: %s\n", debugger.fcbDataResult ? "Success" : "Failed");
+  Serial.printf("FCB Ctrl Send Status: 0x%X\n", debugger.fcbCtrlResult);
+  Serial.printf("FCB Data Send Status: 0x%X\n", debugger.fcbDataResult);
 
-
-  // message
+  // messages
   for (int i = 0; i < 8; ++i) {
     Serial.printf("FCB Data Byte %d: %d\t", i, debugger.CAN_fcbDataOutgoingMessage[i]);
   }

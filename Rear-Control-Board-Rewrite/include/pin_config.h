@@ -49,10 +49,9 @@ esp_pm_config_esp32_t power_configuration {
 #define IMD_FAULT_PIN                       32
 #define BMS_FAULT_PIN                       33
 
-#define CAN_CS_PIN                          18
-#define CAN_MESSAGE_INTERRUPT_PIN           15   
-#define CAN_TX_PIN                          23
+// CAN
 #define CAN_RX_PIN                          19
+#define CAN_TX_PIN                          23
 
 
 // Outputs

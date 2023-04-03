@@ -89,9 +89,9 @@
 Debugger debugger = {
   // debug toggle
   .debugEnabled = ENABLE_DEBUG,
-  .CAN_debugEnabled = false,
+  .CAN_debugEnabled = true,
   .IO_debugEnabled = false,
-  .scheduler_debugEnable = true,
+  .scheduler_debugEnable = false,
 
   // debug data
   .fcbCtrlResult = ESP_OK,

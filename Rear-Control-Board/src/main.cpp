@@ -2,8 +2,8 @@
  * @file main.cpp
  * @author Dominic Gasperini - UVM '23
  * @brief this drives the rear control board on clean speed 5.5
- * @version 0.9
- * @date 2023-02-21
+ * @version 1.0
+ * @date 2023-04-03
  */
 
 /*
@@ -13,25 +13,19 @@
 */
 // standard includes 
 #include <Arduino.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include "esp_now.h"
-#include "esp_err.h"
-#include "esp_pm.h"
+#include <esp_now.h>
+#include <WiFi.h>
+#include <esp_wifi.h>
+#include "driver/can.h"
 #include "rtc.h"
 #include "rtc_clk_common.h"
-#include <esp_timer.h>
-#include <esp_wifi.h>
-#include "esp_netif.h"
-#include "driver/adc.h"
 #include "driver/can.h"
-#include "esp_adc_cal.h"
-#include "esp_vfs_fat.h"
-#include "sdmmc_cmd.h"
-#include "driver/sdmmc_host.h"
 
-// custom includes
-#include "pin_config.h"
+#include "FS.h"
+#include "SD_MMC.h"
+
+#include <pin_config.h>
+#include <data_types.h>
 
 
 /*
@@ -49,16 +43,24 @@
 #define MIN_BUS_VOLTAGE                 220         // a voltage that can only be reached with two active packs
 
 // CAN
-#define FCB_CONTROL_ADDR                0x0A
-#define FCB_DATA_ADDR                   0x0B
-#define RCB_CONTROL_ADDR                0x0C
-#define RCB_DATA_ADDR                   0x0D
+#define NUM_CAN_READS                   5
+#define FCB_CONTROL_ADDR                0x00A
+#define FCB_DATA_ADDR                   0x00B
+#define RCB_CONTROL_ADDR                0x00C
+#define RCB_DATA_ADDR                   0x00D
 #define RINE_CONTROL_ADDR               0x0C0
 #define RINE_MOTOR_INFO_ADDR            0x0A5
 #define RINE_VOLT_INFO_ADDR             0x0A7
+#define RINE_BUS_CONTROL_ADDR           0x0AA
+#define BMS_DATA_ADDR                   0x101       // TODO: update this
+
+// ESP-NOW
+#define WCB_ADDRESS                     {0xC4, 0xDE, 0xE2, 0xC0, 0x75, 0x80}
+#define FCB_ADDRESS                     {0xC4, 0xDE, 0xE2, 0xC0, 0x75, 0x81}
+#define DEVICE_ADDRESS                  {0x1a, 0x1a, 0x1a, 0x1a, 0x1a, 0x1a}
 
 // tasks & timers
-#define SENSOR_POLL_INTERVAL            10000       // 0.01 seconds in microseconds
+#define SENSOR_POLL_INTERVAL            100000      // 0.01 seconds in microseconds
 #define PRECHARGE_INTERVAL              10000       // 0.01 seconds in microseconds
 #define CAN_WRITE_INTERVAL              10000       // 0.01 seconds in microseconds
 #define LOGGER_UPDATE_INTERVAL          100000      // 0.1 seconds in microseconds
@@ -66,7 +68,11 @@
 
 // debug
 #define ENABLE_DEBUG                    true        // master debug message control
-#define MAIN_LOOP_DELAY                 1000        // delay in main loop (should be set to 1 when not testing)
+#if ENABLE_DEBUG
+  #define MAIN_LOOP_DELAY               1000        // delay in main loop
+#else
+  #define MAIN_LOOP_DELAY               1
+#endif
 
 
 /*
@@ -83,13 +89,16 @@
 Debugger debugger = {
   // debug toggle
   .debugEnabled = ENABLE_DEBUG,
-  .CAN_debugEnabled = false,
+  .CAN_debugEnabled = true,
   .IO_debugEnabled = false,
-  .scheduler_debugEnable = true,
+  .scheduler_debugEnable = false,
 
   // debug data
-  .CAN_sentStatus = 0,
-  .CAN_outgoingMessage = {},
+  .fcbCtrlResult = ESP_OK,
+  .fcbDataResult = ESP_OK,
+  
+  .CAN_fcbDataOutgoingMessage = {},
+  .CAN_fcbCtrlOutgoingMessage = {},
 
   .WCB_updateResult = ESP_OK,
   .WCB_updateMessage = {},
@@ -118,8 +127,8 @@ CarData carData = {
     .enableInverter = false,
     .prechargeState = PRECHARGE_OFF,
 
-    .imdFault = false,
-    .bmsFault = false,
+    .imdFault = LOW,
+    .bmsFault = LOW,
 
     .commandedTorque = 0,
     .currentSpeed = 0.0f,
@@ -184,46 +193,47 @@ CarData carData = {
 };
 
 
-// ESP-Now Peers
-esp_now_peer_info wcbInfo = {
-  .peer_addr = {0xC4, 0xDE, 0xE2, 0xC0, 0x75, 0x80},    // TODO: make this use the address defined in pinConfig.h
-  .channel = 0,
+// Hardware Timers
+hw_timer_t *timer1 = NULL;
+hw_timer_t *timer2 = NULL;
+hw_timer_t *timer3 = NULL;
+hw_timer_t *timer4 = NULL;
+portMUX_TYPE timerMux = portMUX_INITIALIZER_UNLOCKED;
+
+
+// ESP-NOW Peers
+esp_now_peer_info_t wcbInfo = {
+  .peer_addr = WCB_ADDRESS,
+  .channel = 1,
   .ifidx = WIFI_IF_STA,
   .encrypt = false,
 };
 
-esp_now_peer_info rcbInfo = {
-  .peer_addr = {0xC4, 0xDE, 0xE2, 0xC0, 0x75, 0x81},    // TODO: make this use the address defined in pinConfig.h
-  .channel = 0,
+esp_now_peer_info_t fcbInfo = {
+  .peer_addr = FCB_ADDRESS,
+  .channel = 1,
   .ifidx = WIFI_IF_STA,
   .encrypt = false,
 };
 
 
-// CAN Interface
-can_general_config_t canConfig = CAN_GENERAL_CONFIG_DEFAULT((gpio_num_t)CAN_TX_PIN, (gpio_num_t)CAN_RX_PIN, CAN_MODE_NORMAL);   // set pins controller will use
-can_timing_config_t canTimingConfig = CAN_TIMING_CONFIG_500KBITS();         // the timing of the CAN bus
-can_filter_config_t canFilterConfig = CAN_FILTER_CONFIG_ACCEPT_ALL();       // filter so we only receive certain messages
+// CAN
+static const can_timing_config_t can_timing_config = CAN_TIMING_CONFIG_500KBITS();
+//Filter all other IDs except MSG_ID
+static const can_filter_config_t can_filter_config = CAN_FILTER_CONFIG_ACCEPT_ALL();
+// {
+//   .acceptance_code = (MSG_ID << 21),
+//   .acceptance_mask = ~(CAN_STD_ID_MASK << 21),
+//   .single_filter = true
+// };
+//Set to NO_ACK mode due to self testing with single module
+static const can_general_config_t can_general_config = CAN_GENERAL_CONFIG_DEFAULT((gpio_num_t)CAN_TX_PIN, (gpio_num_t)CAN_RX_PIN, CAN_MODE_NO_ACK);
 
 
 // SD Card Interface
-esp_vfs_fat_sdmmc_mount_config_t sdMountConfig = {
-  .format_if_mount_failed = false,
-  .max_files = 1000,
-  .allocation_unit_size = 0,
-};
-sdmmc_card_t* sdCard;
-const char sdMountPoint[] = SD_MOUNT_POINT;
-sdmmc_host_t sdHost = SDMMC_HOST_DEFAULT();
-sdmmc_slot_config_t sdSlotConfig = {
-  .cd = (gpio_num_t)SD_DETECT_PIN,      // detect sd card presence
-  .wp = GPIO_NUM_NC,                    // no write protection
-  .width = SDMMC_SLOT_WIDTH_DEFAULT,    // sets to max available bandwidth
-  .flags = 0,                           // no flags
-};
 int sdLogfileNumber;
 char sdLogFilename[SD_BUFF];
-
+char sdTrackerFilename[SD_BUFF] = "/tracker.txt";
 
 /*
 ===============================================================================================
@@ -233,13 +243,13 @@ char sdLogFilename[SD_BUFF];
 
 
 // callbacks
-void SensorCallback(void* args);
-void PrechargeCallback(void* args);
-void CANCallback(void* args);
-void ESPNOWCallback(void* args);
-void LoggerCallback(void* args);
-void BRWheelSensorCallback(void* args);
-void BLWheelSensorCallback(void* args);
+void SensorCallback();
+void PrechargeCallback();
+void CANCallback();
+void ESPNOWCallback();
+void LoggerCallback();
+void BRWheelSensorCallback();
+void BLWheelSensorCallback();
 
 // tasks
 void ReadSensorsTask(void* pvParameters);
@@ -252,7 +262,6 @@ void PrechargeTask(void* pvParameters);
 void FCBDataReceived(const uint8_t* mac, const uint8_t* incomingData, int length);
 
 // helpers
-long MapValue(long x, long in_min, long in_max, long out_min, long out_max);
 void GenerateFilename();
 
 
@@ -262,14 +271,13 @@ void GenerateFilename();
 ===============================================================================================
 */
 
-
 void setup()
 {
   // set power configuration
   esp_pm_configure(&power_configuration);
 
-  // delay startup by 5 seconds
-  vTaskDelay(5000);
+  // delay startup by 3 seconds
+  vTaskDelay(3000);
 
   // -------------------------- initialize serial connection ------------------------ //
   Serial.begin(9600);
@@ -286,245 +294,193 @@ void setup()
   };
   setup setup;
 
-
   // -------------------------- initialize GPIO ------------------------------------- //
-  ESP_ERROR_CHECK(gpio_install_isr_service(0));
+  analogReadResolution(12);
+  // analogSetAttenuation();
 
-  // setup rear right wheel speed sensor
-  gpio_set_direction((gpio_num_t)WHEEL_SPEED_BR_SENSOR, GPIO_MODE_INPUT);
-  gpio_set_intr_type((gpio_num_t)WHEEL_SPEED_BR_SENSOR, GPIO_INTR_HIGH_LEVEL);
-  gpio_isr_handler_add((gpio_num_t)WHEEL_SPEED_BR_SENSOR, BRWheelSensorCallback, (void*) (gpio_num_t)WHEEL_SPEED_BR_SENSOR);
-  
-  // setup rear left wheel speed sensor
-  gpio_set_direction((gpio_num_t)WHEEL_SPEED_BL_SENSOR, GPIO_MODE_INPUT);
-  gpio_set_intr_type((gpio_num_t)WHEEL_SPEED_BL_SENSOR, GPIO_INTR_HIGH_LEVEL);
-  gpio_isr_handler_add((gpio_num_t)WHEEL_SPEED_BL_SENSOR, BLWheelSensorCallback, (void*) (gpio_num_t)WHEEL_SPEED_BL_SENSOR);
+  // inputs
+  pinMode(WHEEL_SPEED_BR_SENSOR, INPUT);
+  pinMode(WHEEL_SPEED_BL_SENSOR, INPUT);
 
-  // setup rear wheel height sensors
-  gpio_set_direction((gpio_num_t)WHEEL_HEIGHT_BR_SENSOR, GPIO_MODE_INPUT);
-  gpio_set_direction((gpio_num_t)WHEEL_HEIGHT_BL_SENSOR, GPIO_MODE_INPUT);
+  pinMode(WHEEL_HEIGHT_BR_SENSOR, INPUT);
+  pinMode(WHEEL_HEIGHT_BL_SENSOR, INPUT);
 
-  // faults
-  gpio_set_direction((gpio_num_t)IMD_FAULT_PIN, GPIO_MODE_INPUT);
-  gpio_set_direction((gpio_num_t)BMS_FAULT_PIN, GPIO_MODE_INPUT);
+  pinMode(RAD_TEMP_IN_PIN, INPUT);
+  pinMode(RAD_TEMP_OUT_PIN, INPUT);
 
-  // setup adc pins
-  ESP_ERROR_CHECK(adc1_config_width(ADC_WIDTH_BIT_12));
-  ESP_ERROR_CHECK(adc1_config_channel_atten(ADC1_CHANNEL_0, ADC_ATTEN_0db));
-  ESP_ERROR_CHECK(adc1_config_channel_atten(ADC1_CHANNEL_3, ADC_ATTEN_0db));
-  ESP_ERROR_CHECK(adc1_config_channel_atten(ADC1_CHANNEL_4, ADC_ATTEN_0db));
-  ESP_ERROR_CHECK(adc1_config_channel_atten(ADC1_CHANNEL_5, ADC_ATTEN_0db));
-  ESP_ERROR_CHECK(adc1_config_channel_atten(ADC1_CHANNEL_6, ADC_ATTEN_0db));
-  ESP_ERROR_CHECK(adc1_config_channel_atten(ADC1_CHANNEL_7, ADC_ATTEN_0db));
+  pinMode(IMD_FAULT_PIN, INPUT);
+  pinMode(BMS_FAULT_PIN, INPUT);
 
-  ESP_ERROR_CHECK(adc2_config_channel_atten(ADC2_CHANNEL_0, ADC_ATTEN_0db));
-  ESP_ERROR_CHECK(adc2_config_channel_atten(ADC2_CHANNEL_1, ADC_ATTEN_0db));
+  // outputs
+  pinMode(FAN_ENABLE_PIN, OUTPUT);
+  pinMode(PUMP_ENABLE_PIN, OUTPUT);
+  pinMode(BRAKE_LIGHT_PIN, OUTPUT);
 
-  // outputs //
-  gpio_set_direction((gpio_num_t)FAN_ENABLE_PIN, GPIO_MODE_OUTPUT);
-  gpio_set_direction((gpio_num_t)PUMP_ENABLE_PIN, GPIO_MODE_OUTPUT);
-  gpio_set_direction((gpio_num_t)BRAKE_LIGHT_PIN, GPIO_MODE_OUTPUT);
+  // interrupts
+  attachInterrupt(WHEEL_SPEED_BR_SENSOR, BRWheelSensorCallback, ONHIGH);
+  attachInterrupt(WHEEL_SPEED_BL_SENSOR, BLWheelSensorCallback, ONHIGH);
 
-
+  Serial.printf("GPIO INIT [ SUCCESS ]\n");
   setup.ioActive = true;
   setup.prechargeActive = true;
   // -------------------------------------------------------------------------- //
 
 
   // --------------------- initialize CAN Controller -------------------------- //
-  if (can_driver_install(&canConfig, &canTimingConfig, &canFilterConfig) == ESP_OK) {
-    Serial.printf("CAN INIT [ SUCCESS ]\n");
+  // install CAN driver
+  if(can_driver_install(&can_general_config, &can_timing_config, &can_filter_config) == ESP_OK) {
+    Serial.printf("CAN DRIVER INSTALL [ SUCCESS ]\n");
 
-    // start CAN interface
+    // start CAN bus
     if (can_start() == ESP_OK) {
-      Serial.printf("CAN STARTED [ SUCCESS ]\n");
-
-      // track all alerts
-      if (can_reconfigure_alerts(CAN_ALERT_ALL, NULL) == ESP_OK) {
-        Serial.printf("CAN ALERTS [ SUCCESS ]\n");
-      } 
-      else {
-        Serial.printf("CAN ALERTS [ FAILED ]\n");
-      }
+      Serial.printf("CAN INIT [ SUCCESS ]\n");
 
       setup.canActive = true;
     }
+
+    else {
+      Serial.printf("CAN INIT [ FAILED ]\n");
+    }
   }
+
   else {
-    Serial.printf("CAN INIT [ FAILED ]\n");
+    Serial.printf("CAN DRIVER INSTALL [ FAILED ]\n");
   }
   // --------------------------------------------------------------------------- //
 
 
   // -------------------------- initialize ESP-NOW  ---------------------------- //
 
-  // init wifi and config
-  wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
-  ESP_ERROR_CHECK(esp_wifi_init(&cfg));
-  ESP_ERROR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_RAM));
-  ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
-  
-  if (esp_wifi_start() == ESP_OK) {
-    Serial.print("WIFI INIT [ SUCCESS ]\n");
+ // init wifi and config
+  if (WiFi.mode(WIFI_STA)) {
+    Serial.printf("WIFI INIT [ SUCCESS ]\n");
 
-    // set custom device mac address
-    ESP_ERROR_CHECK(esp_wifi_set_mac(WIFI_IF_STA, deviceAddress));
-  }
-  else {
-    Serial.print("WIFI INIT [ FAILED ]\n");
-  }
+    esp_wifi_set_channel(1, WIFI_SECOND_CHAN_NONE);
+    Serial.print("WIFI MAC: "); Serial.println(WiFi.macAddress());
+    Serial.print("WIFI CHANNEL: "); Serial.println(WiFi.channel());
 
-  // init ESP-NOW service
-  if (esp_now_init() == ESP_OK) {
-    Serial.printf("ESP-NOW INIT [ SUCCESS ]\n");
-
-    // register callback functions
-    // ESP_ERROR_CHECK(esp_now_register_send_cb());
-    ESP_ERROR_CHECK(esp_now_register_recv_cb(FCBDataReceived));
-
-    // add peers
-    if (esp_now_add_peer(&wcbInfo) == ESP_OK) {
-      Serial.printf("ESP-NOW FCB CONNECTION [ SUCCESS ]\n");
-      setup.fcbActive = true;
+    WiFi.disconnect();
+    if (esp_now_init() == ESP_OK) {
+      Serial.printf("ESP-NOW INIT [ SUCCESS ]\n");
     }
+  }
     else {
-      Serial.printf("ESP-NOW FCB CONNECTION [ FAILED ]\n");
+      Serial.printf("ESP-NOW INIT [ FAILED ]\n");
     }
-  }
-
-  else {
-    Serial.printf("ESP-NOW INIT [ FAILED ]\n");
-  }
-
 
   // ------------------------------------------------------------------------ //
 
 
   // ---------------------- initialize SD Logger ---------------------------- //
   // init sd card
-  if (esp_vfs_fat_sdmmc_mount(sdMountPoint, &sdHost, &sdSlotConfig, &sdMountConfig, &sdCard) == ESP_OK) {
+  if (SD_MMC.begin()) {
     Serial.printf("SD CARD INIT [ SUCCESS ]\n");
+    // inits
+    int trackerNumber;
 
-    // SD connected pins should have external 10k pull-ups.
-    // uncomment if those are not enough
-    // ESP_ERROR_CHECK(gpio_set_pull_mode((gpio_num_t)SD_CMD_PIN, GPIO_PULLUP_ONLY));
-    // ESP_ERROR_CHECK(gpio_set_pull_mode((gpio_num_t)SD_D0_PIN, GPIO_PULLUP_ONLY));
-    // ESP_ERROR_CHECK(gpio_set_pull_mode((gpio_num_t)SD_D1_PIN, GPIO_PULLUP_ONLY));
-    // ESP_ERROR_CHECK(gpio_set_pull_mode((gpio_num_t)SD_D2_PIN, GPIO_PULLUP_ONLY));
-    // ESP_ERROR_CHECK(gpio_set_pull_mode((gpio_num_t)SD_D3_PIN, GPIO_PULLUP_ONLY));
+    // SD_MMC.setPins();
 
     // check for sd card inserted
-    if (gpio_get_level((gpio_num_t) SD_DETECT_PIN)) {
-      Serial.printf("SD CARD DETECT [ CONNECTED ]\n");
+    uint8_t cardType = SD_MMC.cardType();
+    if (cardType != CARD_NONE) {
+      Serial.printf("SD CARD DETECT [ CONNECTED: ");
+      // print card type
+      if(cardType == CARD_MMC){
+        Serial.print("MMC");
+      } else if(cardType == CARD_SD){
+          Serial.print("SDSC");
+      } else if(cardType == CARD_SDHC){
+          Serial.print("SDHC");
+      } else {
+          Serial.print("UNKNOWN");
+      }
+      Serial.printf(" ]\n");
 
-      // get log file number from existing file for per-boot file creation
-      FILE* trackerFile = fopen(SD_MOUNT_POINT"/tracker.txt", "r");
-      FILE* tmpFile = fopen(SD_MOUNT_POINT"/tmp.txt", "w");
-      // ensure the file can be opened
-      if (trackerFile != NULL && tmpFile != NULL) {
-        char line[SD_BUFF];
-        fgets(line, sizeof(line), trackerFile);
-        sdLogfileNumber = atoi(line);
+      // print card data metrics
+      Serial.printf("SD CARD SIZE: %lluMB\n", SD_MMC.cardSize());
+      Serial.printf("SD CARD USED STORAGE: %lluMB\n", SD_MMC.usedBytes() / (1024 * 1024));
 
-        // update tracker number and write to temp file
-        sdLogfileNumber++;
-        fprintf(tmpFile, "%d", sdLogfileNumber);
-
-        // close files to save changes
-        fclose(trackerFile);
-        fclose(tmpFile);
-
+      // collect tracker information from SD & update it
+      File trackerFile = SD_MMC.open(sdTrackerFilename, FILE_READ);
+      if (trackerFile) {
         Serial.printf("SD CARD TRACKER FILE READ [ SUCCESS ]\n");
 
-        // delete original file and update tmp file
-        remove(SD_MOUNT_POINT"/tracker.txt");
-        if (rename(SD_MOUNT_POINT"/tmp.txt", SD_MOUNT_POINT"/tracker.txt") == 0) {
-          Serial.printf("SD CARD TRACKER FILE UPDATE [ SUCCESS ]\n");
-
-          // set filename for logfile
-          GenerateFilename();
-          
-          setup.loggerActive = true;
+        while (trackerFile.available()) {
+          trackerNumber = trackerFile.read();
+          Serial.printf("data: %d\n", trackerNumber);
         }
-        
-        // failed to rename file tmp to tracker
+
+        // update tracker number
+        File tmpFile = SD_MMC.open("/tmp.txt", FILE_WRITE);
+        if (tmpFile) {
+          trackerNumber++;
+          tmpFile.print(trackerNumber);
+          Serial.printf("SD CARD TRACKER FILE UPDATE [ SUCCESS ]\n");
+        }
         else {
           Serial.printf("SD CARD TRACKER FILE UPDATE [ FAILED ]\n");
         }
 
-      // on open file open failure 
+        // delete old tracker file 
+        SD_MMC.remove(sdTrackerFilename);
+
+        // rename tmp file
+        SD_MMC.rename("/tmp.txt", sdTrackerFilename);
+
+        setup.loggerActive = true;
       }
+
       else {
         Serial.printf("SD TRACKER FILE READ [ FAILED ]\n");
       }
-  
-    // failed to detect sd card via sd detect pin 
     }
+    
     else {
       Serial.printf("SD CARD DETECT [ FAILED ]\n");
     }
-
-  // sd card struct init failed
   }
+  
   else {
     Serial.printf("SD CARD INIT [ FAILED ]\n");
   }
-  
-
   // ------------------------------------------------------------------------ //
 
 
   // ---------------------- initialize timer interrupts ---------------------- //
-  // timer 1 - Read Sensors & Update Precharge
-  const esp_timer_create_args_t timer1_args = {
-    .callback = &SensorCallback,
-    .dispatch_method = ESP_TIMER_TASK,
-    .name = "Sensor Timer"
-  };
-  esp_timer_handle_t timer1;
-  ESP_ERROR_CHECK(esp_timer_create(&timer1_args, &timer1));
+  // timer 1 - Read Sensors 
+  timer1 = timerBegin(0, 80, true);
+  timerAttachInterrupt(timer1, &SensorCallback, true);
+  timerAlarmWrite(timer1, SENSOR_POLL_INTERVAL, true);
 
   // timer 2 - CAN Update
-  const esp_timer_create_args_t timer2_args = {
-    .callback = &CANCallback,
-    .dispatch_method = ESP_TIMER_TASK,
-    .name = "CAN Write Timer"
-  };
-  esp_timer_handle_t timer2;
-  ESP_ERROR_CHECK(esp_timer_create(&timer2_args, &timer2));
+  timer2 = timerBegin(1, 80, true);
+  timerAttachInterrupt(timer2, &CANCallback, true);
+  timerAlarmWrite(timer2, CAN_WRITE_INTERVAL, true);
 
   // timer 3 - Logger Update
-  const esp_timer_create_args_t timer3_args = {
-    .callback = &LoggerCallback,
-    .dispatch_method = ESP_TIMER_TASK,
-    .name = "Logger Update Timer"
-  };
-  esp_timer_handle_t timer3;
-  ESP_ERROR_CHECK(esp_timer_create(&timer3_args, &timer3));
+  timer3 = timerBegin(2, 80, true);
+  timerAttachInterrupt(timer3, &LoggerCallback, true);
+  timerAlarmWrite(timer3, LOGGER_UPDATE_INTERVAL, true);
 
-  // timer 3 - Precharge Update
-  const esp_timer_create_args_t timer4_args = {
-    .callback = &PrechargeCallback,
-    .dispatch_method = ESP_TIMER_TASK,
-    .name = "Precharge Update Timer"
-  };
-  esp_timer_handle_t timer4;
-  ESP_ERROR_CHECK(esp_timer_create(&timer4_args, &timer4));
+  // timer 4 - ESP-NOW Update
+  timer4 = timerBegin(3, 80, true);
+  timerAttachInterrupt(timer4, &PrechargeCallback, true);
+  timerAlarmWrite(timer4, PRECHARGE_INTERVAL, true);
 
   // start timers
   if (setup.ioActive)
-    ESP_ERROR_CHECK(esp_timer_start_periodic(timer1, SENSOR_POLL_INTERVAL));
+    timerAlarmEnable(timer1);
   if (setup.canActive)
-    ESP_ERROR_CHECK(esp_timer_start_periodic(timer2, CAN_WRITE_INTERVAL));
+    timerAlarmEnable(timer2);
   if (setup.loggerActive)
-    ESP_ERROR_CHECK(esp_timer_start_periodic(timer3, LOGGER_UPDATE_INTERVAL));
+    timerAlarmEnable(timer3);
   if (setup.prechargeActive)
-    ESP_ERROR_CHECK(esp_timer_start_periodic(timer4, PRECHARGE_INTERVAL));
+    timerAlarmEnable(timer4);
 
-  Serial.printf("SENSOR TASK STATUS: %s\n", esp_timer_is_active(timer1) ? "RUNNING" : "DISABLED");
-  Serial.printf("CAN TASK STATUS: %s\n", esp_timer_is_active(timer2) ? "RUNNING" : "DISABLED");
-  Serial.printf("LOGGER TASK STATUS: %s\n", esp_timer_is_active(timer3) ? "RUNNING" : "DISABLED");
-  Serial.printf("PRECHARGE TASK STATUS: %s\n", esp_timer_is_active(timer4) ? "RUNNING" : "DISABLED");
+  Serial.printf("SENSOR TASK STATUS: %s\n", timerAlarmEnabled(timer1) ? "RUNNING" : "DISABLED");
+  Serial.printf("CAN TASK STATUS: %s\n", timerAlarmEnabled(timer2) ? "RUNNING" : "DISABLED");
+  Serial.printf("LOGGER TASK STATUS: %s\n", timerAlarmEnabled(timer3) ? "RUNNING" : "DISABLED");
+  Serial.printf("PRECHARGE TASK STATUS: %s\n", timerAlarmEnabled(timer4) ? "RUNNING" : "DISABLED");
 
   // ----------------------------------------------------------------------------------------- //
 
@@ -534,9 +490,9 @@ void setup()
     Serial.printf("\nScheduler Status: RUNNING\n");
 
     // clock frequency
-    rtc_cpu_freq_config_t conf;
-    rtc_clk_cpu_freq_get_config(&conf);
-    Serial.printf("CPU Frequency: %dMHz\n", conf.freq_mhz);
+    rtc_cpu_freq_config_t clock_config;
+    rtc_clk_cpu_freq_get_config(&clock_config);
+    Serial.printf("CPU Frequency: %dMHz\n", clock_config.freq_mhz);
   }
   else {
     Serial.printf("\nScheduler STATUS: FAILED\nHALTING OPERATIONS");
@@ -545,7 +501,6 @@ void setup()
   Serial.printf("\n\n|--- END SETUP ---|\n\n");
   // ---------------------------------------------------------------------------------------- //
 }
-
 
 /*
 ===============================================================================================
@@ -559,7 +514,7 @@ void setup()
  * 
  * @param args arguments to be passed to the task
  */
-void SensorCallback(void* args) {
+void SensorCallback() {
   // queue sensor task
   static uint8_t ucParameterToPass;
   TaskHandle_t xHandle = NULL;
@@ -572,7 +527,7 @@ void SensorCallback(void* args) {
  * 
  * @param args arguments to be passed to the task
  */
-void PrechargeCallback(void* args) {
+void PrechargeCallback() {
   // queue precharge task
   static uint8_t ucParameterToPass;
   TaskHandle_t xHandle = NULL;
@@ -585,7 +540,7 @@ void PrechargeCallback(void* args) {
  * 
  * @param args arguments to be passed to the task
  */
-void CANCallback(void* args) {
+void CANCallback() {
   static uint8_t ucParameterToPass;
   TaskHandle_t xHandle = NULL;
   xTaskCreate(UpdateCANTask, "CAN-Update", TASK_STACK_SIZE, &ucParameterToPass, 5, &xHandle);
@@ -597,7 +552,7 @@ void CANCallback(void* args) {
  * 
  * @param args arguments to be passed to the task
  */
-void LoggerCallback(void* args) { 
+void LoggerCallback() { 
   static uint8_t ucParameterToPass;
   TaskHandle_t xHandle = NULL;
   xTaskCreate(UpdateLoggerTask, "ARDAN-Update", TASK_STACK_SIZE, &ucParameterToPass, 4, &xHandle);
@@ -609,7 +564,7 @@ void LoggerCallback(void* args) {
  * 
  * @param args arguments to be passed to the task
  */
-void ESPNOWCallback(void* args) {
+void ESPNOWCallback() {
   static uint8_t ucParameterToPass;
   TaskHandle_t xHandle = NULL;
   xTaskCreate(UpdateWCBTask, "WCB-Update", TASK_STACK_SIZE, &ucParameterToPass, 3, &xHandle);
@@ -656,7 +611,7 @@ void FCBDataReceived(const uint8_t* mac, const uint8_t* incomingData, int length
  * 
  * @param args 
  */
-void BRWheelSensorCallback(void* args) {
+void BRWheelSensorCallback() {
   // increment pass counter
   carData.sensors.rpmCounterFR++;
 
@@ -684,7 +639,7 @@ void BRWheelSensorCallback(void* args) {
  * 
  * @param args 
  */
-void BLWheelSensorCallback(void* args) {
+void BLWheelSensorCallback() {
   // increment pass counter
   carData.sensors.rpmCounterFL++;
 
@@ -713,7 +668,6 @@ void BLWheelSensorCallback(void* args) {
 ===============================================================================================
 */
 
-
 /**
  * @brief reads sensors and updates car data 
  * 
@@ -725,39 +679,39 @@ void ReadSensorsTask(void* pvParameters)
   esp_wifi_stop();
 
   // update wheel ride height values
-  carData.sensors.wheelHeightFR = adc1_get_raw(WHEEL_HEIGHT_BR_SENSOR);
-  carData.sensors.wheelHeightFL = adc1_get_raw(WHEEL_HEIGHT_BL_SENSOR);
+  carData.sensors.wheelHeightFR = analogRead(WHEEL_HEIGHT_BR_SENSOR);
+  carData.sensors.wheelHeightFL = analogRead(WHEEL_HEIGHT_BL_SENSOR);
 
   // read radiator sensors
-  carData.sensors.pumpTempIn = adc1_get_raw(RAD_TEMP_IN_PIN);
-  carData.sensors.pumpTempOut = adc1_get_raw(RAD_TEMP_OUT_PIN);
+  carData.sensors.pumpTempIn = analogRead(RAD_TEMP_IN_PIN);
+  carData.sensors.pumpTempOut = analogRead(RAD_TEMP_OUT_PIN);
 
   // update fans
   if (carData.outputs.fansActive) {
-    gpio_set_level((gpio_num_t)FAN_ENABLE_PIN, 1);    // turn on fans
+    digitalWrite(FAN_ENABLE_PIN, HIGH);              // turn on fans
   }
   else {
-    gpio_set_level((gpio_num_t)FAN_ENABLE_PIN, 0);    // turn off fans
+    digitalWrite(FAN_ENABLE_PIN, LOW);               // turn off fans
   }
 
   // update pump
   if (carData.outputs.pumpActive) {
-    gpio_set_level((gpio_num_t)PUMP_ENABLE_PIN, 1);   // turn on pump
+    digitalWrite(PUMP_ENABLE_PIN, HIGH);             // turn on pump
   }
   else {
-    gpio_set_level((gpio_num_t)PUMP_ENABLE_PIN, 0);   // turn off pump
+    digitalWrite(PUMP_ENABLE_PIN, LOW);              // turn off pump
   }
 
   // read faults
-  carData.drivingData.imdFault = gpio_get_level((gpio_num_t)IMD_FAULT_PIN);
-  carData.drivingData.bmsFault = gpio_get_level((gpio_num_t)BMS_FAULT_PIN);
+  carData.drivingData.imdFault = digitalRead(IMD_FAULT_PIN);
+  carData.drivingData.bmsFault = digitalRead(BMS_FAULT_PIN);
 
   // update brake light state
   if (carData.outputs.brakeLight) {
-    gpio_set_level((gpio_num_t)BRAKE_LIGHT_PIN, 1);   // turn on the brake light
+    digitalWrite(BRAKE_LIGHT_PIN, HIGH);            // turn on the brake light
   }
   else {
-    gpio_set_level((gpio_num_t)BRAKE_LIGHT_PIN, 0);   // turn off the brake light
+    digitalWrite(BRAKE_LIGHT_PIN, LOW);             // turn off the brake light
   }
 
   // turn wifi back on to re-enable esp-now connection to wheel board
@@ -793,7 +747,7 @@ void PrechargeTask(void* pvParameters) {
       carData.drivingData.readyToDrive = false;
 
       // send a message to rinehart
-      outgoingMessage.identifier = 0xAA;
+      outgoingMessage.identifier = RINE_BUS_CONTROL_ADDR;
       outgoingMessage.flags = CAN_MSG_FLAG_NONE;
       outgoingMessage.data_length_code = 8;
 
@@ -810,11 +764,13 @@ void PrechargeTask(void* pvParameters) {
 
 
       // queue message for transmission
-      result = can_transmit(&outgoingMessage, pdMS_TO_TICKS(100));
+      result = can_transmit(&outgoingMessage, pdMS_TO_TICKS(10));
 
       // ensure message was successfully sent
       if (result == ESP_OK) {
-        carData.drivingData.prechargeState = PRECHARGE_ON;
+        if (carData.drivingData.imdFault == HIGH && carData.drivingData.bmsFault == HIGH) { // HIGH = clear | LOW = fault
+          carData.drivingData.prechargeState = PRECHARGE_ON;
+        }
       }
       else {
         carData.drivingData.prechargeState = PRECHARGE_ERROR;
@@ -831,7 +787,7 @@ void PrechargeTask(void* pvParameters) {
       // re-send message to ensure relay is on
       else {
         // send a message to rinehart
-        outgoingMessage.identifier = 0xAA;
+        outgoingMessage.identifier = RINE_BUS_CONTROL_ADDR;
         outgoingMessage.flags = CAN_MSG_FLAG_NONE;
         outgoingMessage.data_length_code = 8;
 
@@ -848,7 +804,7 @@ void PrechargeTask(void* pvParameters) {
         outgoingMessage.data[7] = 0;            // N/A
 
         // queue message for transmission
-        result = can_transmit(&outgoingMessage, pdMS_TO_TICKS(100));
+        result = can_transmit(&outgoingMessage, pdMS_TO_TICKS(10));
 
         // ensure message was successfully sent
         if (result == ESP_OK) {
@@ -863,6 +819,11 @@ void PrechargeTask(void* pvParameters) {
 
     // precharge complete!
     case PRECHARGE_DONE:
+      // send a message to rinehart
+      outgoingMessage.identifier = RINE_BUS_CONTROL_ADDR;
+      outgoingMessage.flags = CAN_MSG_FLAG_NONE;
+      outgoingMessage.data_length_code = 8;
+
       // message is sent to rinehart to turn everything on
       // Keep precharge relay on and turn on main contactor
       outgoingMessage.data[0] = 1;            // parameter address. LSB
@@ -875,7 +836,7 @@ void PrechargeTask(void* pvParameters) {
       outgoingMessage.data[7] = 0;            // N/A
 
       // queue message for transmission
-      result = can_transmit(&outgoingMessage, pdMS_TO_TICKS(100));
+      result = can_transmit(&outgoingMessage, pdMS_TO_TICKS(10));
 
       // ensure message was successfully sent
       if (result != ESP_OK) {
@@ -893,7 +854,7 @@ void PrechargeTask(void* pvParameters) {
     // error state
     case PRECHARGE_ERROR:
       // send a message to rinehart
-      outgoingMessage.identifier = 0xAA;
+      outgoingMessage.identifier = RINE_BUS_CONTROL_ADDR;
       outgoingMessage.flags = CAN_MSG_FLAG_NONE;
       outgoingMessage.data_length_code = 8;
       
@@ -909,7 +870,7 @@ void PrechargeTask(void* pvParameters) {
       outgoingMessage.data[7] = 0;            // N/A
 
       // queue message for transmission
-      result = can_transmit(&outgoingMessage, pdMS_TO_TICKS(100));
+      result = can_transmit(&outgoingMessage, pdMS_TO_TICKS(10));
 
       // ensure car cannot drive
       carData.drivingData.readyToDrive = false;
@@ -948,19 +909,25 @@ void UpdateCANTask(void* pvParameters)
 {
   // inits
   can_message_t incomingMessage;
-  int result;
+  int id;
 
   // --- receive messages --- //
-  // check for new messages in the CAN buffer
-  if (can_receive(&incomingMessage, pdMS_TO_TICKS(100))) {
+  for (int i = 0; i < NUM_CAN_READS; ++i) {
+    if (can_receive(&incomingMessage, pdMS_TO_TICKS(10)) == ESP_OK) {   // if there are messages to be read
+      id = incomingMessage.identifier;
+      
+      // parse out data
+      switch (id) {
+        // get data from FCB 
+        case FCB_CONTROL_ADDR:
+        {
+          carData.outputs.brakeLight = incomingMessage.data[0];
+        }
+        break;
 
-    if (incomingMessage.flags & CAN_MSG_FLAG_NONE) {
-      // filter for only the IDs we are interested in
-      switch (incomingMessage.identifier)
-      {
         // Rinehart: voltage
         case RINE_VOLT_INFO_ADDR:
-        if (!(incomingMessage.flags & CAN_MSG_FLAG_RTR)) {
+        {
           // rinehart voltage is spread across the first 2 bytes
           int rine1 = incomingMessage.data[0];
           int rine2 = incomingMessage.data[1];
@@ -971,14 +938,15 @@ void UpdateCANTask(void* pvParameters)
         break;
 
         // BMS: voltage and maybe other things
-        case 0x101:   // TODO: update this
-        if (!(incomingMessage.flags & CAN_MSG_FLAG_RTR)) {
-          // do stuff with the data in the message
-        }        
+        case BMS_DATA_ADDR:   // TODO: update this
+        {
+          carData.batteryStatus.batteryChargeState = incomingMessage.data[0];
+          carData.batteryStatus.busVoltage = incomingMessage.data[1];
+        }
         break;
 
         default:
-        // do nothing because we didn't get any messages of interest
+          int j = 0;
         break;
       }
     }
@@ -986,7 +954,6 @@ void UpdateCANTask(void* pvParameters)
 
   // --- send message --- // 
   can_message_t outgoingMessage;
-  bool sentStatus = false;
 
   // build message for FCB 
   outgoingMessage.identifier = RCB_CONTROL_ADDR;
@@ -996,14 +963,14 @@ void UpdateCANTask(void* pvParameters)
   outgoingMessage.data[0] = carData.drivingData.readyToDrive;
   outgoingMessage.data[1] = carData.drivingData.imdFault;
   outgoingMessage.data[2] = carData.drivingData.bmsFault;
-  outgoingMessage.data[3] = 0;
-  outgoingMessage.data[4] = 0;
-  outgoingMessage.data[5] = 0;
-  outgoingMessage.data[6] = 0;
-  outgoingMessage.data[7] = 0;
+  outgoingMessage.data[3] = 0x00;
+  outgoingMessage.data[4] = 0x00;
+  outgoingMessage.data[5] = 0x00;
+  outgoingMessage.data[6] = 0x00;
+  outgoingMessage.data[7] = 0x00;
 
   // queue message for transmission
-  result = can_transmit(&outgoingMessage, pdMS_TO_TICKS(100));
+  esp_err_t fcbCtrlResult = can_transmit(&outgoingMessage, pdMS_TO_TICKS(10));
 
   // build message for FCB 
   outgoingMessage.identifier = RCB_DATA_ADDR;
@@ -1014,47 +981,23 @@ void UpdateCANTask(void* pvParameters)
   outgoingMessage.data[1] = carData.sensors.wheelSpeedBL;
   outgoingMessage.data[2] = carData.sensors.wheelHeightBR;
   outgoingMessage.data[3] = carData.sensors.wheelHeightBL;
-  outgoingMessage.data[4] = 0;
-  outgoingMessage.data[5] = 0;
-  outgoingMessage.data[6] = 0;
-  outgoingMessage.data[7] = 0;
+  outgoingMessage.data[4] = 0x00;
+  outgoingMessage.data[5] = 0x00;
+  outgoingMessage.data[6] = 0x00;
+  outgoingMessage.data[7] = 0x00;
 
   // queue message for transmission
-  result = can_transmit(&outgoingMessage, pdMS_TO_TICKS(100));
-
-  if (result == ESP_OK) {
-    sentStatus = true;
-  }
+  esp_err_t fcbDataResult = can_transmit(&outgoingMessage, pdMS_TO_TICKS(10));
 
   // debugging
   if (debugger.debugEnabled) {
-    if (debugger.CAN_debugEnabled) {
-      switch (result) {
-        case ESP_ERR_INVALID_ARG:
-          Serial.printf("Arguments are invalid\n");
-        break;
+    debugger.fcbCtrlResult = fcbCtrlResult;
+    debugger.fcbDataResult = fcbDataResult;
 
-        case ESP_ERR_TIMEOUT:
-          Serial.printf("Timed out waiting for space on TX queue\n");
-        break;
-
-        case ESP_FAIL:
-          Serial.printf("TX queue is disabled and another message is currently transmitting\n");
-        break;
-
-        case ESP_ERR_INVALID_STATE:
-          Serial.printf("TWAI driver is not in running state, or is not installed\n");
-        break;
-
-        default:
-          break;
-      }
-    }
-
-    debugger.CAN_sentStatus = sentStatus;
     for (int i = 0; i < 8; ++i) {
-      debugger.CAN_outgoingMessage[i] = outgoingMessage.data[i];
+      debugger.CAN_fcbDataOutgoingMessage[i] = outgoingMessage.data[i];
     }
+
     debugger.canTaskCount++;
   }
 
@@ -1070,8 +1013,9 @@ void UpdateCANTask(void* pvParameters)
  */
 void UpdateWCBTask(void* pvParameters) {
   // send message
+  const uint8_t wcbAddress[6] = WCB_ADDRESS;
   esp_err_t result = esp_now_send(wcbAddress, (uint8_t *) &carData, sizeof(carData));
-
+  
   // debugging 
   if (debugger.debugEnabled) {
     debugger.WCB_updateMessage = carData;
@@ -1096,48 +1040,40 @@ void UpdateLoggerTask(void* pvParameters) {
   float timeStamp = (float)esp_timer_get_time() * 1000000;    // convert uptime from microseconds to seconds
 
   // open file
-  FILE* logFile = fopen(sdLogFilename, "w");
+  File logFile = SD_MMC.open(sdTrackerFilename, FILE_WRITE);
 
-  // ensure file is open before writing and write those logs
-  if (logFile != NULL) {
-    // write start of block seperator
-    fprintf(logFile, "\n------------------------------\n");
+  // write start of block seperator
+  logFile.printf("\n------------------------------\n");
 
-    // write timestamp
-    fprintf(logFile, "\t\t[ %.2f seconds ]:\n\n", timeStamp);
+  // write timestamp
+  logFile.printf("\t\t[ %.2f seconds ]:\n\n", timeStamp);
 
-    // write data
-    fprintf(logFile, "DRIVE STATE: RTD: %d | INVER-EN: %d | MODE: %d\n", carData.drivingData.readyToDrive, carData.drivingData.enableInverter, (int)carData.drivingData.driveMode);
+  // write data
+  logFile.printf("DRIVE STATE: RTD: %d | INVER-EN: %d | MODE: %d\n", carData.drivingData.readyToDrive, carData.drivingData.enableInverter, (int)carData.drivingData.driveMode);
 
-    fprintf(logFile, "FAULTS: IMD: %d | BMS: %d\n", carData.drivingData.imdFault, carData.drivingData.bmsFault);
+  logFile.printf("FAULTS: IMD: %d | BMS: %d\n", carData.drivingData.imdFault, carData.drivingData.bmsFault);
 
-    fprintf(logFile, "DRIVE STATS: COMM-TORQ: %d | SPEED: %f | DIR: %d\n", carData.drivingData.commandedTorque, carData.drivingData.currentSpeed, carData.drivingData.driveDirection);
-    
-    fprintf(logFile, "PEDALS: P1: %d | P2: %d | B1: %d | B2: %d\n", carData.inputs.pedal0, carData.inputs.pedal1, carData.inputs.brake0, carData.inputs.brake1);
-    
-    fprintf(logFile, "WHEEL SPEED: FR: %f | FL: %f | BR: %f | BL: %f\n", carData.sensors.wheelSpeedFR, carData.sensors.wheelSpeedFL, carData.sensors.wheelSpeedBR, carData.sensors.wheelSpeedBL);
-    
-    fprintf(logFile, "WHEEL HEIGHT: FR: %f | FL: %f | BR: %f | BL: %f\n", carData.sensors.wheelHeightFR, carData.sensors.wheelHeightFL, carData.sensors.wheelHeightBR, carData.sensors.wheelHeightBL);
-    
-    fprintf(logFile, "STEERING ANGLE: %d\n", carData.sensors.steeringWheelAngle);
+  logFile.printf("DRIVE STATS: COMM-TORQ: %d | SPEED: %f | DIR: %d\n", carData.drivingData.commandedTorque, carData.drivingData.currentSpeed, carData.drivingData.driveDirection);
+  
+  logFile.printf("PEDALS: P1: %d | P2: %d | B1: %d | B2: %d\n", carData.inputs.pedal0, carData.inputs.pedal1, carData.inputs.brake0, carData.inputs.brake1);
+  
+  logFile.printf("WHEEL SPEED: FR: %f | FL: %f | BR: %f | BL: %f\n", carData.sensors.wheelSpeedFR, carData.sensors.wheelSpeedFL, carData.sensors.wheelSpeedBR, carData.sensors.wheelSpeedBL);
+  
+  logFile.printf("WHEEL HEIGHT: FR: %f | FL: %f | BR: %f | BL: %f\n", carData.sensors.wheelHeightFR, carData.sensors.wheelHeightFL, carData.sensors.wheelHeightBR, carData.sensors.wheelHeightBL);
+  
+  logFile.printf("STEERING ANGLE: %d\n", carData.sensors.steeringWheelAngle);
 
-    fprintf(logFile, "PACKS: CHARGE: %f | BUS-V: %f | RINE-V: %f\n", carData.batteryStatus.batteryChargeState, carData.batteryStatus.busVoltage, carData.batteryStatus.rinehartVoltage);
-    
-    fprintf(logFile, "TEMPS: PACK-1: %f | PACK-2: %f | VICORE: %f | PUMP-I: %f | PUMP-O: %f\n", carData.batteryStatus.pack1Temp, carData.batteryStatus.pack2Temp, carData.sensors.vicoreTemp, carData.sensors.pumpTempIn, carData.sensors.pumpTempOut);
+  logFile.printf("PACKS: CHARGE: %f | BUS-V: %f | RINE-V: %f\n", carData.batteryStatus.batteryChargeState, carData.batteryStatus.busVoltage, carData.batteryStatus.rinehartVoltage);
+  
+  logFile.printf("TEMPS: PACK-1: %f | PACK-2: %f | VICORE: %f | PUMP-I: %f | PUMP-O: %f\n", carData.batteryStatus.pack1Temp, carData.batteryStatus.pack2Temp, carData.sensors.vicoreTemp, carData.sensors.pumpTempIn, carData.sensors.pumpTempOut);
 
-    fprintf(logFile, "OUTPUTS: BUZZER: %d | BRAKE: %d | FAN-EN: %d | PUMP-EN: %d\n", carData.outputs.buzzerActive, carData.outputs.brakeLight, carData.outputs.fansActive, carData.outputs.pumpActive);
+  logFile.printf("OUTPUTS: BUZZER: %d | BRAKE: %d | FAN-EN: %d | PUMP-EN: %d\n", carData.outputs.buzzerActive, carData.outputs.brakeLight, carData.outputs.fansActive, carData.outputs.pumpActive);
 
-    // write end of block seperator
-    fprintf(logFile, "\n------------------------------\n");
-  }
-
-
-  else {
-    Serial.printf("Failed to open log file!\n");
-  }
+  // write end of block seperator
+  logFile.printf("\n------------------------------\n");
 
   // close log file
-  fclose(logFile);
+  logFile.close();
 
 
   // debugging
@@ -1147,6 +1083,27 @@ void UpdateLoggerTask(void* pvParameters) {
 
   // end task
   vTaskDelete(NULL);
+}
+
+
+/*
+===============================================================================================
+                                    Helpers
+===============================================================================================
+*/
+
+
+/**
+ * @brief generate a new log filename based on tracker.txt
+ * 
+ */
+void GenerateFilename() {
+  // inits
+  char logNum[SD_BUFF];
+  char baseName[SD_BUFF] = "/poop_aids_";
+
+  // strcat(baseName, atoi);
+  strcat(sdTrackerFilename, ".txt");
 }
 
 
@@ -1173,35 +1130,6 @@ void loop()
 }
 
 
-/**
- * @brief generate a new log filename based on tracker.txt
- * 
- */
-void GenerateFilename() {
-  // inits
-  char num[SD_BUFF];
-
-  strcat(sdLogFilename, SD_MOUNT_POINT"/poop-aids-");
-  strcat(sdLogFilename, itoa(sdLogfileNumber, num, SD_BUFF));
-  strcat(sdLogFilename, ".txt");
-}
-
-
-/**
- * @brief scale a value inside a range of values to a new range of values
- * 
- * @param x             input value to be re-mapped
- * @param in_min        input value min of range
- * @param in_max        input value max of range
- * @param out_min       output value min of range
- * @param out_max       output value max of range
- * @return              the remapped value
- */
-long MapValue(long x, long in_min, long in_max, long out_min, long out_max) {
-  return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
-}
-
-
 /* 
 ===============================================================================================
                                     DEBUG FUNCTIONS
@@ -1216,40 +1144,19 @@ long MapValue(long x, long in_min, long in_max, long out_min, long out_max) {
 void PrintCANDebug() {
   Serial.printf("\n--- START CAN DEBUG ---\n");
 
-  // alerts
-  uint32_t alerts;
-  can_read_alerts(&alerts, pdMS_TO_TICKS(1000));
-  
-  if (alerts & CAN_ALERT_ABOVE_ERR_WARN) {
-      Serial.printf("ERROR: Surpassed Error Warning Limit\n");
-  }
-  if (alerts & CAN_ALERT_ERR_PASS) {
-          Serial.printf("ERROR: Entered Error Passive state\n");
-  }
-  if (alerts & CAN_ALERT_BUS_OFF) {
-      Serial.printf("ERROR: Bus Off state\n");
-      //Prepare to initiate bus recovery, reconfigure alerts to detect bus recovery completion
-      can_reconfigure_alerts(CAN_ALERT_BUS_RECOVERED, NULL);
-      for (int i = 3; i > 0; i--) {
-          Serial.printf("Initiate bus recovery in %d\n", i);
-          vTaskDelay(pdMS_TO_TICKS(1000));
-      }
-      can_initiate_recovery();    //Needs 128 occurrences of bus free signal
-      Serial.printf("Initiate bus recovery\n");
-  }
-  if (alerts & CAN_ALERT_BUS_RECOVERED) {
-      //Bus recovery was successful, exit control task to uninstall driver
-      Serial.printf("Bus Recovered!\n");
-  }
-
-
   // sent status
-  Serial.printf("CAN Message Send Status: %s\n", debugger.CAN_sentStatus ? "Success" : "Failed");
+  Serial.printf("FCB Ctrl Send Status: 0x%X\n", debugger.fcbCtrlResult);
+  Serial.printf("FCB Data Send Status: 0x%X\n", debugger.fcbDataResult);
 
-  // message
+  // messages
   for (int i = 0; i < 8; ++i) {
-    Serial.printf("CAN Raw Data Byte %d: %d\t", i, debugger.CAN_outgoingMessage[i]);
+    Serial.printf("FCB Data Byte %d: %d\t", i, debugger.CAN_fcbDataOutgoingMessage[i]);
   }
+
+  for (int i = 0; i < 8; ++i) {
+    Serial.printf("FCB Ctrl Byte %d: %d\t", i, debugger.CAN_fcbCtrlOutgoingMessage[i]);
+  }
+
   Serial.printf("\n");
 
   Serial.printf("\n--- END CAN DEBUG ---\n");

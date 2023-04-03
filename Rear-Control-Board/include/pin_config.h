@@ -11,8 +11,7 @@
 
 
 // includes
-#include "debugger.h"
-#include <soc/adc_channel.h>
+#include <esp_pm.h>
 
 
 /*
@@ -30,42 +29,29 @@ esp_pm_config_esp32_t power_configuration {
 
 /*
 ===========================================================
-                    ESP-NOW Definitions
-===========================================================
-*/
-
-
-uint8_t fcbAddress[] = {0xC4, 0xDE, 0xE2, 0xC0, 0x75, 0x81};
-uint8_t wcbAddress[] = {0xC4, 0xDE, 0xE2, 0xC0, 0x75, 0x81};
-uint8_t deviceAddress[] = {0x1a, 0x1a, 0x1a, 0x1a, 0x1a, 0x1a};
-
-
-/*
-===========================================================
                     Pin Definitions
 ===========================================================
 */
 
 
 // Sensors
-#define WHEEL_SPEED_BR_SENSOR               ADC1_GPIO32_CHANNEL
-#define WHEEL_SPEED_BL_SENSOR               ADC1_GPIO32_CHANNEL
+#define WHEEL_SPEED_BR_SENSOR               36
+#define WHEEL_SPEED_BL_SENSOR               39
 
-#define WHEEL_HEIGHT_BR_SENSOR              ADC1_GPIO32_CHANNEL
-#define WHEEL_HEIGHT_BL_SENSOR              ADC1_GPIO32_CHANNEL
+#define WHEEL_HEIGHT_BR_SENSOR              34
+#define WHEEL_HEIGHT_BL_SENSOR              35
 
 
 // Inputs
-#define RAD_TEMP_IN_PIN                     ADC1_CHANNEL_5
-#define RAD_TEMP_OUT_PIN                    ADC1_CHANNEL_6
+#define RAD_TEMP_IN_PIN                     4
+#define RAD_TEMP_OUT_PIN                    0
 
 #define IMD_FAULT_PIN                       32
 #define BMS_FAULT_PIN                       33
 
-#define CAN_CS_PIN                          18
-#define CAN_MESSAGE_INTERRUPT_PIN           15   
-#define CAN_TX_PIN                          23
-#define CAN_RX_PIN                          19
+// CAN
+#define CAN_RX_PIN                          23
+#define CAN_TX_PIN                          19
 
 
 // Outputs
@@ -80,4 +66,3 @@ uint8_t deviceAddress[] = {0x1a, 0x1a, 0x1a, 0x1a, 0x1a, 0x1a};
 #define SD_D2_PIN                           30
 #define SD_D3_PIN                           29
 #define SD_DETECT_PIN                       39
-#define SD_MOUNT_POINT                      "/sdcard"

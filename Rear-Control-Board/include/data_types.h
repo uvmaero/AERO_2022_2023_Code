@@ -10,6 +10,10 @@
  */
 
 
+// includes
+#include <esp_err.h>
+
+
 /**
  * @brief the different throttle modes for to modify driving behavior
  * 
@@ -114,3 +118,46 @@ typedef struct CarData
   } outputs;
 
 } CarData;
+
+
+/**
+ * @brief 
+ * 
+ */
+typedef struct Debugger
+{
+  // debug toggle
+  bool debugEnabled;
+  bool CAN_debugEnabled;
+  bool FCB_debugEnabled;
+  bool IO_debugEnabled;
+  bool scheduler_debugEnable;
+
+  // debug data
+  esp_err_t fcbCtrlResult;
+  esp_err_t fcbDataResult;
+
+  uint8_t CAN_fcbDataOutgoingMessage[8];
+  uint8_t CAN_fcbCtrlOutgoingMessage[8];
+
+  esp_err_t WCB_updateResult;
+  CarData WCB_updateMessage;
+
+  CarData IO_data;
+
+  PrechargeStates prechargeState;
+
+  // scheduler data
+  int sensorTaskCount;
+  int prechargeTaskCount;
+  int canTaskCount;
+  int loggerTaskCount;
+  int wcbTaskCount;
+} Debugger;
+
+
+// debugging functions
+void PrintDebug();
+void PrintCANDebug();
+void PrintFCBDebug();
+void PrintIODebug();

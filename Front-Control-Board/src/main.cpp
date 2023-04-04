@@ -994,6 +994,8 @@ void PrintCANDebug() {
     Serial.printf("Byte %d: %02X\t", i, debugger.CAN_rineCtrlOutgoingMessage[i]);
   }
 
+  Serial.printf("\n");
+
   for (int i = 0; i < 8; ++i) {
     Serial.printf("Byte %d: %02X\t", i, debugger.CAN_rcbCtrlOutgoingMessage[i]);
   }

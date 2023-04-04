@@ -38,19 +38,19 @@
 // definitions
 #define TIRE_DIAMETER                   20.0        // diameter of the vehicle's tires in inches
 #define WHEEL_RPM_CALC_THRESHOLD        100         // the number of times the hall effect sensor is tripped before calculating vehicle speed
-#define BRAKE_LIGHT_THRESHOLD           10          // 
-#define PEDAL_DEADBAND                  5
-#define PEDAL_MIN                       0
-#define PEDAL_MAX                       255
+#define BRAKE_LIGHT_THRESHOLD           10          // the threshold that must be crossed for the brake to be considered active
+#define PEDAL_DEADBAND                  5           // minimum value that the pedal will activate at
+#define PEDAL_MIN                       0           // minimum value the pedals can read as
+#define PEDAL_MAX                       255         // maximum value a pedal can read as
 #define TORQUE_DEADBAND                 128         // 5% of 2550
 #define MAX_TORQUE                      225         // MAX TORQUE RINEHART CAN ACCEPT, DO NOT EXCEED 230!!!
 
 // CAN
 #define NUM_CAN_READS                   5           // the number of messages to read each time the CAN task is called
-#define FCB_CONTROL_ADDR                0x0A
-#define FCB_DATA_ADDR                   0x0B
-#define RCB_CONTROL_ADDR                0x0C
-#define RCB_DATA_ADDR                   0x0D
+#define FCB_CONTROL_ADDR                0x00A
+#define FCB_DATA_ADDR                   0x00B
+#define RCB_CONTROL_ADDR                0x00C
+#define RCB_DATA_ADDR                   0x00D
 #define RINE_CONTROL_ADDR               0x0C0
 #define RINE_MOTOR_INFO_ADDR            0x0A5
 #define RINE_VOLT_INFO_ADDR             0x0A7
@@ -452,15 +452,16 @@ void setup() {
     timerAlarmEnable(timer3);
   if (setup.wcbActive && setup.rcbActive)
     timerAlarmEnable(timer4);
+  // ----------------------------------------------------------------------------------------- //
 
+
+  // ------------------------------- Scheduler & Task Status --------------------------------- //
   Serial.printf("SENSOR TASK STATUS: %s\n", timerAlarmEnabled(timer1) ? "RUNNING" : "DISABLED");
   Serial.printf("CAN TASK STATUS: %s\n", timerAlarmEnabled(timer2) ? "RUNNING" : "DISABLED");
   Serial.printf("ARDAN TASK STATUS: %s\n", timerAlarmEnabled(timer3) ? "RUNNING" : "DISABLED");
   Serial.printf("ESP-NOW TASK STATUS: %s\n", timerAlarmEnabled(timer4) ? "RUNNING" : "DISABLED");
-  // ----------------------------------------------------------------------------------------- //
-
-
-  // ------------------- End Setup Section in Serial Monitor --------------------------------- //
+  
+  // scheduler status
   if (xTaskGetSchedulerState() == 2) {
     Serial.printf("\nScheduler Status: RUNNING\n");
 
@@ -800,17 +801,14 @@ void UpdateCANTask(void* pvParameters)
   outgoingMessage.data_length_code = 8;
 
   // build message
-  uint8_t firstTorqByte = carData.drivingData.commandedTorque & 0xFF;
-  uint8_t secondTorqByte = carData.drivingData.commandedTorque >> 8;
-
-  outgoingMessage.data[0] = firstTorqByte;                                    // commanded torque is sent across two bytes
-  outgoingMessage.data[1] = secondTorqByte;
+  outgoingMessage.data[0] = carData.drivingData.commandedTorque && 0xFF;      // commanded torque is sent across two bytes
+  outgoingMessage.data[1] = carData.drivingData.commandedTorque >> 8;
   outgoingMessage.data[2] = 0x00;                                             // speed command NOT USING
   outgoingMessage.data[3] = 0x00;                                             // speed command NOT USING
   outgoingMessage.data[4] = (uint8_t)(carData.drivingData.driveDirection);    // 1: forward | 0: reverse (we run in reverse!)
-  outgoingMessage.data[5] = (uint8_t)(carData.drivingData.enableInverter);    // 
-  outgoingMessage.data[6] = (uint8_t)MAX_TORQUE;                              // this is the max torque value that we are establishing t
-  outgoingMessage.data[7] = 0x00;                                             // i think this one is min torque or it does nothing
+  outgoingMessage.data[5] = (uint8_t)(carData.drivingData.enableInverter);    // enable inverter command
+  outgoingMessage.data[6] = MAX_TORQUE && 0xFF;                               // this is the max torque value that rinehart will push
+  outgoingMessage.data[7] = MAX_TORQUE >> 8;                                  // spread across two bytes
 
   // queue message for transmission
   esp_err_t rineCtrlResult = can_transmit(&outgoingMessage, pdMS_TO_TICKS(10));
@@ -934,7 +932,7 @@ void GetCommandedTorque()
   // get the pedal average
   int pedalAverage = (carData.inputs.pedal0 + carData.inputs.pedal1) / 2;
 
-  // drive mode logic
+  // drive mode logic (values are 10x because that is the format for Rinehart)
   switch (carData.drivingData.driveMode)
   {
     case SLOW:  // runs at 50% power
@@ -954,7 +952,7 @@ void GetCommandedTorque()
       // set the state to ECO for next time
       carData.drivingData.driveMode = ECO;
 
-      // we don't want to send a torque if we are in an undefined state
+      // we don't want to send a torque command if we were in an undefined state
       carData.drivingData.commandedTorque = 0;
     break;
   }
@@ -978,7 +976,7 @@ void GetCommandedTorque()
     carData.drivingData.commandedTorque = 0;
   }
 
-  // // check if ready to drive
+  // check if ready to drive
   // if (!carData.drivingData.readyToDrive) {
   //   carData.drivingData.commandedTorque = 0;    // if not ready to drive then block all torque
   // }

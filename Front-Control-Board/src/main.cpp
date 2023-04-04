@@ -985,6 +985,11 @@ void GetCommandedTorque()
 void PrintCANDebug() {
   Serial.printf("\n--- START CAN DEBUG ---\n");
 
+  // incoming data
+  Serial.printf("Incoming RTD Status: %s\n", carData.drivingData.readyToDrive ? "true" : "false");
+  Serial.printf("Incoming IMD Fault Status: %s\n", carData.drivingData.imdFault ? "cleared" : "fault state");
+  Serial.printf("Incoming BMS Fault Status: %s\n", carData.drivingData.bmsFault ? "cleared" : "fault state");
+
   // sent status
   Serial.printf("Rine Ctrl Send Status: 0x%X\n", debugger.CAN_rineCtrlResult);
   Serial.printf("RCB Ctrl Send Status: 0x%X\n", debugger.CAN_rcbCtrlResult);

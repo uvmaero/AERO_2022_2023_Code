@@ -43,7 +43,7 @@
 #define MIN_BUS_VOLTAGE                 220         // a voltage that can only be reached with two active packs
 
 // CAN
-#define NUM_CAN_READS                   5
+#define NUM_CAN_READS                   500
 #define FCB_CONTROL_ADDR                0x00A
 #define FCB_DATA_ADDR                   0x00B
 #define RCB_CONTROL_ADDR                0x00C
@@ -60,9 +60,9 @@
 #define DEVICE_ADDRESS                  {0x1a, 0x1a, 0x1a, 0x1a, 0x1a, 0x1a}
 
 // tasks & timers
-#define SENSOR_POLL_INTERVAL            100000      // 0.01 seconds in microseconds
-#define PRECHARGE_INTERVAL              10000       // 0.01 seconds in microseconds
-#define CAN_WRITE_INTERVAL              10000       // 0.01 seconds in microseconds
+#define SENSOR_POLL_INTERVAL            100000      // 0.1 seconds in microseconds
+#define PRECHARGE_INTERVAL              100000      // 0.1 seconds in microseconds
+#define CAN_WRITE_INTERVAL              100000      // 0.1 seconds in microseconds
 #define LOGGER_UPDATE_INTERVAL          100000      // 0.1 seconds in microseconds
 #define TASK_STACK_SIZE                 4096        // in bytes
 
@@ -89,9 +89,9 @@
 Debugger debugger = {
   // debug toggle
   .debugEnabled = ENABLE_DEBUG,
-  .CAN_debugEnabled = true,
+  .CAN_debugEnabled = false,
   .IO_debugEnabled = false,
-  .scheduler_debugEnable = false,
+  .scheduler_debugEnable = true,
 
   // debug data
   .fcbCtrlResult = ESP_OK,
@@ -227,7 +227,7 @@ static const can_filter_config_t can_filter_config = CAN_FILTER_CONFIG_ACCEPT_AL
 //   .single_filter = true
 // };
 //Set to NO_ACK mode due to self testing with single module
-static const can_general_config_t can_general_config = CAN_GENERAL_CONFIG_DEFAULT((gpio_num_t)CAN_TX_PIN, (gpio_num_t)CAN_RX_PIN, CAN_MODE_NO_ACK);
+static const can_general_config_t can_general_config = CAN_GENERAL_CONFIG_DEFAULT((gpio_num_t)CAN_TX_PIN, (gpio_num_t)CAN_RX_PIN, CAN_MODE_NORMAL);
 
 
 // SD Card Interface
@@ -351,7 +351,7 @@ void setup()
 
   // -------------------------- initialize ESP-NOW  ---------------------------- //
 
- // init wifi and config
+  // init wifi and config
   if (WiFi.mode(WIFI_STA)) {
     Serial.printf("WIFI INIT [ SUCCESS ]\n");
 
@@ -364,85 +364,86 @@ void setup()
       Serial.printf("ESP-NOW INIT [ SUCCESS ]\n");
     }
   }
-    else {
-      Serial.printf("ESP-NOW INIT [ FAILED ]\n");
-    }
+
+  else {
+    Serial.printf("ESP-NOW INIT [ FAILED ]\n");
+  }
 
   // ------------------------------------------------------------------------ //
 
 
   // ---------------------- initialize SD Logger ---------------------------- //
   // init sd card
-  if (SD_MMC.begin()) {
-    Serial.printf("SD CARD INIT [ SUCCESS ]\n");
-    // inits
-    int trackerNumber;
+  // if (SD_MMC.begin()) {
+  //   Serial.printf("SD CARD INIT [ SUCCESS ]\n");
+  //   // inits
+  //   int trackerNumber;
 
-    // SD_MMC.setPins();
+  //   // SD_MMC.setPins();
 
-    // check for sd card inserted
-    uint8_t cardType = SD_MMC.cardType();
-    if (cardType != CARD_NONE) {
-      Serial.printf("SD CARD DETECT [ CONNECTED: ");
-      // print card type
-      if(cardType == CARD_MMC){
-        Serial.print("MMC");
-      } else if(cardType == CARD_SD){
-          Serial.print("SDSC");
-      } else if(cardType == CARD_SDHC){
-          Serial.print("SDHC");
-      } else {
-          Serial.print("UNKNOWN");
-      }
-      Serial.printf(" ]\n");
+  //   // check for sd card inserted
+  //   uint8_t cardType = SD_MMC.cardType();
+  //   if (cardType != CARD_NONE) {
+  //     Serial.printf("SD CARD DETECT [ CONNECTED: ");
+  //     // print card type
+  //     if(cardType == CARD_MMC){
+  //       Serial.print("MMC");
+  //     } else if(cardType == CARD_SD){
+  //         Serial.print("SDSC");
+  //     } else if(cardType == CARD_SDHC){
+  //         Serial.print("SDHC");
+  //     } else {
+  //         Serial.print("UNKNOWN");
+  //     }
+  //     Serial.printf(" ]\n");
 
-      // print card data metrics
-      Serial.printf("SD CARD SIZE: %lluMB\n", SD_MMC.cardSize());
-      Serial.printf("SD CARD USED STORAGE: %lluMB\n", SD_MMC.usedBytes() / (1024 * 1024));
+  //     // print card data metrics
+  //     Serial.printf("SD CARD SIZE: %lluMB\n", SD_MMC.cardSize());
+  //     Serial.printf("SD CARD USED STORAGE: %lluMB\n", SD_MMC.usedBytes() / (1024 * 1024));
 
-      // collect tracker information from SD & update it
-      File trackerFile = SD_MMC.open(sdTrackerFilename, FILE_READ);
-      if (trackerFile) {
-        Serial.printf("SD CARD TRACKER FILE READ [ SUCCESS ]\n");
+  //     // collect tracker information from SD & update it
+  //     File trackerFile = SD_MMC.open(sdTrackerFilename, FILE_READ);
+  //     if (trackerFile) {
+  //       Serial.printf("SD CARD TRACKER FILE READ [ SUCCESS ]\n");
 
-        while (trackerFile.available()) {
-          trackerNumber = trackerFile.read();
-          Serial.printf("data: %d\n", trackerNumber);
-        }
+  //       while (trackerFile.available()) {
+  //         trackerNumber = trackerFile.read();
+  //         Serial.printf("data: %d\n", trackerNumber);
+  //       }
 
-        // update tracker number
-        File tmpFile = SD_MMC.open("/tmp.txt", FILE_WRITE);
-        if (tmpFile) {
-          trackerNumber++;
-          tmpFile.print(trackerNumber);
-          Serial.printf("SD CARD TRACKER FILE UPDATE [ SUCCESS ]\n");
-        }
-        else {
-          Serial.printf("SD CARD TRACKER FILE UPDATE [ FAILED ]\n");
-        }
+  //       // update tracker number
+  //       File tmpFile = SD_MMC.open("/tmp.txt", FILE_WRITE);
+  //       if (tmpFile) {
+  //         trackerNumber++;
+  //         tmpFile.print(trackerNumber);
+  //         Serial.printf("SD CARD TRACKER FILE UPDATE [ SUCCESS ]\n");
+  //       }
+  //       else {
+  //         Serial.printf("SD CARD TRACKER FILE UPDATE [ FAILED ]\n");
+  //       }
 
-        // delete old tracker file 
-        SD_MMC.remove(sdTrackerFilename);
+  //       // delete old tracker file 
+  //       SD_MMC.remove(sdTrackerFilename);
 
-        // rename tmp file
-        SD_MMC.rename("/tmp.txt", sdTrackerFilename);
+  //       // rename tmp file
+  //       SD_MMC.rename("/tmp.txt", sdTrackerFilename);
 
-        setup.loggerActive = true;
-      }
+  //       setup.loggerActive = true;
+  //     }
 
-      else {
-        Serial.printf("SD TRACKER FILE READ [ FAILED ]\n");
-      }
-    }
+  //     else {
+  //       Serial.printf("SD TRACKER FILE READ [ FAILED ]\n");
+  //     }
+  //   }
     
-    else {
-      Serial.printf("SD CARD DETECT [ FAILED ]\n");
-    }
-  }
+  //   else {
+  //     Serial.printf("SD CARD DETECT [ FAILED ]\n");
+  //   }
+  // }
   
-  else {
-    Serial.printf("SD CARD INIT [ FAILED ]\n");
-  }
+  // else {
+  //   Serial.printf("SD CARD INIT [ FAILED ]\n");
+  // }
   // ------------------------------------------------------------------------ //
 
 
@@ -473,9 +474,9 @@ void setup()
   if (setup.canActive)
     timerAlarmEnable(timer2);
   if (setup.loggerActive)
-    timerAlarmEnable(timer3);
+    // timerAlarmEnable(timer3);
   if (setup.prechargeActive)
-    timerAlarmEnable(timer4);
+    // timerAlarmEnable(timer4);
 
   Serial.printf("SENSOR TASK STATUS: %s\n", timerAlarmEnabled(timer1) ? "RUNNING" : "DISABLED");
   Serial.printf("CAN TASK STATUS: %s\n", timerAlarmEnabled(timer2) ? "RUNNING" : "DISABLED");
@@ -515,10 +516,16 @@ void setup()
  * @param args arguments to be passed to the task
  */
 void SensorCallback() {
+  portENTER_CRITICAL_ISR(&timerMux);
+  
   // queue sensor task
   static uint8_t ucParameterToPass;
   TaskHandle_t xHandle = NULL;
-  xTaskCreate(ReadSensorsTask, "Poll-Senser-Data", TASK_STACK_SIZE, &ucParameterToPass, 5, &xHandle);
+  xTaskCreate(ReadSensorsTask, "Poll-Senser-Data", TASK_STACK_SIZE, &ucParameterToPass, tskIDLE_PRIORITY, &xHandle);
+  
+  portEXIT_CRITICAL_ISR(&timerMux);
+
+  return;
 }
 
 
@@ -528,10 +535,16 @@ void SensorCallback() {
  * @param args arguments to be passed to the task
  */
 void PrechargeCallback() {
+  portENTER_CRITICAL_ISR(&timerMux);
+
   // queue precharge task
   static uint8_t ucParameterToPass;
   TaskHandle_t xHandle = NULL;
-  xTaskCreate(PrechargeTask, "Precharge-Data", TASK_STACK_SIZE, &ucParameterToPass, 6, &xHandle);
+  xTaskCreate(PrechargeTask, "Precharge-Data", TASK_STACK_SIZE, &ucParameterToPass, tskIDLE_PRIORITY, &xHandle);
+
+  portEXIT_CRITICAL_ISR(&timerMux);
+
+  return;
 }
 
 
@@ -541,9 +554,15 @@ void PrechargeCallback() {
  * @param args arguments to be passed to the task
  */
 void CANCallback() {
+  portENTER_CRITICAL_ISR(&timerMux);
+
   static uint8_t ucParameterToPass;
   TaskHandle_t xHandle = NULL;
-  xTaskCreate(UpdateCANTask, "CAN-Update", TASK_STACK_SIZE, &ucParameterToPass, 5, &xHandle);
+  xTaskCreate(UpdateCANTask, "CAN-Update", TASK_STACK_SIZE, &ucParameterToPass, tskIDLE_PRIORITY, &xHandle);
+
+  portEXIT_CRITICAL_ISR(&timerMux);
+
+  return;
 }
 
 
@@ -553,9 +572,15 @@ void CANCallback() {
  * @param args arguments to be passed to the task
  */
 void LoggerCallback() { 
+  portENTER_CRITICAL_ISR(&timerMux);
+  
   static uint8_t ucParameterToPass;
   TaskHandle_t xHandle = NULL;
-  xTaskCreate(UpdateLoggerTask, "ARDAN-Update", TASK_STACK_SIZE, &ucParameterToPass, 4, &xHandle);
+  xTaskCreate(UpdateLoggerTask, "ARDAN-Update", TASK_STACK_SIZE, &ucParameterToPass, tskIDLE_PRIORITY, &xHandle);
+  
+  portEXIT_CRITICAL_ISR(&timerMux);
+
+  return;
 }
 
 
@@ -565,9 +590,15 @@ void LoggerCallback() {
  * @param args arguments to be passed to the task
  */
 void ESPNOWCallback() {
+  portENTER_CRITICAL_ISR(&timerMux);
+
   static uint8_t ucParameterToPass;
   TaskHandle_t xHandle = NULL;
-  xTaskCreate(UpdateWCBTask, "WCB-Update", TASK_STACK_SIZE, &ucParameterToPass, 3, &xHandle);
+  xTaskCreate(UpdateWCBTask, "WCB-Update", TASK_STACK_SIZE, &ucParameterToPass, tskIDLE_PRIORITY, &xHandle);
+
+  portEXIT_CRITICAL_ISR(&timerMux);
+  
+  return;
 }
 
 
@@ -579,6 +610,8 @@ void ESPNOWCallback() {
  * @param length          size of the incoming data
  */
 void FCBDataReceived(const uint8_t* mac, const uint8_t* incomingData, int length) {
+  portENTER_CRITICAL_ISR(&timerMux);
+
   // inits
   CarData tmp;
 
@@ -602,6 +635,8 @@ void FCBDataReceived(const uint8_t* mac, const uint8_t* incomingData, int length
 
   carData.drivingData.currentSpeed = tmp.drivingData.currentSpeed;
 
+  portEXIT_CRITICAL_ISR(&timerMux);
+
   return;
 }
 
@@ -612,6 +647,8 @@ void FCBDataReceived(const uint8_t* mac, const uint8_t* incomingData, int length
  * @param args 
  */
 void BRWheelSensorCallback() {
+  portENTER_CRITICAL_ISR(&timerMux);
+
   // increment pass counter
   carData.sensors.rpmCounterFR++;
 
@@ -630,6 +667,8 @@ void BRWheelSensorCallback() {
     carData.sensors.rpmCounterFR = 0;
   }
 
+  portEXIT_CRITICAL_ISR(&timerMux);
+
   return;
 }
 
@@ -640,6 +679,8 @@ void BRWheelSensorCallback() {
  * @param args 
  */
 void BLWheelSensorCallback() {
+  portENTER_CRITICAL_ISR(&timerMux);
+
   // increment pass counter
   carData.sensors.rpmCounterFL++;
 
@@ -657,6 +698,8 @@ void BLWheelSensorCallback() {
     // reset counter
     carData.sensors.rpmCounterFL = 0;
   }
+
+  portEXIT_CRITICAL_ISR(&timerMux);
 
   return;
 }
@@ -714,14 +757,14 @@ void ReadSensorsTask(void* pvParameters)
     digitalWrite(BRAKE_LIGHT_PIN, LOW);             // turn off the brake light
   }
 
-  // turn wifi back on to re-enable esp-now connection to wheel board
-  esp_wifi_start();
-
   // debugging
   if (debugger.debugEnabled) {
     debugger.IO_data = carData;
     debugger.sensorTaskCount++;
   }
+
+  // turn wifi back on to re-enable esp-now connection to wheel board
+  esp_wifi_start();
 
   // end task
   vTaskDelete(NULL);
@@ -913,13 +956,13 @@ void UpdateCANTask(void* pvParameters)
 
   // --- receive messages --- //
   for (int i = 0; i < NUM_CAN_READS; ++i) {
-    if (can_receive(&incomingMessage, pdMS_TO_TICKS(10)) == ESP_OK) {   // if there are messages to be read
+    if (can_receive(&incomingMessage, pdMS_TO_TICKS(1000)) == ESP_OK) {   // if there are messages to be read
       id = incomingMessage.identifier;
       
       // parse out data
       switch (id) {
         // get data from FCB 
-        case FCB_CONTROL_ADDR:
+        case RCB_CONTROL_ADDR:
         {
           carData.outputs.brakeLight = incomingMessage.data[0];
         }
@@ -956,7 +999,7 @@ void UpdateCANTask(void* pvParameters)
   can_message_t outgoingMessage;
 
   // build message for FCB 
-  outgoingMessage.identifier = RCB_CONTROL_ADDR;
+  outgoingMessage.identifier = FCB_CONTROL_ADDR;
   outgoingMessage.flags = CAN_MSG_FLAG_NONE;
   outgoingMessage.data_length_code = 8;
 
@@ -970,10 +1013,10 @@ void UpdateCANTask(void* pvParameters)
   outgoingMessage.data[7] = 0x00;
 
   // queue message for transmission
-  esp_err_t fcbCtrlResult = can_transmit(&outgoingMessage, pdMS_TO_TICKS(10));
+  // esp_err_t fcbCtrlResult = can_transmit(&outgoingMessage, pdMS_TO_TICKS(1000));
 
   // build message for FCB 
-  outgoingMessage.identifier = RCB_DATA_ADDR;
+  outgoingMessage.identifier = FCB_DATA_ADDR;
   outgoingMessage.flags = CAN_MSG_FLAG_NONE;
   outgoingMessage.data_length_code = 8;
 
@@ -987,12 +1030,12 @@ void UpdateCANTask(void* pvParameters)
   outgoingMessage.data[7] = 0x00;
 
   // queue message for transmission
-  esp_err_t fcbDataResult = can_transmit(&outgoingMessage, pdMS_TO_TICKS(10));
+  // esp_err_t fcbDataResult = can_transmit(&outgoingMessage, pdMS_TO_TICKS(100));
 
   // debugging
   if (debugger.debugEnabled) {
-    debugger.fcbCtrlResult = fcbCtrlResult;
-    debugger.fcbDataResult = fcbDataResult;
+    // debugger.fcbCtrlResult = fcbCtrlResult;
+    // debugger.fcbDataResult = fcbDataResult;
 
     for (int i = 0; i < 8; ++i) {
       debugger.CAN_fcbDataOutgoingMessage[i] = outgoingMessage.data[i];
@@ -1142,26 +1185,28 @@ void loop()
  * 
  */
 void PrintCANDebug() {
-  Serial.printf("\n--- START CAN DEBUG ---\n");
+  Serial.printf("\n--- START CAN DEBUG ---\n\n");
+
+  // incoming
+  Serial.printf("Incoming Brake Light Status: %s\n\n", carData.outputs.brakeLight ? "on" : "off");
 
   // sent status
   Serial.printf("FCB Ctrl Send Status: 0x%X\n", debugger.fcbCtrlResult);
   Serial.printf("FCB Data Send Status: 0x%X\n", debugger.fcbDataResult);
 
   // messages
+  Serial.printf("\nFCB Data Outgoing Message:\n");
   for (int i = 0; i < 8; ++i) {
-    Serial.printf("FCB Data Byte %d: %d\t", i, debugger.CAN_fcbDataOutgoingMessage[i]);
+    Serial.printf("Byte %d: %02X\t", i, debugger.CAN_fcbDataOutgoingMessage[i]);
   }
 
+  Serial.printf("\nFCB Ctrl Outgoing Message:\n");
   for (int i = 0; i < 8; ++i) {
-    Serial.printf("FCB Ctrl Byte %d: %d\t", i, debugger.CAN_fcbCtrlOutgoingMessage[i]);
+    Serial.printf("Byte %d: %02X\t", i, debugger.CAN_fcbCtrlOutgoingMessage[i]);
   }
 
-  Serial.printf("\n");
-
-  Serial.printf("\n--- END CAN DEBUG ---\n");
+  Serial.printf("\n\n--- END CAN DEBUG ---\n");
 }
-
 
 /**
  * @brief some nice in-depth debugging for WCB updates

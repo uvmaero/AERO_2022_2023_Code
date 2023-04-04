@@ -46,7 +46,7 @@
 #define MAX_TORQUE                      225         // MAX TORQUE RINEHART CAN ACCEPT, DO NOT EXCEED 230!!!
 
 // CAN
-#define NUM_CAN_READS                   5           // the number of messages to read each time the CAN task is called
+#define NUM_CAN_READS                   10          // the number of messages to read each time the CAN task is called
 #define FCB_CONTROL_ADDR                0x00A
 #define FCB_DATA_ADDR                   0x00B
 #define RCB_CONTROL_ADDR                0x00C
@@ -62,7 +62,7 @@
 
 // tasks & timers
 #define SENSOR_POLL_INTERVAL            100000      // 0.1 seconds in microseconds
-#define CAN_WRITE_INTERVAL              10000       // 0.01 seconds in microseconds
+#define CAN_WRITE_INTERVAL              100000      // 0.1 seconds in microseconds
 #define ARDAN_UPDATE_INTERVAL           200000      // 0.2 seconds in microseconds
 #define ESP_NOW_UPDATE_INTERVAL         200000      // 0.2 seconds in microseconds
 #define TASK_STACK_SIZE                 4096        // in bytes
@@ -278,7 +278,7 @@ void setup() {
   esp_pm_configure(&power_configuration);
 
   if (debugger.debugEnabled) {
-    // delay startup by 5 seconds
+    // delay startup by 3 seconds
     vTaskDelay(3000);
   }
 
@@ -346,6 +346,7 @@ void setup() {
     // start CAN bus
     if (can_start() == ESP_OK) {
       Serial.printf("CAN INIT [ SUCCESS ]\n");
+      can_reconfigure_alerts(CAN_ALERT_ALL, NULL);
 
       setup.canActive = true;
     }
@@ -423,7 +424,6 @@ void setup() {
 
   // ---------------------- initialize timer interrupts --------------------- //
   // timer 1 - Read Sensors 
-  // Create semaphore to inform us when the timer has fired
   timer1 = timerBegin(0, 80, true);
   timerAttachInterrupt(timer1, &SensorCallback, true);
   timerAlarmWrite(timer1, SENSOR_POLL_INTERVAL, true);
@@ -768,22 +768,22 @@ void UpdateCANTask(void* pvParameters)
   // --- receive messages --- //
   // check for new messages in the CAN buffer
   for (int i = 0; i < NUM_CAN_READS; ++i) {
-    if (can_receive(&incomingMessage, pdMS_TO_TICKS(10)) == ESP_OK) { // if there are messages to be read
+    if (can_receive(&incomingMessage, pdMS_TO_TICKS(1000)) == ESP_OK) { // if there are messages to be read
       id = incomingMessage.identifier;
       
       // parse out data
       switch (id) {
-        case RCB_CONTROL_ADDR:
-          incomingMessage.data[0] = carData.drivingData.readyToDrive;
-          incomingMessage.data[1] = carData.drivingData.imdFault;
-          incomingMessage.data[2] = carData.drivingData.bmsFault;
+        case FCB_CONTROL_ADDR:
+          carData.drivingData.readyToDrive =  incomingMessage.data[0];
+          carData.drivingData.imdFault = incomingMessage.data[1];
+          carData.drivingData.bmsFault = incomingMessage.data[2];
         break;
 
-        case RCB_DATA_ADDR:
-          incomingMessage.data[0] = carData.sensors.wheelSpeedBR;
-          incomingMessage.data[1] = carData.sensors.wheelSpeedBL;
-          incomingMessage.data[2] = carData.sensors.wheelHeightBR;
-          incomingMessage.data[3] = carData.sensors.wheelHeightBL;
+        case FCB_DATA_ADDR:
+          carData.sensors.wheelSpeedBR = incomingMessage.data[0];
+          carData.sensors.wheelSpeedBL = incomingMessage.data[1];
+          carData.sensors.wheelHeightBR = incomingMessage.data[2];
+          carData.sensors.wheelHeightBL = incomingMessage.data[3];
         break;
 
         default:
@@ -811,7 +811,7 @@ void UpdateCANTask(void* pvParameters)
   rineOutgoingMessage.data[7] = (MAX_TORQUE * 10) >> 8;                           // rinehart expects 10x value spread across 2 bytes
 
   // queue message for transmission
-  // esp_err_t rineCtrlResult = can_transmit(&rineOutgoingMessage, pdMS_TO_TICKS(10));
+  esp_err_t rineCtrlResult = can_transmit(&rineOutgoingMessage, pdMS_TO_TICKS(100));
 
 
   // setup RCB message
@@ -831,11 +831,11 @@ void UpdateCANTask(void* pvParameters)
   rcbOutgoingMessage.data[7] = 0x07;
 
   // queue message for transmission
-  esp_err_t rcbCtrlResult = can_transmit(&rcbOutgoingMessage, pdMS_TO_TICKS(10));
+  esp_err_t rcbCtrlResult = can_transmit(&rcbOutgoingMessage, pdMS_TO_TICKS(100));
 
   // debugging
   if (debugger.debugEnabled) {
-    // debugger.CAN_rineCtrlResult = rineCtrlResult;
+    debugger.CAN_rineCtrlResult = rineCtrlResult;
     debugger.CAN_rcbCtrlResult = rcbCtrlResult;
 
     for (int i = 0; i < 8; ++i) {
@@ -1001,6 +1001,46 @@ void GetCommandedTorque()
  */
 void PrintCANDebug() {
   Serial.printf("\n--- START CAN DEBUG ---\n\n");
+  // bus alerts
+  // CAN_ALERT_TX_IDLE             
+  // CAN_ALERT_TX_SUCCESS          
+  // CAN_ALERT_BELOW_ERR_WARN      
+  // CAN_ALERT_ERR_ACTIVE          
+  // CAN_ALERT_RECOVERY_IN_PROGRESS
+  // CAN_ALERT_BUS_RECOVERED       
+  // CAN_ALERT_ARB_LOST            
+  // CAN_ALERT_ABOVE_ERR_WARN      
+  // CAN_ALERT_BUS_ERROR           
+  // CAN_ALERT_TX_FAILED           
+  // CAN_ALERT_RX_QUEUE_FULL       
+  // CAN_ALERT_ERR_PASS            
+  // CAN_ALERT_BUS_OFF             
+  // CAN_ALERT_ALL                 
+  // CAN_ALERT_NONE                
+  // CAN_ALERT_AND_LOG             
+  Serial.printf("CAN BUS Alerts:\n");
+  uint32_t alerts;
+  can_read_alerts(&alerts, pdMS_TO_TICKS(100));
+  if (alerts & CAN_ALERT_TX_SUCCESS) {
+    Serial.printf("CAN ALERT: TX Success\n");
+  }
+  if (alerts & CAN_ALERT_TX_FAILED) {
+    Serial.printf("CAN ALERT: TX Failed\n");
+  }
+  if (alerts & CAN_ALERT_RX_QUEUE_FULL) {
+    Serial.printf("CAN ALERT: RX Queue Full\n");
+  }
+  if (alerts & CAN_ALERT_ABOVE_ERR_WARN) {
+    Serial.printf("CAN ALERT: Surpassed Error Warning Limit\n");
+  }
+  if (alerts & CAN_ALERT_ERR_PASS) {
+    Serial.printf("CAN ALERT: Entered Error Passive state\n");
+  }
+  if (alerts & CAN_ALERT_BUS_OFF) {
+    Serial.printf("CAN ALERT: Bus Off\n");
+  }
+
+  Serial.printf("\n");
 
   // incoming data
   Serial.printf("Incoming RTD Status: %s\n", carData.drivingData.readyToDrive ? "true" : "false");

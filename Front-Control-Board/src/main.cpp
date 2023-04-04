@@ -90,9 +90,9 @@
 Debugger debugger = {
   // debug toggle
   .debugEnabled = ENABLE_DEBUG,
-  .CAN_debugEnabled = false,
+  .CAN_debugEnabled = true,
   .WCB_debugEnabled = false,
-  .IO_debugEnabled = true,
+  .IO_debugEnabled = false,
   .scheduler_debugEnable = false,
 
   // debug data
@@ -231,7 +231,7 @@ static const can_filter_config_t can_filter_config = CAN_FILTER_CONFIG_ACCEPT_AL
 //   .single_filter = true
 // };
 //Set to NO_ACK mode due to self testing with single module
-static const can_general_config_t can_general_config = CAN_GENERAL_CONFIG_DEFAULT((gpio_num_t)CAN_TX_PIN, (gpio_num_t)CAN_RX_PIN, CAN_MODE_NO_ACK);
+static const can_general_config_t can_general_config = CAN_GENERAL_CONFIG_DEFAULT((gpio_num_t)CAN_TX_PIN, (gpio_num_t)CAN_RX_PIN, CAN_MODE_NORMAL);
 
 
 // LoRa Interface
@@ -811,7 +811,7 @@ void UpdateCANTask(void* pvParameters)
   rineOutgoingMessage.data[7] = (MAX_TORQUE * 10) >> 8;                           // rinehart expects 10x value spread across 2 bytes
 
   // queue message for transmission
-  esp_err_t rineCtrlResult = can_transmit(&rineOutgoingMessage, pdMS_TO_TICKS(10));
+  // esp_err_t rineCtrlResult = can_transmit(&rineOutgoingMessage, pdMS_TO_TICKS(10));
 
 
   // setup RCB message
@@ -835,7 +835,7 @@ void UpdateCANTask(void* pvParameters)
 
   // debugging
   if (debugger.debugEnabled) {
-    debugger.CAN_rineCtrlResult = rineCtrlResult;
+    // debugger.CAN_rineCtrlResult = rineCtrlResult;
     debugger.CAN_rcbCtrlResult = rcbCtrlResult;
 
     for (int i = 0; i < 8; ++i) {

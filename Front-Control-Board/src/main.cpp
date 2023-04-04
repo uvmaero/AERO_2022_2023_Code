@@ -1000,6 +1000,8 @@ void PrintCANDebug() {
     Serial.printf("Byte %d: %02X\t", i, debugger.CAN_rcbCtrlOutgoingMessage[i]);
   }
 
+  Serial.printf("\n");
+
   Serial.printf("\n--- END CAN DEBUG ---\n");
 }
 

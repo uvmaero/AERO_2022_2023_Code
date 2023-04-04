@@ -373,17 +373,31 @@ void setup() {
     Serial.print("WIFI MAC: "); Serial.println(WiFi.macAddress());
     Serial.print("WIFI CHANNEL: "); Serial.println(WiFi.channel());
 
-    WiFi.disconnect();
     if (esp_now_init() == ESP_OK) {
       Serial.printf("ESP-NOW INIT [ SUCCESS ]\n");
+
+      // add peers
+      esp_err_t rcbResult = esp_now_add_peer(&rcbInfo);
+      esp_err_t wcbResult = esp_now_add_peer(&wcbInfo);
+
+      if (rcbResult == ESP_OK && wcbResult == ESP_OK) {
+        Serial.printf("ESP-NOW ADD PEERS [ SUCCESS ]\n");
+
+        setup.rcbActive = true;
+        setup.wcbActive = true;
+      }
+      else {
+        Serial.printf("ESP-NOW ADD PEERS [ FAILED ]\n");
+      }
     }
 
     else {
       Serial.printf("ESP-NOW INIT [ FAILED ]\n");
     }
+  }
 
-    setup.rcbActive = true;
-    setup.wcbActive = true;
+  else {
+    Serial.printf("WIFI INIT [ FAILED ]\n");
   }
 
   // ------------------------------------------------------------------------ //

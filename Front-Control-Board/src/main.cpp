@@ -96,8 +96,10 @@ Debugger debugger = {
   .scheduler_debugEnable = false,
 
   // debug data
-  .CAN_sentStatus = 0,
-  .CAN_outgoingMessage = {},
+  .CAN_rineCtrlResult = ESP_OK,
+  .CAN_rcbCtrlResult = ESP_OK,
+  .CAN_rineCtrlOutgoingMessage = {},
+  .CAN_rcbCtrlOutgoingMessage = {},
 
   .RCB_updateResult = ESP_OK,
   .RCB_updateMessage = {},
@@ -797,9 +799,8 @@ void UpdateCANTask(void* pvParameters)
   outgoingMessage.data[7] = 0x00;                                             // i think this one is min torque or it does nothing
 
   // queue message for transmission
-  if (can_transmit(&outgoingMessage, pdMS_TO_TICKS(10)) == ESP_OK) {
-    sentStatus = true;
-  }
+  esp_err_t rineCtrlResult = can_transmit(&outgoingMessage, pdMS_TO_TICKS(10));
+
 
   // setup RCB message
   outgoingMessage.identifier = RCB_CONTROL_ADDR;
@@ -817,16 +818,17 @@ void UpdateCANTask(void* pvParameters)
   outgoingMessage.data[7] = 0x07;
 
   // queue message for transmission
-  esp_err_t result = can_transmit(&outgoingMessage, pdMS_TO_TICKS(10));
+  esp_err_t rcbCtrlResult = can_transmit(&outgoingMessage, pdMS_TO_TICKS(10));
 
   // debugging
   if (debugger.debugEnabled) {
-    debugger.CAN_sentStatus = sentStatus;
+    debugger.CAN_rineCtrlResult = rineCtrlResult;
+    debugger.CAN_rcbCtrlResult = rcbCtrlResult;
+
     for (int i = 0; i < 8; ++i) {
-      debugger.CAN_outgoingMessage[i] = outgoingMessage.data[i];
+      debugger.CAN_rcbCtrlOutgoingMessage[i] = outgoingMessage.data[i];
     }
 
-    Serial.printf("result status: 0x%X\n", result);
     debugger.canTaskCount++;
   }
 
@@ -984,13 +986,17 @@ void PrintCANDebug() {
   Serial.printf("\n--- START CAN DEBUG ---\n");
 
   // sent status
-  Serial.printf("CAN Message Send Status: %s\n", debugger.CAN_sentStatus ? "Success" : "Failed");
+  Serial.printf("Rine Ctrl Send Status: 0x%X\n", debugger.CAN_rineCtrlResult);
+  Serial.printf("RCB Ctrl Send Status: 0x%X\n", debugger.CAN_rcbCtrlResult);
 
-  // message
+  // messages
   for (int i = 0; i < 8; ++i) {
-    Serial.printf("Byte %d: %02X\t", i, debugger.CAN_outgoingMessage[i]);
+    Serial.printf("Byte %d: %02X\t", i, debugger.CAN_rineCtrlOutgoingMessage[i]);
   }
-  Serial.printf("\n");
+
+  for (int i = 0; i < 8; ++i) {
+    Serial.printf("Byte %d: %02X\t", i, debugger.CAN_rcbCtrlOutgoingMessage[i]);
+  }
 
   Serial.printf("\n--- END CAN DEBUG ---\n");
 }

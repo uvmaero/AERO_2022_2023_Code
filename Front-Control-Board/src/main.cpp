@@ -795,42 +795,43 @@ void UpdateCANTask(void* pvParameters)
   // --- send messages --- // 
   bool sentStatus = false;  
 
-  can_message_t outgoingMessage;
-  outgoingMessage.identifier = RINE_CONTROL_ADDR;
-  outgoingMessage.flags = CAN_MSG_FLAG_NONE;
-  outgoingMessage.data_length_code = 8;
+  can_message_t rineOutgoingMessage;
+  rineOutgoingMessage.identifier = RINE_CONTROL_ADDR;
+  rineOutgoingMessage.flags = CAN_MSG_FLAG_NONE;
+  rineOutgoingMessage.data_length_code = 8;
 
   // build message
-  outgoingMessage.data[0] = carData.drivingData.commandedTorque && 0xFF;      // commanded torque is sent across two bytes
-  outgoingMessage.data[1] = carData.drivingData.commandedTorque >> 8;
-  outgoingMessage.data[2] = 0x00;                                             // speed command NOT USING
-  outgoingMessage.data[3] = 0x00;                                             // speed command NOT USING
-  outgoingMessage.data[4] = (uint8_t)(carData.drivingData.driveDirection);    // 1: forward | 0: reverse (we run in reverse!)
-  outgoingMessage.data[5] = (uint8_t)(carData.drivingData.enableInverter);    // enable inverter command
-  outgoingMessage.data[6] = MAX_TORQUE && 0xFF;                               // this is the max torque value that rinehart will push
-  outgoingMessage.data[7] = MAX_TORQUE >> 8;                                  // spread across two bytes
+  rineOutgoingMessage.data[0] = carData.drivingData.commandedTorque & 0xFF;      // commanded torque is sent across two bytes
+  rineOutgoingMessage.data[1] = carData.drivingData.commandedTorque >> 8;
+  rineOutgoingMessage.data[2] = 0x00;                                             // speed command NOT USING
+  rineOutgoingMessage.data[3] = 0x00;                                             // speed command NOT USING
+  rineOutgoingMessage.data[4] = (uint8_t)(carData.drivingData.driveDirection);    // 1: forward | 0: reverse (we run in reverse!)
+  rineOutgoingMessage.data[5] = (uint8_t)(carData.drivingData.enableInverter);    // enable inverter command
+  rineOutgoingMessage.data[6] = MAX_TORQUE & 0xFF;                               // this is the max torque value that rinehart will push
+  rineOutgoingMessage.data[7] = MAX_TORQUE >> 8;                                  // spread across two bytes
 
   // queue message for transmission
-  esp_err_t rineCtrlResult = can_transmit(&outgoingMessage, pdMS_TO_TICKS(10));
+  esp_err_t rineCtrlResult = can_transmit(&rineOutgoingMessage, pdMS_TO_TICKS(10));
 
 
   // setup RCB message
-  outgoingMessage.identifier = RCB_CONTROL_ADDR;
-  outgoingMessage.flags = CAN_MSG_FLAG_NONE;
-  outgoingMessage.data_length_code = 8;
+  can_message_t rcbOutgoingMessage;
+  rcbOutgoingMessage.identifier = RCB_CONTROL_ADDR;
+  rcbOutgoingMessage.flags = CAN_MSG_FLAG_NONE;
+  rcbOutgoingMessage.data_length_code = 8;
 
   // build message for RCB - control
-  outgoingMessage.data[0] = (uint8_t)carData.outputs.brakeLight;
-  outgoingMessage.data[1] = 0x01;
-  outgoingMessage.data[2] = 0x02;
-  outgoingMessage.data[3] = 0x03;
-  outgoingMessage.data[4] = 0x04;
-  outgoingMessage.data[5] = 0x05;
-  outgoingMessage.data[6] = 0x06;
-  outgoingMessage.data[7] = 0x07;
+  rcbOutgoingMessage.data[0] = (uint8_t)carData.outputs.brakeLight;
+  rcbOutgoingMessage.data[1] = 0x01;
+  rcbOutgoingMessage.data[2] = 0x02;
+  rcbOutgoingMessage.data[3] = 0x03;
+  rcbOutgoingMessage.data[4] = 0x04;
+  rcbOutgoingMessage.data[5] = 0x05;
+  rcbOutgoingMessage.data[6] = 0x06;
+  rcbOutgoingMessage.data[7] = 0x07;
 
   // queue message for transmission
-  esp_err_t rcbCtrlResult = can_transmit(&outgoingMessage, pdMS_TO_TICKS(10));
+  esp_err_t rcbCtrlResult = can_transmit(&rcbOutgoingMessage, pdMS_TO_TICKS(10));
 
   // debugging
   if (debugger.debugEnabled) {
@@ -838,7 +839,11 @@ void UpdateCANTask(void* pvParameters)
     debugger.CAN_rcbCtrlResult = rcbCtrlResult;
 
     for (int i = 0; i < 8; ++i) {
-      debugger.CAN_rcbCtrlOutgoingMessage[i] = outgoingMessage.data[i];
+      debugger.CAN_rineCtrlOutgoingMessage[i] = rineOutgoingMessage.data[i];
+    }
+
+    for (int i = 0; i < 8; ++i) {
+      debugger.CAN_rcbCtrlOutgoingMessage[i] = rcbOutgoingMessage.data[i];
     }
 
     debugger.canTaskCount++;
@@ -995,7 +1000,7 @@ void GetCommandedTorque()
  * 
  */
 void PrintCANDebug() {
-  Serial.printf("\n--- START CAN DEBUG ---\n");
+  Serial.printf("\n--- START CAN DEBUG ---\n\n");
 
   // incoming data
   Serial.printf("Incoming RTD Status: %s\n", carData.drivingData.readyToDrive ? "true" : "false");
@@ -1007,19 +1012,20 @@ void PrintCANDebug() {
   Serial.printf("RCB Ctrl Send Status: 0x%X\n", debugger.CAN_rcbCtrlResult);
 
   // messages
+  Serial.printf("\n");
+  Serial.printf("Rine Ctrl Outgoing Message:\n");
   for (int i = 0; i < 8; ++i) {
     Serial.printf("Byte %d: %02X\t", i, debugger.CAN_rineCtrlOutgoingMessage[i]);
   }
 
   Serial.printf("\n");
 
+  Serial.printf("RCB Ctrl Outgoing Message:\n");
   for (int i = 0; i < 8; ++i) {
     Serial.printf("Byte %d: %02X\t", i, debugger.CAN_rcbCtrlOutgoingMessage[i]);
   }
 
-  Serial.printf("\n");
-
-  Serial.printf("\n--- END CAN DEBUG ---\n");
+  Serial.printf("\n\n--- END CAN DEBUG ---\n");
 }
 
 

@@ -90,9 +90,9 @@
 Debugger debugger = {
   // debug toggle
   .debugEnabled = ENABLE_DEBUG,
-  .CAN_debugEnabled = true,
+  .CAN_debugEnabled = false,
   .WCB_debugEnabled = false,
-  .IO_debugEnabled = false,
+  .IO_debugEnabled = true,
   .scheduler_debugEnable = false,
 
   // debug data
@@ -679,15 +679,15 @@ void ReadSensorsTask(void* pvParameters)
   esp_wifi_stop();
 
   // get pedal positions
-  float tmpPedal0 = analogRead(PEDAL_0_PIN);
-  carData.inputs.pedal0 = map(tmpPedal0, 575, 2810, 0, 255);   // starting min and max values must be found via testing!!! (0.59V - 2.75V)
+  uint16_t tmpPedal0 = analogReadMilliVolts(PEDAL_0_PIN);
+  carData.inputs.pedal0 = map(tmpPedal0, 575, 2810, PEDAL_MIN, PEDAL_MAX);   // starting min and max values must be found via testing!!! (0.59V - 2.75V)
   
   if (carData.inputs.pedal0 > 255) {
     carData.inputs.pedal0 = 255;
   }
 
-  float tmpPedal1 = analogRead(PEDAL_1_PIN);
-  carData.inputs.pedal1 = map(tmpPedal1, 250, 1400, 0, 255);   // starting min and max values must be found via testing!!! (0.29V - 1.379V)
+  uint16_t tmpPedal1 = analogReadMilliVolts(PEDAL_1_PIN);
+  carData.inputs.pedal1 = map(tmpPedal1, 290, 1375, PEDAL_MIN, PEDAL_MAX);   // starting min and max values must be found via testing!!! (0.29V - 1.379V)
 
   if (carData.inputs.pedal1 > 255) {
     carData.inputs.pedal1 = 255;
@@ -801,14 +801,14 @@ void UpdateCANTask(void* pvParameters)
   rineOutgoingMessage.data_length_code = 8;
 
   // build message
-  rineOutgoingMessage.data[0] = carData.drivingData.commandedTorque & 0xFF;      // commanded torque is sent across two bytes
+  rineOutgoingMessage.data[0] = carData.drivingData.commandedTorque & 0xFF;       // commanded torque is sent across two bytes
   rineOutgoingMessage.data[1] = carData.drivingData.commandedTorque >> 8;
   rineOutgoingMessage.data[2] = 0x00;                                             // speed command NOT USING
   rineOutgoingMessage.data[3] = 0x00;                                             // speed command NOT USING
   rineOutgoingMessage.data[4] = (uint8_t)(carData.drivingData.driveDirection);    // 1: forward | 0: reverse (we run in reverse!)
   rineOutgoingMessage.data[5] = (uint8_t)(carData.drivingData.enableInverter);    // enable inverter command
-  rineOutgoingMessage.data[6] = MAX_TORQUE & 0xFF;                               // this is the max torque value that rinehart will push
-  rineOutgoingMessage.data[7] = MAX_TORQUE >> 8;                                  // spread across two bytes
+  rineOutgoingMessage.data[6] = (MAX_TORQUE * 10) & 0xFF;                         // this is the max torque value that rinehart will push
+  rineOutgoingMessage.data[7] = (MAX_TORQUE * 10) >> 8;                           // rinehart expects 10x value spread across 2 bytes
 
   // queue message for transmission
   esp_err_t rineCtrlResult = can_transmit(&rineOutgoingMessage, pdMS_TO_TICKS(10));

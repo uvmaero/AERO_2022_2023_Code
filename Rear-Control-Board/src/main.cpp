@@ -43,7 +43,7 @@
 #define MIN_BUS_VOLTAGE                 220         // a voltage that can only be reached with two active packs
 
 // CAN
-#define NUM_CAN_READS                   500
+#define NUM_CAN_READS                   10
 #define FCB_CONTROL_ADDR                0x00A
 #define FCB_DATA_ADDR                   0x00B
 #define RCB_CONTROL_ADDR                0x00C
@@ -231,9 +231,9 @@ static const can_general_config_t can_general_config = CAN_GENERAL_CONFIG_DEFAUL
 
 
 // SD Card Interface
-int sdLogfileNumber;
-char sdLogFilename[SD_BUFF];
-char sdTrackerFilename[SD_BUFF] = "/tracker.txt";
+// int sdLogfileNumber;
+// char sdLogFilename[SD_BUFF];
+// char sdTrackerFilename[SD_BUFF] = "/tracker.txt";
 
 /*
 ===============================================================================================
@@ -1013,7 +1013,7 @@ void UpdateCANTask(void* pvParameters)
   outgoingMessage.data[7] = 0x00;
 
   // queue message for transmission
-  // esp_err_t fcbCtrlResult = can_transmit(&outgoingMessage, pdMS_TO_TICKS(1000));
+  esp_err_t fcbCtrlResult = can_transmit(&outgoingMessage, pdMS_TO_TICKS(100));
 
   // build message for FCB 
   outgoingMessage.identifier = FCB_DATA_ADDR;
@@ -1030,7 +1030,7 @@ void UpdateCANTask(void* pvParameters)
   outgoingMessage.data[7] = 0x00;
 
   // queue message for transmission
-  // esp_err_t fcbDataResult = can_transmit(&outgoingMessage, pdMS_TO_TICKS(100));
+  esp_err_t fcbDataResult = can_transmit(&outgoingMessage, pdMS_TO_TICKS(100));
 
   // debugging
   if (debugger.debugEnabled) {
@@ -1078,45 +1078,45 @@ void UpdateWCBTask(void* pvParameters) {
  */
 void UpdateLoggerTask(void* pvParameters) {
 //   // inits
-  char tmpStr[SD_BUFF];
-  bool logWritten = false;
-  float timeStamp = (float)esp_timer_get_time() * 1000000;    // convert uptime from microseconds to seconds
+  // char tmpStr[SD_BUFF];
+  // bool logWritten = false;
+  // float timeStamp = (float)esp_timer_get_time() * 1000000;    // convert uptime from microseconds to seconds
 
-  // open file
-  File logFile = SD_MMC.open(sdTrackerFilename, FILE_WRITE);
+  // // open file
+  // File logFile = SD_MMC.open(sdTrackerFilename, FILE_WRITE);
 
-  // write start of block seperator
-  logFile.printf("\n------------------------------\n");
+  // // write start of block seperator
+  // logFile.printf("\n------------------------------\n");
 
-  // write timestamp
-  logFile.printf("\t\t[ %.2f seconds ]:\n\n", timeStamp);
+  // // write timestamp
+  // logFile.printf("\t\t[ %.2f seconds ]:\n\n", timeStamp);
 
-  // write data
-  logFile.printf("DRIVE STATE: RTD: %d | INVER-EN: %d | MODE: %d\n", carData.drivingData.readyToDrive, carData.drivingData.enableInverter, (int)carData.drivingData.driveMode);
+  // // write data
+  // logFile.printf("DRIVE STATE: RTD: %d | INVER-EN: %d | MODE: %d\n", carData.drivingData.readyToDrive, carData.drivingData.enableInverter, (int)carData.drivingData.driveMode);
 
-  logFile.printf("FAULTS: IMD: %d | BMS: %d\n", carData.drivingData.imdFault, carData.drivingData.bmsFault);
+  // logFile.printf("FAULTS: IMD: %d | BMS: %d\n", carData.drivingData.imdFault, carData.drivingData.bmsFault);
 
-  logFile.printf("DRIVE STATS: COMM-TORQ: %d | SPEED: %f | DIR: %d\n", carData.drivingData.commandedTorque, carData.drivingData.currentSpeed, carData.drivingData.driveDirection);
+  // logFile.printf("DRIVE STATS: COMM-TORQ: %d | SPEED: %f | DIR: %d\n", carData.drivingData.commandedTorque, carData.drivingData.currentSpeed, carData.drivingData.driveDirection);
   
-  logFile.printf("PEDALS: P1: %d | P2: %d | B1: %d | B2: %d\n", carData.inputs.pedal0, carData.inputs.pedal1, carData.inputs.brake0, carData.inputs.brake1);
+  // logFile.printf("PEDALS: P1: %d | P2: %d | B1: %d | B2: %d\n", carData.inputs.pedal0, carData.inputs.pedal1, carData.inputs.brake0, carData.inputs.brake1);
   
-  logFile.printf("WHEEL SPEED: FR: %f | FL: %f | BR: %f | BL: %f\n", carData.sensors.wheelSpeedFR, carData.sensors.wheelSpeedFL, carData.sensors.wheelSpeedBR, carData.sensors.wheelSpeedBL);
+  // logFile.printf("WHEEL SPEED: FR: %f | FL: %f | BR: %f | BL: %f\n", carData.sensors.wheelSpeedFR, carData.sensors.wheelSpeedFL, carData.sensors.wheelSpeedBR, carData.sensors.wheelSpeedBL);
   
-  logFile.printf("WHEEL HEIGHT: FR: %f | FL: %f | BR: %f | BL: %f\n", carData.sensors.wheelHeightFR, carData.sensors.wheelHeightFL, carData.sensors.wheelHeightBR, carData.sensors.wheelHeightBL);
+  // logFile.printf("WHEEL HEIGHT: FR: %f | FL: %f | BR: %f | BL: %f\n", carData.sensors.wheelHeightFR, carData.sensors.wheelHeightFL, carData.sensors.wheelHeightBR, carData.sensors.wheelHeightBL);
   
-  logFile.printf("STEERING ANGLE: %d\n", carData.sensors.steeringWheelAngle);
+  // logFile.printf("STEERING ANGLE: %d\n", carData.sensors.steeringWheelAngle);
 
-  logFile.printf("PACKS: CHARGE: %f | BUS-V: %f | RINE-V: %f\n", carData.batteryStatus.batteryChargeState, carData.batteryStatus.busVoltage, carData.batteryStatus.rinehartVoltage);
+  // logFile.printf("PACKS: CHARGE: %f | BUS-V: %f | RINE-V: %f\n", carData.batteryStatus.batteryChargeState, carData.batteryStatus.busVoltage, carData.batteryStatus.rinehartVoltage);
   
-  logFile.printf("TEMPS: PACK-1: %f | PACK-2: %f | VICORE: %f | PUMP-I: %f | PUMP-O: %f\n", carData.batteryStatus.pack1Temp, carData.batteryStatus.pack2Temp, carData.sensors.vicoreTemp, carData.sensors.pumpTempIn, carData.sensors.pumpTempOut);
+  // logFile.printf("TEMPS: PACK-1: %f | PACK-2: %f | VICORE: %f | PUMP-I: %f | PUMP-O: %f\n", carData.batteryStatus.pack1Temp, carData.batteryStatus.pack2Temp, carData.sensors.vicoreTemp, carData.sensors.pumpTempIn, carData.sensors.pumpTempOut);
 
-  logFile.printf("OUTPUTS: BUZZER: %d | BRAKE: %d | FAN-EN: %d | PUMP-EN: %d\n", carData.outputs.buzzerActive, carData.outputs.brakeLight, carData.outputs.fansActive, carData.outputs.pumpActive);
+  // logFile.printf("OUTPUTS: BUZZER: %d | BRAKE: %d | FAN-EN: %d | PUMP-EN: %d\n", carData.outputs.buzzerActive, carData.outputs.brakeLight, carData.outputs.fansActive, carData.outputs.pumpActive);
 
-  // write end of block seperator
-  logFile.printf("\n------------------------------\n");
+  // // write end of block seperator
+  // logFile.printf("\n------------------------------\n");
 
-  // close log file
-  logFile.close();
+  // // close log file
+  // logFile.close();
 
 
   // debugging
@@ -1141,12 +1141,12 @@ void UpdateLoggerTask(void* pvParameters) {
  * 
  */
 void GenerateFilename() {
-  // inits
-  char logNum[SD_BUFF];
-  char baseName[SD_BUFF] = "/poop_aids_";
+  // // inits
+  // char logNum[SD_BUFF];
+  // char baseName[SD_BUFF] = "/poop_aids_";
 
-  // strcat(baseName, atoi);
-  strcat(sdTrackerFilename, ".txt");
+  // // strcat(baseName, atoi);
+  // strcat(sdTrackerFilename, ".txt");
 }
 
 

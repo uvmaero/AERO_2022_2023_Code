@@ -60,9 +60,10 @@
 // tasks & timers
 #define SENSOR_POLL_INTERVAL            100000      // 0.1 seconds in microseconds
 #define ESP_NOW_UPDATE_INTERVAL         200000      // 0.2 seconds in microseconds
-#define CAN_UPDATE_INTERVAL             100000      // 0.1 seconds in microseconds
+#define CAN_UPDATE_INTERVAL             10000      // 0.1 seconds in microseconds
 #define LOGGER_UPDATE_INTERVAL          250000      // 0.25 seconds in microseconds
 #define TASK_STACK_SIZE                 4096        // in bytes
+#define CAN_BLOCK_DELAY                 100         // time to block to complete function call in FreeRTOS ticks (milliseconds)
 
 // debug
 #define ENABLE_DEBUG                    true        // master debug control
@@ -294,7 +295,6 @@ void setup()
     bool fcbActive = false;
     bool wcbActive = false;
     bool loggerActive = false;
-    bool prechargeActive = false;
   };
   setup setup;
 
@@ -325,7 +325,6 @@ void setup()
 
   Serial.printf("GPIO INIT [ SUCCESS ]\n");
   setup.ioActive = true;
-  setup.prechargeActive = true;
   // -------------------------------------------------------------------------- //
 
 
@@ -362,15 +361,26 @@ void setup()
     Serial.print("WIFI MAC: "); Serial.println(WiFi.macAddress());
     Serial.print("WIFI CHANNEL: "); Serial.println(WiFi.channel());
 
-    WiFi.disconnect();
     if (esp_now_init() == ESP_OK) {
       Serial.printf("ESP-NOW INIT [ SUCCESS ]\n");
 
       // add peers
-      // TODO: do this 
+      esp_err_t rcbResult = esp_now_add_peer(&fcbInfo);
+      esp_err_t wcbResult = esp_now_add_peer(&wcbInfo);
 
-      setup.fcbActive = true;
-      setup.wcbActive = true;
+      if (rcbResult == ESP_OK && wcbResult == ESP_OK) {
+        Serial.printf("ESP-NOW ADD PEERS [ SUCCESS ]\n");
+
+        setup.fcbActive = true;
+        setup.wcbActive = true;
+      }
+      else {
+        Serial.printf("ESP-NOW ADD PEERS [ FAILED ]\n");
+      }
+    }
+
+    else {
+      Serial.printf("ESP-NOW INIT [ FAILED ]\n");
     }
   }
 
@@ -495,7 +505,7 @@ void setup()
     timerAlarmEnable(timer2);
   if (setup.loggerActive)
     timerAlarmEnable(timer3);
-  if (setup.prechargeActive)
+  if (setup.fcbActive && setup.wcbActive)
     timerAlarmEnable(timer4);
 
   // ----------------------------------------------------------------------------------------- //
@@ -573,7 +583,7 @@ void CANCallback() {
   TaskHandle_t xHandleRead = NULL;
 
   // queue tasks
-  xTaskCreate(CANReadTask, "CAN-Read", TASK_STACK_SIZE, &ucParameterToPassRead, 20, &xHandleRead);
+  xTaskCreate(CANReadTask, "CAN-Read", TASK_STACK_SIZE, &ucParameterToPassRead, 25, &xHandleRead);
   xTaskCreate(CANWriteTask, "CAN-Write", TASK_STACK_SIZE, &ucParameterToPassWrite, 20, &xHandleWrite);
 
   portEXIT_CRITICAL_ISR(&timerMux);
@@ -884,7 +894,7 @@ void CANReadTask(void* pvParameters)
   // --- receive messages --- //
   // check for new messages in the CAN buffer
   for (int i = 0; i < NUM_CAN_READS; ++i) {
-    if (can_receive(&incomingMessage, pdMS_TO_TICKS(500)) == ESP_OK) { // if there are messages to be read
+    if (can_receive(&incomingMessage, pdMS_TO_TICKS(CAN_BLOCK_DELAY)) == ESP_OK) { // if there are messages to be read
       incomingId = incomingMessage.identifier;
       
       // parse out data
@@ -1003,7 +1013,7 @@ void CANWriteTask(void* pvParameters)
   }
 
   // queue rinehart message for transmission
-  prechargeMessageResult = can_transmit(&prechargeOutgoingMessage, pdMS_TO_TICKS(100));
+  prechargeMessageResult = can_transmit(&prechargeOutgoingMessage, pdMS_TO_TICKS(CAN_BLOCK_DELAY));
 
 
   // --- other outgoing messages --- // 
@@ -1025,7 +1035,7 @@ void CANWriteTask(void* pvParameters)
   fcbCtrlOutgoingMessage.data[7] = 0x00;
 
   // queue message for transmission
-  esp_err_t fcbCtrlResult = can_transmit(&fcbCtrlOutgoingMessage, pdMS_TO_TICKS(100));
+  esp_err_t fcbCtrlResult = can_transmit(&fcbCtrlOutgoingMessage, pdMS_TO_TICKS(CAN_BLOCK_DELAY));
 
   // build message for FCB 
   fcbDataOutgoingMessage.identifier = FCB_DATA_ADDR;
@@ -1042,7 +1052,7 @@ void CANWriteTask(void* pvParameters)
   fcbDataOutgoingMessage.data[7] = 0x00;
 
   // queue message for transmission
-  esp_err_t fcbDataResult = can_transmit(&fcbDataOutgoingMessage, pdMS_TO_TICKS(100));
+  esp_err_t fcbDataResult = can_transmit(&fcbDataOutgoingMessage, pdMS_TO_TICKS(CAN_BLOCK_DELAY));
 
   // debugging
   if (debugger.debugEnabled) {

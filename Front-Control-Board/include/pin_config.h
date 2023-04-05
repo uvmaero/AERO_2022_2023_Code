@@ -51,8 +51,8 @@ esp_pm_config_esp32_t power_configuration {
 #define RTD_BUTTON_PIN                      17
 
 // CAN
-#define CAN_RX_PIN                          19
-#define CAN_TX_PIN                          23
+#define CAN_RX_PIN                          23
+#define CAN_TX_PIN                          19
 #define CAN_ENABLE_PIN                      5
 
 // Outputs

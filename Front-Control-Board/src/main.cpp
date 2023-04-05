@@ -66,6 +66,7 @@
 #define ARDAN_UPDATE_INTERVAL           200000      // 0.2 seconds in microseconds
 #define ESP_NOW_UPDATE_INTERVAL         200000      // 0.2 seconds in microseconds
 #define TASK_STACK_SIZE                 4096        // in bytes
+#define CAN_BLOCK_DELAY                 100         // time to block to complete function call in FreeRTOS ticks (milliseconds)
 
 // debug
 #define ENABLE_DEBUG                    true        // master debug message control
@@ -90,10 +91,10 @@
 Debugger debugger = {
   // debug toggle
   .debugEnabled = ENABLE_DEBUG,
-  .CAN_debugEnabled = true,
+  .CAN_debugEnabled = false,
   .WCB_debugEnabled = false,
   .IO_debugEnabled = false,
-  .scheduler_debugEnable = false,
+  .scheduler_debugEnable = true,
 
   // debug data
   .CAN_rineCtrlResult = ESP_OK,
@@ -768,7 +769,7 @@ void UpdateCANTask(void* pvParameters)
   // --- receive messages --- //
   // check for new messages in the CAN buffer
   for (int i = 0; i < NUM_CAN_READS; ++i) {
-    if (can_receive(&incomingMessage, pdMS_TO_TICKS(1000)) == ESP_OK) { // if there are messages to be read
+    if (can_receive(&incomingMessage, pdMS_TO_TICKS(CAN_BLOCK_DELAY)) == ESP_OK) { // if there are messages to be read
       id = incomingMessage.identifier;
       
       // parse out data
@@ -811,7 +812,7 @@ void UpdateCANTask(void* pvParameters)
   rineOutgoingMessage.data[7] = (MAX_TORQUE * 10) >> 8;                           // rinehart expects 10x value spread across 2 bytes
 
   // queue message for transmission
-  esp_err_t rineCtrlResult = can_transmit(&rineOutgoingMessage, pdMS_TO_TICKS(100));
+  esp_err_t rineCtrlResult = can_transmit(&rineOutgoingMessage, pdMS_TO_TICKS(CAN_BLOCK_DELAY));
 
 
   // setup RCB message
@@ -831,7 +832,7 @@ void UpdateCANTask(void* pvParameters)
   rcbOutgoingMessage.data[7] = 0x07;
 
   // queue message for transmission
-  esp_err_t rcbCtrlResult = can_transmit(&rcbOutgoingMessage, pdMS_TO_TICKS(100));
+  esp_err_t rcbCtrlResult = can_transmit(&rcbOutgoingMessage, pdMS_TO_TICKS(CAN_BLOCK_DELAY));
 
   // debugging
   if (debugger.debugEnabled) {

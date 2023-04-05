@@ -59,8 +59,8 @@
 
 // tasks & timers
 #define SENSOR_POLL_INTERVAL            100000      // 0.1 seconds in microseconds
-#define PRECHARGE_INTERVAL              150000      // 0.15 seconds in microseconds
-#define CAN_WRITE_INTERVAL              100000      // 0.1 seconds in microseconds
+#define ESP_NOW_UPDATE_INTERVAL         200000      // 0.2 seconds in microseconds
+#define CAN_UPDATE_INTERVAL             100000      // 0.1 seconds in microseconds
 #define LOGGER_UPDATE_INTERVAL          250000      // 0.25 seconds in microseconds
 #define TASK_STACK_SIZE                 4096        // in bytes
 
@@ -89,6 +89,7 @@ Debugger debugger = {
   .debugEnabled = ENABLE_DEBUG,
   .CAN_debugEnabled = false,
   .IO_debugEnabled = false,
+  .Logger_debugEnabled = false,
   .scheduler_debugEnable = true,
 
   // debug data
@@ -244,7 +245,6 @@ char sdTrackerFilename[SD_BUFF_LEN] = "/tracker.txt";
 
 // callbacks
 void SensorCallback();
-void PrechargeCallback();
 void CANCallback();
 void ESPNOWCallback();
 void LoggerCallback();
@@ -293,6 +293,7 @@ void setup()
     bool ioActive = false;
     bool canActive = false;
     bool fcbActive = false;
+    bool wcbActive = false;
     bool loggerActive = false;
     bool prechargeActive = false;
   };
@@ -365,6 +366,12 @@ void setup()
     WiFi.disconnect();
     if (esp_now_init() == ESP_OK) {
       Serial.printf("ESP-NOW INIT [ SUCCESS ]\n");
+
+      // add peers
+      // TODO: do this 
+
+      setup.fcbActive = true;
+      setup.wcbActive = true;
     }
   }
 
@@ -459,7 +466,7 @@ void setup()
   // timer 2 - CAN Update
   timer2 = timerBegin(1, 80, true);
   timerAttachInterrupt(timer2, &CANCallback, true);
-  timerAlarmWrite(timer2, CAN_WRITE_INTERVAL, true);
+  timerAlarmWrite(timer2, CAN_UPDATE_INTERVAL, true);
 
   // timer 3 - Logger Update
   timer3 = timerBegin(2, 80, true);
@@ -468,8 +475,8 @@ void setup()
 
   // timer 4 - ESP-NOW Update
   timer4 = timerBegin(3, 80, true);
-  timerAttachInterrupt(timer4, &PrechargeCallback, true);
-  timerAlarmWrite(timer4, PRECHARGE_INTERVAL, true);
+  timerAttachInterrupt(timer4, &ESPNOWCallback, true);
+  timerAlarmWrite(timer4, ESP_NOW_UPDATE_INTERVAL, true);
 
   // start timers
   if (setup.ioActive)
@@ -486,9 +493,11 @@ void setup()
 
   // --------------------------------- Scheduler Status -------------------------------------- //
   Serial.printf("SENSOR TASK STATUS: %s\n", timerAlarmEnabled(timer1) ? "RUNNING" : "DISABLED");
-  Serial.printf("CAN TASK STATUS: %s\n", timerAlarmEnabled(timer2) ? "RUNNING" : "DISABLED");
+  Serial.printf("PRECHARGE TASK STATUS: %s\n", timerAlarmEnabled(timer1) ? "RUNNING" : "DISABLED");
+  Serial.printf("CAN READ STATUS: %s\n", timerAlarmEnabled(timer2) ? "RUNNING" : "DISABLED");
+  Serial.printf("CAN WRITE STATUS: %s\n", timerAlarmEnabled(timer2) ? "RUNNING" : "DISABLED");
   Serial.printf("LOGGER TASK STATUS: %s\n", timerAlarmEnabled(timer3) ? "RUNNING" : "DISABLED");
-  Serial.printf("PRECHARGE TASK STATUS: %s\n", timerAlarmEnabled(timer4) ? "RUNNING" : "DISABLED");
+  Serial.printf("ESP-NOW TASK STATUS: %s\n", timerAlarmEnabled(timer4) ? "RUNNING" : "DISABLED");
 
   if (xTaskGetSchedulerState() == 2) {
     Serial.printf("\nScheduler Status: RUNNING\n");
@@ -522,29 +531,16 @@ void setup()
 void SensorCallback() {
   portENTER_CRITICAL_ISR(&timerMux);
   
-  // queue sensor task
-  static uint8_t ucParameterToPass;
-  TaskHandle_t xHandle = NULL;
-  xTaskCreate(ReadSensorsTask, "Poll-Senser-Data", TASK_STACK_SIZE, &ucParameterToPass, tskIDLE_PRIORITY, &xHandle);
-  
-  portEXIT_CRITICAL_ISR(&timerMux);
+  // inits
+  static uint8_t ucParameterToPassSensor;
+  TaskHandle_t xHandleSensor = NULL;
 
-  return;
-}
+  static uint8_t ucParameterToPassPrecharge;
+  TaskHandle_t xHandlePrecharge = NULL;
 
-
-/**
- * @brief callback function for creating a new precharge task
- * 
- * @param args arguments to be passed to the task
- */
-void PrechargeCallback() {
-  portENTER_CRITICAL_ISR(&timerMux);
-
-  // queue precharge task
-  static uint8_t ucParameterToPass;
-  TaskHandle_t xHandle = NULL;
-  xTaskCreate(PrechargeTask, "Precharge-Data", TASK_STACK_SIZE, &ucParameterToPass, tskIDLE_PRIORITY, &xHandle);
+  // queue tasks 
+  xTaskCreate(ReadSensorsTask, "Poll-Senser-Data", TASK_STACK_SIZE, &ucParameterToPassSensor, tskIDLE_PRIORITY, &xHandleSensor);
+  xTaskCreate(PrechargeTask, "Precharge-Data", TASK_STACK_SIZE, &ucParameterToPassPrecharge, 10, &xHandlePrecharge);
   
   portEXIT_CRITICAL_ISR(&timerMux);
 
@@ -566,8 +562,9 @@ void CANCallback() {
   static uint8_t ucParameterToPassRead;
   TaskHandle_t xHandleRead = NULL;
 
-  xTaskCreate(CANReadTask, "CAN-Read", TASK_STACK_SIZE, &ucParameterToPassRead, tskIDLE_PRIORITY, &xHandleRead);
-  xTaskCreate(CANWriteTask, "CAN-Write", TASK_STACK_SIZE, &ucParameterToPassWrite, tskIDLE_PRIORITY, &xHandleWrite);
+  // queue tasks
+  xTaskCreate(CANReadTask, "CAN-Read", TASK_STACK_SIZE, &ucParameterToPassRead, 20, &xHandleRead);
+  xTaskCreate(CANWriteTask, "CAN-Write", TASK_STACK_SIZE, &ucParameterToPassWrite, 20, &xHandleWrite);
 
   portEXIT_CRITICAL_ISR(&timerMux);
 
@@ -585,7 +582,7 @@ void LoggerCallback() {
   
   static uint8_t ucParameterToPass;
   TaskHandle_t xHandle = NULL;
-  xTaskCreate(UpdateLoggerTask, "ARDAN-Update", TASK_STACK_SIZE, &ucParameterToPass, tskIDLE_PRIORITY, &xHandle);
+  xTaskCreate(UpdateLoggerTask, "Logger-Update", TASK_STACK_SIZE, &ucParameterToPass, 2, &xHandle);
   
   portEXIT_CRITICAL_ISR(&timerMux);
 
@@ -603,7 +600,7 @@ void ESPNOWCallback() {
 
   static uint8_t ucParameterToPass;
   TaskHandle_t xHandle = NULL;
-  xTaskCreate(UpdateWCBTask, "WCB-Update", TASK_STACK_SIZE, &ucParameterToPass, tskIDLE_PRIORITY, &xHandle);
+  xTaskCreate(UpdateWCBTask, "WCB-Update", TASK_STACK_SIZE, &ucParameterToPass, 2, &xHandle);
 
   portEXIT_CRITICAL_ISR(&timerMux);
   
@@ -877,7 +874,7 @@ void CANReadTask(void* pvParameters)
   // --- receive messages --- //
   // check for new messages in the CAN buffer
   for (int i = 0; i < NUM_CAN_READS; ++i) {
-    if (can_receive(&incomingMessage, pdMS_TO_TICKS(1000)) == ESP_OK) { // if there are messages to be read
+    if (can_receive(&incomingMessage, pdMS_TO_TICKS(500)) == ESP_OK) { // if there are messages to be read
       incomingId = incomingMessage.identifier;
       
       // parse out data
@@ -1236,14 +1233,20 @@ void PrintWCBDebug() {
   Serial.printf("\n--- START WCB DEBUG ---\n\n");
 
   // send status
-  Serial.printf("WCB ESP-NOW Update: %s\n", debugger.WCB_updateResult ? "Success" : "Failed");
-
-
-  // message
-  Serial.printf("ready to drive status: %d\n", debugger.WCB_updateMessage.drivingData.readyToDrive);
+  Serial.printf("Message Send Status: %s\n", debugger.WCB_updateResult ? "Success" : "Failed");
   
-
   Serial.printf("\n\n--- END WCB DEBUG ---\n");
+}
+
+
+void PrintLoggerDebug() {
+  Serial.printf("\n--- START LOGGER DEBUG ---\n\n");
+
+  // status
+  Serial.printf("Log Written Status: %s\n", debugger.logWritten ? "Success" : "Failed");
+  Serial.printf("Timestamp: %f\n", debugger.loggerTimestamp);
+  
+  Serial.printf("\n\n--- END LOGGER DEBUG ---\n");
 }
 
 
@@ -1311,6 +1314,11 @@ void PrintDebug() {
     PrintWCBDebug();
   }
 
+  // Logger
+  if (debugger.Logger_debugEnabled) {
+    PrintLoggerDebug();
+  }
+
   // I/O
   if (debugger.IO_debugEnabled) {
     PrintIODebug();
@@ -1318,6 +1326,6 @@ void PrintDebug() {
 
   // Scheduler
   if (debugger.scheduler_debugEnable) {
-    Serial.printf("sensor: %d | can read: %d | can write: %d | precharge: %d | logger: %d\n", debugger.sensorTaskCount, debugger.canReadTaskCount, debugger.canWriteTaskCount, debugger.prechargeTaskCount, debugger.loggerTaskCount);
+    Serial.printf("sensor: %d | can read: %d | can write: %d | precharge: %d | logger: %d | wcb update: %d\n", debugger.sensorTaskCount, debugger.canReadTaskCount, debugger.canWriteTaskCount, debugger.prechargeTaskCount, debugger.loggerTaskCount, debugger.wcbTaskCount);
   }
 }

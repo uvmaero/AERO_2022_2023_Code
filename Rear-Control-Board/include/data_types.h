@@ -131,6 +131,7 @@ typedef struct Debugger
   bool CAN_debugEnabled;
   bool FCB_debugEnabled;
   bool IO_debugEnabled;
+  bool Logger_debugEnabled;
   bool scheduler_debugEnable;
 
   // debug data
@@ -149,6 +150,9 @@ typedef struct Debugger
 
   PrechargeStates prechargeState;
 
+  float loggerTimestamp;
+  bool logWritten;
+
   // scheduler data
   int sensorTaskCount;
   int prechargeTaskCount;
@@ -161,6 +165,7 @@ typedef struct Debugger
 
 // debugging functions
 void PrintDebug();
+void PrintLoggerDebug();
 void PrintCANDebug();
 void PrintFCBDebug();
 void PrintIODebug();

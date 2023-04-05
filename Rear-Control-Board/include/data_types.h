@@ -134,9 +134,11 @@ typedef struct Debugger
   bool scheduler_debugEnable;
 
   // debug data
+  esp_err_t prechargeResult;
   esp_err_t fcbCtrlResult;
   esp_err_t fcbDataResult;
 
+  uint8_t CAN_prechargeOutgoingMessage[8];
   uint8_t CAN_fcbDataOutgoingMessage[8];
   uint8_t CAN_fcbCtrlOutgoingMessage[8];
 
@@ -150,7 +152,8 @@ typedef struct Debugger
   // scheduler data
   int sensorTaskCount;
   int prechargeTaskCount;
-  int canTaskCount;
+  int canReadTaskCount;
+  int canWriteTaskCount;
   int loggerTaskCount;
   int wcbTaskCount;
 } Debugger;

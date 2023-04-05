@@ -231,10 +231,9 @@ static const can_general_config_t can_general_config = CAN_GENERAL_CONFIG_DEFAUL
 
 
 // SD Card Interface
-int sdLogfileNumber;
-char sdLogFilename[SD_BUFF_LEN];
+int sdLogFileNumber;
 char sdTrackerFilename[SD_BUFF_LEN] = "/tracker.txt";
-
+char sdLogFilname [SD_BUFF_LEN] = "";
 
 /*
 ===============================================================================================
@@ -384,12 +383,12 @@ void setup()
 
   // ---------------------- initialize SD Logger ---------------------------- //
   // init sd card
+  // SD_MMC.setPins();
+
   if (SD_MMC.begin()) {
     Serial.printf("SD CARD INIT [ SUCCESS ]\n");
     // inits
     int trackerNumber;
-
-    // SD_MMC.setPins();
 
     // check for sd card inserted
     uint8_t cardType = SD_MMC.cardType();
@@ -418,7 +417,7 @@ void setup()
 
         while (trackerFile.available()) {
           trackerNumber = trackerFile.read();
-          Serial.printf("data: %d\n", trackerNumber);
+          Serial.printf("tracker #: %d\n", trackerNumber);
         }
 
         // update tracker number
@@ -437,6 +436,17 @@ void setup()
 
         // rename tmp file
         SD_MMC.rename("/tmp.txt", sdTrackerFilename);
+
+        // create new log file
+        GenerateFilename();
+
+        File logFile = SD_MMC.open(sdLogFilname, FILE_WRITE);
+        if (logFile) {
+          Serial.printf("SD CARD LOG FILE CREATED [ SUCCESS ]\n");
+        }
+        else {
+          Serial.printf("SD CARD LOG FILE CREATED [ FAILED ]\n");
+        }
 
         setup.loggerActive = true;
       }

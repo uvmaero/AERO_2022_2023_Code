@@ -88,10 +88,10 @@
 Debugger debugger = {
   // debug toggle
   .debugEnabled = ENABLE_DEBUG,
-  .CAN_debugEnabled = false,
+  .CAN_debugEnabled = true,
   .IO_debugEnabled = false,
   .Logger_debugEnabled = false,
-  .scheduler_debugEnable = true,
+  .scheduler_debugEnable = false,
 
   // debug data
   .prechargeResult = ESP_OK,
@@ -393,8 +393,6 @@ void setup()
 
   // ---------------------- initialize SD Logger ---------------------------- //
   // init sd card
-  // SD_MMC.setPins();
-
   if (SD_MMC.begin()) {
     Serial.printf("SD CARD INIT [ SUCCESS ]\n");
     // inits

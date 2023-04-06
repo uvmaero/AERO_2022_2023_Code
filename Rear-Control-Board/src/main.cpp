@@ -88,10 +88,10 @@
 Debugger debugger = {
   // debug toggle
   .debugEnabled = ENABLE_DEBUG,
-  .CAN_debugEnabled = true,
+  .CAN_debugEnabled = false,
   .IO_debugEnabled = false,
   .Logger_debugEnabled = false,
-  .scheduler_debugEnable = false,
+  .scheduler_debugEnable = true,
 
   // debug data
   .prechargeResult = ESP_OK,
@@ -224,8 +224,8 @@ esp_now_peer_info_t fcbInfo = {
 static const can_timing_config_t can_timing_config = CAN_TIMING_CONFIG_500KBITS();
 static const can_filter_config_t can_filter_config = CAN_FILTER_CONFIG_ACCEPT_ALL();
 // {
-//   .acceptance_code = (MSG_ID << 21),
-//   .acceptance_mask = ~(CAN_STD_ID_MASK << 21),
+//   .acceptance_code = 0x000, // begin range
+//   .acceptance_mask = 0x0C4, // end range
 //   .single_filter = true
 // };
 static const can_general_config_t can_general_config = CAN_GENERAL_CONFIG_DEFAULT((gpio_num_t)CAN_TX_PIN, (gpio_num_t)CAN_RX_PIN, CAN_MODE_NORMAL);
@@ -393,85 +393,85 @@ void setup()
 
   // ---------------------- initialize SD Logger ---------------------------- //
   // init sd card
-  if (SD_MMC.begin()) {
-    Serial.printf("SD CARD INIT [ SUCCESS ]\n");
-    // inits
-    int trackerNumber;
+  // if (SD_MMC.begin()) {
+  //   Serial.printf("SD CARD INIT [ SUCCESS ]\n");
+  //   // inits
+  //   int trackerNumber;
 
-    // check for sd card inserted
-    uint8_t cardType = SD_MMC.cardType();
-    if (cardType != CARD_NONE) {
-      Serial.printf("SD CARD DETECT [ CONNECTED: ");
-      // print card type
-      if(cardType == CARD_MMC){
-        Serial.print("MMC");
-      } else if(cardType == CARD_SD){
-          Serial.print("SDSC");
-      } else if(cardType == CARD_SDHC){
-          Serial.print("SDHC");
-      } else {
-          Serial.print("UNKNOWN");
-      }
-      Serial.printf(" ]\n");
+  //   // check for sd card inserted
+  //   uint8_t cardType = SD_MMC.cardType();
+  //   if (cardType != CARD_NONE) {
+  //     Serial.printf("SD CARD DETECT [ CONNECTED: ");
+  //     // print card type
+  //     if(cardType == CARD_MMC){
+  //       Serial.print("MMC");
+  //     } else if(cardType == CARD_SD){
+  //         Serial.print("SDSC");
+  //     } else if(cardType == CARD_SDHC){
+  //         Serial.print("SDHC");
+  //     } else {
+  //         Serial.print("UNKNOWN");
+  //     }
+  //     Serial.printf(" ]\n");
 
-      // print card data metrics
-      Serial.printf("SD CARD SIZE: %lluMB\n", SD_MMC.cardSize());
-      Serial.printf("SD CARD USED STORAGE: %lluMB\n", SD_MMC.usedBytes() / (1024 * 1024));
+  //     // print card data metrics
+  //     Serial.printf("SD CARD SIZE: %lluMB\n", SD_MMC.cardSize());
+  //     Serial.printf("SD CARD USED STORAGE: %lluMB\n", SD_MMC.usedBytes() / (1024 * 1024));
 
-      // collect tracker information from SD & update it
-      File trackerFile = SD_MMC.open(sdTrackerFilename, FILE_READ);
-      if (trackerFile) {
-        Serial.printf("SD CARD TRACKER FILE READ [ SUCCESS ]\n");
+  //     // collect tracker information from SD & update it
+  //     File trackerFile = SD_MMC.open(sdTrackerFilename, FILE_READ);
+  //     if (trackerFile) {
+  //       Serial.printf("SD CARD TRACKER FILE READ [ SUCCESS ]\n");
 
-        while (trackerFile.available()) {
-          trackerNumber = trackerFile.read();
-          Serial.printf("tracker #: %d\n", trackerNumber);
-        }
+  //       while (trackerFile.available()) {
+  //         trackerNumber = trackerFile.read();
+  //         Serial.printf("tracker #: %d\n", trackerNumber);
+  //       }
 
-        // update tracker number
-        File tmpFile = SD_MMC.open("/tmp.txt", FILE_WRITE);
-        if (tmpFile) {
-          trackerNumber++;
-          tmpFile.print(trackerNumber);
-          Serial.printf("SD CARD TRACKER FILE UPDATE [ SUCCESS ]\n");
-        }
-        else {
-          Serial.printf("SD CARD TRACKER FILE UPDATE [ FAILED ]\n");
-        }
+  //       // update tracker number
+  //       File tmpFile = SD_MMC.open("/tmp.txt", FILE_WRITE);
+  //       if (tmpFile) {
+  //         trackerNumber++;
+  //         tmpFile.print(trackerNumber);
+  //         Serial.printf("SD CARD TRACKER FILE UPDATE [ SUCCESS ]\n");
+  //       }
+  //       else {
+  //         Serial.printf("SD CARD TRACKER FILE UPDATE [ FAILED ]\n");
+  //       }
 
-        // delete old tracker file 
-        SD_MMC.remove(sdTrackerFilename);
+  //       // delete old tracker file 
+  //       SD_MMC.remove(sdTrackerFilename);
 
-        // rename tmp file
-        SD_MMC.rename("/tmp.txt", sdTrackerFilename);
+  //       // rename tmp file
+  //       SD_MMC.rename("/tmp.txt", sdTrackerFilename);
 
-        // create new log file
-        GenerateFilename();
+  //       // create new log file
+  //       GenerateFilename();
 
-        File logFile = SD_MMC.open(sdLogFilname, FILE_WRITE);
-        if (logFile) {
-          Serial.printf("SD CARD LOG FILE CREATED [ SUCCESS ]\n");
-        }
-        else {
-          Serial.printf("SD CARD LOG FILE CREATED [ FAILED ]\n");
-        }
+  //       File logFile = SD_MMC.open(sdLogFilname, FILE_WRITE);
+  //       if (logFile) {
+  //         Serial.printf("SD CARD LOG FILE CREATED [ SUCCESS ]\n");
+  //       }
+  //       else {
+  //         Serial.printf("SD CARD LOG FILE CREATED [ FAILED ]\n");
+  //       }
 
-        setup.loggerActive = true;
-      }
+  //       setup.loggerActive = true;
+  //     }
 
-      else {
-        Serial.printf("SD TRACKER FILE READ [ FAILED ]\n");
-      }
-    }
+  //     else {
+  //       Serial.printf("SD TRACKER FILE READ [ FAILED ]\n");
+  //     }
+  //   }
     
-    else {
-      Serial.printf("SD CARD DETECT [ FAILED ]\n");
-    }
-  }
+  //   else {
+  //     Serial.printf("SD CARD DETECT [ FAILED ]\n");
+  //   }
+  // }
   
-  else {
-    Serial.printf("SD CARD INIT [ FAILED ]\n");
-  }
+  // else {
+  //   Serial.printf("SD CARD INIT [ FAILED ]\n");
+  // }
   // ------------------------------------------------------------------------ //
 
 

@@ -55,10 +55,10 @@
 #define RINE_MOTOR_INFO_ADDR            0x0A5
 #define RINE_VOLT_INFO_ADDR             0x0A7
 
-// esp now
-#define WCB_ADDRESS                     {0xC4, 0xDE, 0xE2, 0xC0, 0x75, 0x80}
-#define RCB_ADDRESS                     {0xC4, 0xDE, 0xE2, 0xC0, 0x75, 0x81}
-#define DEVICE_ADDRESS                  {0x1a, 0x1a, 0x1a, 0x1a, 0x1a, 0x1a}
+// ESP-NOW
+#define WCB_ESP_NOW_ADDRESS             {0xC4, 0xDE, 0xE2, 0xC0, 0x75, 0x80}
+#define FCB_ESP_NOW_ADDRESS             {0xC4, 0xDE, 0xE2, 0xC0, 0x75, 0x81}
+#define RCB_ESP_NOW_ADDRESS             {0xC4, 0xDE, 0xE2, 0xC0, 0x75, 0x82}
 
 // tasks & timers
 #define SENSOR_POLL_INTERVAL            100000      // 0.1 seconds in microseconds
@@ -208,14 +208,14 @@ portMUX_TYPE timerMux = portMUX_INITIALIZER_UNLOCKED;
 
 // ESP-NOW Peers
 esp_now_peer_info_t wcbInfo = {
-  .peer_addr = WCB_ADDRESS,
+  .peer_addr = WCB_ESP_NOW_ADDRESS,
   .channel = 1,
   .ifidx = WIFI_IF_STA,
   .encrypt = false,
 };
 
 esp_now_peer_info_t rcbInfo = {
-  .peer_addr = RCB_ADDRESS,
+  .peer_addr = RCB_ESP_NOW_ADDRESS,
   .channel = 1,
   .ifidx = WIFI_IF_STA,
   .encrypt = false,
@@ -366,35 +366,43 @@ void setup() {
 
 
   // -------------------------- initialize ESP-NOW  ---------------------------- //
-
   // init wifi and config
   if (WiFi.mode(WIFI_STA)) {
     Serial.printf("WIFI INIT [ SUCCESS ]\n");
 
-    esp_wifi_set_channel(1, WIFI_SECOND_CHAN_NONE);
-    Serial.print("WIFI MAC: "); Serial.println(WiFi.macAddress());
-    Serial.print("WIFI CHANNEL: "); Serial.println(WiFi.channel());
+    // set custom mac address
+    const uint8_t fcbAddress[6] = FCB_ESP_NOW_ADDRESS;
+    if (esp_wifi_set_mac(WIFI_IF_STA, fcbAddress) == ESP_OK) {
+      Serial.printf("WIFI SET MAC [ SUCCESS ]\n");
+    
+      esp_wifi_set_channel(1, WIFI_SECOND_CHAN_NONE);
+      Serial.print("WIFI MAC: "); Serial.println(WiFi.macAddress());
+      Serial.print("WIFI CHANNEL: "); Serial.println(WiFi.channel());
 
-    if (esp_now_init() == ESP_OK) {
-      Serial.printf("ESP-NOW INIT [ SUCCESS ]\n");
+      if (esp_now_init() == ESP_OK) {
+        Serial.printf("ESP-NOW INIT [ SUCCESS ]\n");
 
-      // add peers
-      esp_err_t rcbResult = esp_now_add_peer(&rcbInfo);
-      esp_err_t wcbResult = esp_now_add_peer(&wcbInfo);
+        // add peers
+        esp_err_t rcbResult = esp_now_add_peer(&rcbInfo);
+        esp_err_t wcbResult = esp_now_add_peer(&wcbInfo);
 
-      if (rcbResult == ESP_OK && wcbResult == ESP_OK) {
-        Serial.printf("ESP-NOW ADD PEERS [ SUCCESS ]\n");
+        if (rcbResult == ESP_OK && wcbResult == ESP_OK) {
+          Serial.printf("ESP-NOW ADD PEERS [ SUCCESS ]\n");
 
-        setup.rcbActive = true;
-        setup.wcbActive = true;
+          setup.rcbActive = true;
+          setup.wcbActive = true;
+        }
+        else {
+          Serial.printf("ESP-NOW ADD PEERS [ FAILED ]\n");
+        }
       }
+
       else {
-        Serial.printf("ESP-NOW ADD PEERS [ FAILED ]\n");
+        Serial.printf("ESP-NOW INIT [ FAILED ]\n");
       }
     }
-
     else {
-      Serial.printf("ESP-NOW INIT [ FAILED ]\n");
+      Serial.printf("WIFI SET MAC [ FAILED ]\n");
     }
   }
 
@@ -863,8 +871,8 @@ void UpdateCANTask(void* pvParameters)
 void UpdateESPNOWTask(void* pvParameters)
 {
   // send message
-  const uint8_t wcbAddress[6] = WCB_ADDRESS;
-  const uint8_t rcbAddress[6] = RCB_ADDRESS;
+  const uint8_t wcbAddress[6] = WCB_ESP_NOW_ADDRESS;
+  const uint8_t rcbAddress[6] = RCB_ESP_NOW_ADDRESS;
   esp_err_t wcbResult = esp_now_send(wcbAddress, (uint8_t *) &carData, sizeof(carData));
   esp_err_t rcbResult = esp_now_send(rcbAddress, (uint8_t *) &carData, sizeof(carData));
 

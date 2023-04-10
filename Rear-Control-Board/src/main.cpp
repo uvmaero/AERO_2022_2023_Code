@@ -900,6 +900,7 @@ void CANReadTask(void* pvParameters)
       switch (incomingId) {
         // get data from FCB 
         case RCB_CONTROL_ADDR:
+          // brake light
           carData.outputs.brakeLight = incomingMessage.data[0];
         break;
 

@@ -51,7 +51,8 @@
 #define RINE_MOTOR_INFO_ADDR            0x0A5       // get motor information from Rinehart 
 #define RINE_VOLT_INFO_ADDR             0x0A7       // get Rinehart electrical information
 #define RINE_BUS_CONTROL_ADDR           0x0AA       // 
-#define BMS_DATA_ADDR                   0x101       // TODO: update this when BMS is setup
+#define BMS_GEN_DATA_ADDR               0x6B0       // important BMS data
+#define BMS_CELL_DATA_ADDR              0x6B2       // cell data
 
 // ESP-NOW
 #define WCB_ADDRESS                     {0xC4, 0xDE, 0xE2, 0xC0, 0x75, 0x80}
@@ -909,13 +910,29 @@ void CANReadTask(void* pvParameters)
           tmp2 = incomingMessage.data[1];
 
           // combine the first two bytes and assign that to the rinehart voltage
-          carData.batteryStatus.rinehartVoltage = (tmp2 << 8) | tmp1;
+          carData.batteryStatus.rinehartVoltage = (tmp2 << 8) | tmp1;   // little endian combination: value = (byte2 << 8) | byte1;
         break;
 
-        // BMS: voltage and maybe other things
-        case BMS_DATA_ADDR:   // TODO: update this
-          carData.batteryStatus.batteryChargeState = incomingMessage.data[0];
-          carData.batteryStatus.busVoltage = incomingMessage.data[1];
+        // BMS: general pack data
+        case BMS_GEN_DATA_ADDR:
+          // pack current
+          tmp1 = incomingMessage.data[0]; 
+          tmp2 = incomingMessage.data[1];
+          // carData.batteryStatus.packCurrent = (tmp1 << 8) | tmp2;   // big endian combination: value = (byte1 << 8) | byte2;
+
+          // pack voltage
+          tmp1 = incomingMessage.data[2];
+          tmp2 = incomingMessage.data[3];
+          carData.batteryStatus.busVoltage = (tmp1 << 8) | tmp2;  // big endian combination: value = (byte1 << 8) | byte2;
+
+          // state of charge
+          carData.batteryStatus.batteryChargeState = incomingMessage.data[4];
+        break;
+
+        // BMS: cell data
+        case BMS_CELL_DATA_ADDR:
+          // carData.batteryStatus.minCellVoltage = incomingMessage.data[0];
+          // carData.batteryStatus.maxCellVoltage = incomingMessage.data[1];
         break;
 
         default:

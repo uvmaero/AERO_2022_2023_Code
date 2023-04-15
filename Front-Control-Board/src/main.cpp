@@ -38,7 +38,7 @@
 // definitions
 #define TIRE_DIAMETER                   20.0        // diameter of the vehicle's tires in inches
 #define WHEEL_RPM_CALC_THRESHOLD        100         // the number of times the hall effect sensor is tripped before calculating vehicle speed
-#define BRAKE_LIGHT_THRESHOLD           10          // the threshold that must be crossed for the brake to be considered active
+#define BRAKE_LIGHT_THRESHOLD           20          // the threshold that must be crossed for the brake to be considered active
 #define PEDAL_DEADBAND                  5           // minimum value that the pedal will activate at
 #define PEDAL_MIN                       0           // minimum value the pedals can read as
 #define PEDAL_MAX                       255         // maximum value a pedal can read as
@@ -181,8 +181,8 @@ CarData carData = {
   .inputs = {
     .pedal0 = 0,
     .pedal1 = 0,
-    .brake0 = 0,
-    .brake1 = 0,
+    .brakeFront = 0,
+    .brakeRear = 0,
     .brakeRegen = 0,
     .coastRegen = 0,
   },
@@ -309,8 +309,7 @@ void setup() {
   pinMode(PEDAL_0_PIN, INPUT);
   pinMode(PEDAL_1_PIN, INPUT);
 
-  pinMode(BRAKE_0_PIN, INPUT);
-  pinMode(BRAKE_1_PIN, INPUT);
+  pinMode(BRAKE_PIN, INPUT);
   
   pinMode(WHEEL_SPEED_FL_SENSOR, INPUT);
   pinMode(WHEEL_SPEED_FR_SENSOR, INPUT);
@@ -707,15 +706,11 @@ void ReadSensorsTask(void* pvParameters)
 
 
   // get brake positions
-  float tmpBrake0 = analogRead(BRAKE_0_PIN);
-  carData.inputs.brake0 = map(tmpBrake0, 0, 1024, 0, 255);   // starting min and max values must be found via testing!!! 
-
-  float tmpBrake1 = analogRead(BRAKE_1_PIN);
-  carData.inputs.brake1 = map(tmpBrake1, 0, 1024, 0, 255);   // starting min and max values must be found via testing!!!
+  float tmpBrake = analogRead(BRAKE_PIN);
+  carData.inputs.brakeFront = map(tmpBrake, 0, 1024, 0, 255);   // starting min and max values must be found via testing!!! 
 
   // brake light logic 
-  int brakeAverage = (carData.inputs.brake0 + carData.inputs.brake1) / 2;
-  if (brakeAverage >= BRAKE_LIGHT_THRESHOLD) {
+  if (carData.inputs.brakeFront >= BRAKE_LIGHT_THRESHOLD) {
     carData.outputs.brakeLight = true;      // turn it on 
   }
 
@@ -990,6 +985,11 @@ void GetCommandedTorque()
     carData.drivingData.commandedTorque = 0;
   }
 
+  // if brake is engaged
+  if (carData.outputs.brakeLight) {
+    carData.drivingData.commandedTorque = 0;
+  }
+
   // check if ready to drive
   // if (!carData.drivingData.readyToDrive) {
   //   carData.drivingData.commandedTorque = 0;    // if not ready to drive then block all torque
@@ -1010,23 +1010,7 @@ void GetCommandedTorque()
  */
 void PrintCANDebug() {
   Serial.printf("\n--- START CAN DEBUG ---\n\n");
-  // bus alerts
-  // CAN_ALERT_TX_IDLE             
-  // CAN_ALERT_TX_SUCCESS          
-  // CAN_ALERT_BELOW_ERR_WARN      
-  // CAN_ALERT_ERR_ACTIVE          
-  // CAN_ALERT_RECOVERY_IN_PROGRESS
-  // CAN_ALERT_BUS_RECOVERED       
-  // CAN_ALERT_ARB_LOST            
-  // CAN_ALERT_ABOVE_ERR_WARN      
-  // CAN_ALERT_BUS_ERROR           
-  // CAN_ALERT_TX_FAILED           
-  // CAN_ALERT_RX_QUEUE_FULL       
-  // CAN_ALERT_ERR_PASS            
-  // CAN_ALERT_BUS_OFF             
-  // CAN_ALERT_ALL                 
-  // CAN_ALERT_NONE                
-  // CAN_ALERT_AND_LOG             
+  // bus alerts            
   Serial.printf("CAN BUS Alerts:\n");
   uint32_t alerts;
   can_read_alerts(&alerts, pdMS_TO_TICKS(100));
@@ -1105,7 +1089,7 @@ void PrintIODebug() {
   Serial.printf("Pedal 0: %d\tPedal 1: %d\n", debugger.IO_data.inputs.pedal0, debugger.IO_data.inputs.pedal1);	
 
   // brake 0 & 1
-  Serial.printf("Brake 0: %d\tBrake 1: %d\n", debugger.IO_data.inputs.brake0, debugger.IO_data.inputs.brake1);
+  Serial.printf("Brake Front: %d\tBrake Rear: %d\n", debugger.IO_data.inputs.brakeFront, debugger.IO_data.inputs.brakeRear);
 
   // brake regen
   Serial.printf("Brake Regen: %d\n", debugger.IO_data.inputs.brakeRegen);

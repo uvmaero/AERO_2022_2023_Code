@@ -3,7 +3,7 @@
  * @author Dominic Gasperini
  * @brief all of the unique data types used to manage the state of the car
  * @version 1.0
- * @date 2023-03-22
+ * @date 2023-04-15
  * 
  * @copyright Copyright (c) 2023
  * 
@@ -102,8 +102,8 @@ typedef struct CarData
   {
     uint16_t pedal0;
     uint16_t pedal1;
-    uint16_t brake0;
-    uint16_t brake1;
+    uint16_t brakeFront;
+    uint16_t brakeRear;
     uint16_t brakeRegen;
     uint16_t coastRegen;
   } inputs;

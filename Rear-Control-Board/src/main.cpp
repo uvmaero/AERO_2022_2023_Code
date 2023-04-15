@@ -182,8 +182,8 @@ CarData carData = {
   .inputs = {
     .pedal0 = 0,
     .pedal1 = 0,
-    .brake0 = 0,
-    .brake1 = 0,
+    .brakeFront = 0,
+    .brakeRear = 0,
     .brakeRegen = 0,
     .coastRegen = 0,
   },
@@ -761,6 +761,10 @@ void ReadSensorsTask(void* pvParameters)
   carData.sensors.wheelHeightFR = analogRead(WHEEL_HEIGHT_BR_SENSOR);
   carData.sensors.wheelHeightFL = analogRead(WHEEL_HEIGHT_BL_SENSOR);
 
+  // read brake sensor
+  // int tmpBrake = analogRead(BRAKE_PIN);
+  // carData.inputs.brakeRear = map(tmpBrake, 0, 1024, 0, 255);
+
   // read radiator sensors
   carData.sensors.pumpTempIn = analogRead(RAD_TEMP_IN_PIN);
   carData.sensors.pumpTempOut = analogRead(RAD_TEMP_OUT_PIN);
@@ -1155,7 +1159,7 @@ void UpdateLoggerTask(void* pvParameters) {
 
   logFile.printf("DRIVE STATS: COMM-TORQ: %d | SPEED: %f | DIR: %d\n", carData.drivingData.commandedTorque, carData.drivingData.currentSpeed, carData.drivingData.driveDirection);
   
-  logFile.printf("PEDALS: P1: %d | P2: %d | B1: %d | B2: %d\n", carData.inputs.pedal0, carData.inputs.pedal1, carData.inputs.brake0, carData.inputs.brake1);
+  logFile.printf("PEDALS: P1: %d | P2: %d | B FRONT: %d | B REAR: %d\n", carData.inputs.pedal0, carData.inputs.pedal1, carData.inputs.brakeFront, carData.inputs.brakeRear);
   
   logFile.printf("WHEEL SPEED: FR: %f | FL: %f | BR: %f | BL: %f\n", carData.sensors.wheelSpeedFR, carData.sensors.wheelSpeedFL, carData.sensors.wheelSpeedBR, carData.sensors.wheelSpeedBL);
   

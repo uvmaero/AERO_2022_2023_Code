@@ -44,8 +44,7 @@ esp_pm_config_esp32_t power_configuration {
 
 #define PEDAL_0_PIN                         33
 #define PEDAL_1_PIN                         25
-#define BRAKE_0_PIN                         4
-#define BRAKE_1_PIN                         0
+#define BRAKE_PIN                         4
 
 // Inputs
 #define RTD_BUTTON_PIN                      17

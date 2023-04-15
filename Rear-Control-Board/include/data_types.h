@@ -102,8 +102,8 @@ typedef struct CarData
   {
     uint16_t pedal0;
     uint16_t pedal1;
-    uint16_t brake0;
-    uint16_t brake1;
+    uint16_t brakeFront;
+    uint16_t brakeRear;
     uint16_t brakeRegen;
     uint16_t coastRegen;
   } inputs;

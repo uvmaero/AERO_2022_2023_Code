@@ -147,6 +147,9 @@ CarData carData = {
     .rinehartVoltage = 0,
     .pack1Temp = 0.0f,
     .pack2Temp = 0.0f,
+    .packCurrent = 0.0f,
+    .minCellVoltage = 0.0f,
+    .maxCellVoltage = 0.0f,
   },
 
   // Sensors

@@ -148,6 +148,9 @@ CarData carData = {
     .rinehartVoltage = 0,
     .pack1Temp = 0.0f,
     .pack2Temp = 0.0f,
+    .packCurrent = 0.0f,
+    .minCellVoltage = 0.0f,
+    .maxCellVoltage = 0.0f,
   },
 
   // Sensors
@@ -933,12 +936,12 @@ void CANReadTask(void* pvParameters)
           // pack current
           tmp1 = incomingMessage.data[0]; 
           tmp2 = incomingMessage.data[1];
-          // carData.batteryStatus.packCurrent = (tmp1 << 8) | tmp2;   // big endian combination: value = (byte1 << 8) | byte2;
+          carData.batteryStatus.packCurrent = (tmp1 << 8) | tmp2;   // big endian combination: value = (byte1 << 8) | byte2;
 
           // pack voltage
           tmp1 = incomingMessage.data[2];
           tmp2 = incomingMessage.data[3];
-          carData.batteryStatus.busVoltage = (tmp1 << 8) | tmp2;  // big endian combination: value = (byte1 << 8) | byte2;
+          carData.batteryStatus.busVoltage = (tmp1 << 8) | tmp2;    // big endian combination: value = (byte1 << 8) | byte2;
 
           // state of charge
           carData.batteryStatus.batteryChargeState = incomingMessage.data[4];
@@ -946,8 +949,8 @@ void CANReadTask(void* pvParameters)
 
         // BMS: cell data
         case BMS_CELL_DATA_ADDR:
-          // carData.batteryStatus.minCellVoltage = incomingMessage.data[0];
-          // carData.batteryStatus.maxCellVoltage = incomingMessage.data[1];
+          carData.batteryStatus.minCellVoltage = incomingMessage.data[0];
+          carData.batteryStatus.maxCellVoltage = incomingMessage.data[1];
         break;
 
         default:

@@ -68,6 +68,9 @@ typedef struct CarData
     float rinehartVoltage;
     float pack1Temp;
     float pack2Temp;
+    float packCurrent;
+    float minCellVoltage;
+    float maxCellVoltage;
   } batteryStatus;
 
   struct Sensors

@@ -68,7 +68,7 @@
 #define CAN_BLOCK_DELAY                 100         // time to block to complete function call in FreeRTOS ticks (milliseconds)
 
 // debug
-#define ENABLE_DEBUG                    true        // master debug control
+#define ENABLE_DEBUG                    false       // master debug control
 #if ENABLE_DEBUG
   #define MAIN_LOOP_DELAY               1000
 #else

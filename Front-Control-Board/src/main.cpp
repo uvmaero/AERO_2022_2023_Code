@@ -1009,9 +1009,9 @@ void GetCommandedTorque()
   }
 
   // check if ready to drive
-  // if (!carData.drivingData.readyToDrive) {
-  //   carData.drivingData.commandedTorque = 0;    // if not ready to drive then block all torque
-  // }
+  if (!carData.drivingData.readyToDrive) {
+    carData.drivingData.commandedTorque = 0;    // if not ready to drive then block all torque
+  }
 } 
 
 

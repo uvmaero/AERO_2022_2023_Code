@@ -746,7 +746,7 @@ void ReadSensorsTask(void* pvParameters)
     }
   }
 
-  // fault LEDs
+  // BMS fault LED
   if (carData.drivingData.bmsFault) {
     digitalWrite(BMS_LED_PIN, HIGH);
   }
@@ -754,6 +754,7 @@ void ReadSensorsTask(void* pvParameters)
     digitalWrite(BMS_LED_PIN, LOW);
   }
 
+  // IMD fault LED
   if (carData.drivingData.imdFault) {
     digitalWrite(IMD_LED_PIN, HIGH);
   }

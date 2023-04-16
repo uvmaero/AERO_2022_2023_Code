@@ -993,7 +993,7 @@ void GetCommandedTorque()
   }
   
   // buffer overflow / too much torque somehow
-  if (carData.drivingData.commandedTorque > (MAX_TORQUE * 10)) {
+  if ((carData.drivingData.commandedTorque > (MAX_TORQUE * 10)) || (carData.drivingData.commandedTorque < 0)) {
     carData.drivingData.commandedTorque = 0;
   }
 

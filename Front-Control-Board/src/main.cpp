@@ -322,6 +322,9 @@ void setup() {
   // outputs
   pinMode(RTD_BUTTON_LED_PIN, OUTPUT);
   pinMode(WCB_CONNECTION_LED, OUTPUT);
+  pinMode(BMS_LED_PIN, OUTPUT);
+  pinMode(IMD_LED_PIN, OUTPUT);
+
   pinMode(BUZZER_PIN, OUTPUT);
   pinMode(CAN_ENABLE_PIN, OUTPUT);
 
@@ -742,7 +745,21 @@ void ReadSensorsTask(void* pvParameters)
       carData.drivingData.enableInverter = true;                // enable the inverter so that we can tell rinehart to turn inverter on
     }
   }
-  
+
+  // fault LEDs
+  if (carData.drivingData.bmsFault) {
+    digitalWrite(BMS_LED_PIN, HIGH);
+  }
+  else {
+    digitalWrite(BMS_LED_PIN, LOW);
+  }
+
+  if (carData.drivingData.imdFault) {
+    digitalWrite(IMD_LED_PIN, HIGH);
+  }
+  else {
+    digitalWrite(IMD_LED_PIN, LOW);
+  }
 
   // debugging
   if (debugger.debugEnabled) {

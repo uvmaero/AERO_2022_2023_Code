@@ -44,7 +44,7 @@ esp_pm_config_esp32_t power_configuration {
 
 #define PEDAL_0_PIN                         33
 #define PEDAL_1_PIN                         25
-#define BRAKE_PIN                         4
+#define BRAKE_PIN                           4
 
 // Inputs
 #define RTD_BUTTON_PIN                      17
@@ -57,7 +57,12 @@ esp_pm_config_esp32_t power_configuration {
 // Outputs
 #define RTD_BUTTON_LED_PIN                  21
 #define WCB_CONNECTION_LED                  26
+
+#define BMS_LED_PIN                         1
+#define IMD_LED_PIN                         3
+
 #define BUZZER_PIN                          16
+
 #define ARDAN_MISO_PIN                      12
 #define ARDAN_MOSI_PIN                      13
 #define ARDAN_CS_PIN                        10

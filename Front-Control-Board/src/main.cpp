@@ -751,18 +751,18 @@ void ReadSensorsTask(void* pvParameters)
 
   // BMS fault LED
   if (carData.drivingData.bmsFault) {
-    digitalWrite(BMS_LED_PIN, HIGH);
+    digitalWrite(BMS_LED_PIN, LOW);
   }
   else {
-    digitalWrite(BMS_LED_PIN, LOW);
+    digitalWrite(BMS_LED_PIN, HIGH);
   }
 
   // IMD fault LED
   if (carData.drivingData.imdFault) {
-    digitalWrite(IMD_LED_PIN, HIGH);
+    digitalWrite(IMD_LED_PIN, LOW);
   }
   else {
-    digitalWrite(IMD_LED_PIN, LOW);
+    digitalWrite(IMD_LED_PIN, HIGH);
   }
 
   // debugging

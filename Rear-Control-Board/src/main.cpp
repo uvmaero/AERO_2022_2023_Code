@@ -833,7 +833,7 @@ void PrechargeTask(void* pvParameters) {
       // set ready to drive state
       carData.drivingData.readyToDrive = false;
 
-      if (carData.drivingData.imdFault == HIGH && carData.drivingData.bmsFault == HIGH) { // HIGH = clear | LOW = fault
+      if (carData.drivingData.imdFault == HIGH && carData.drivingData.bmsFault == LOW) { // IMD: HIGH = clear | LOW = fault ||| BMS: HIGH = fault | LOW = clear
         carData.drivingData.prechargeState = PRECHARGE_ON;
       }
 

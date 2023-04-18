@@ -750,7 +750,7 @@ void ReadSensorsTask(void* pvParameters)
   }
 
   // BMS fault LED
-  if (carData.drivingData.bmsFault) {
+  if (!carData.drivingData.bmsFault) {    // BMS fault is inverted
     digitalWrite(BMS_LED_PIN, LOW);
   }
   else {
@@ -1007,14 +1007,14 @@ void GetCommandedTorque()
   }
 
   // if brake is engaged
-  if (carData.outputs.brakeLight) {
-    carData.drivingData.commandedTorque = 0;
-  }
+  // if (carData.outputs.brakeLight) {
+  //   carData.drivingData.commandedTorque = 0;
+  // }
 
   // check if ready to drive
-  if (!carData.drivingData.readyToDrive) {
-    carData.drivingData.commandedTorque = 0;    // if not ready to drive then block all torque
-  }
+  // if (!carData.drivingData.readyToDrive) {
+  //   carData.drivingData.commandedTorque = 0;    // if not ready to drive then block all torque
+  // }
 } 
 
 

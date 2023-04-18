@@ -853,6 +853,8 @@ void PrechargeTask(void* pvParameters) {
     // precharge complete!
     case PRECHARGE_DONE:
 
+      carData.drivingData.readyToDrive = true;
+
       // if rinehart voltage drops below battery, something's wrong, 
       if (carData.batteryStatus.rinehartVoltage < (carData.batteryStatus.busVoltage * PRECHARGE_FLOOR)) {
         carData.drivingData.prechargeState = PRECHARGE_ERROR;

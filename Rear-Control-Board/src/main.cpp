@@ -40,7 +40,7 @@
 #define TIRE_DIAMETER                   20.0        // diameter of the vehicle's tires in inches
 #define WHEEL_RPM_CALC_THRESHOLD        25          // the number of times the hall effect sensor is tripped before calculating vehicle speed
 #define PRECHARGE_FLOOR                 0.9         // minimum percentage of acceptable voltage to run car
-#define MIN_BUS_VOLTAGE                 220         // this should be a voltage that can only be reached with two active packs
+#define MIN_BUS_VOLTAGE                 75          // this should be a voltage that should never be reached
 
 // CAN
 #define NUM_CAN_READS                   6           // in general, the number of expected messages times 2, so 6 
@@ -843,7 +843,7 @@ void PrechargeTask(void* pvParameters) {
     case PRECHARGE_ON:
 
       // ensure voltages are above correct values
-      if ((carData.batteryStatus.rinehartVoltage > (carData.batteryStatus.busVoltage * PRECHARGE_FLOOR)) && (carData.batteryStatus.busVoltage > MIN_BUS_VOLTAGE)) {
+      if (carData.batteryStatus.rinehartVoltage >= (carData.batteryStatus.busVoltage * PRECHARGE_FLOOR)) {
         carData.drivingData.prechargeState = PRECHARGE_DONE;
       }
 
@@ -856,7 +856,7 @@ void PrechargeTask(void* pvParameters) {
       carData.drivingData.readyToDrive = true;
 
       // if rinehart voltage drops below battery, something's wrong, 
-      if (carData.batteryStatus.rinehartVoltage < (carData.batteryStatus.busVoltage * PRECHARGE_FLOOR)) {
+      if ((carData.batteryStatus.rinehartVoltage < MIN_BUS_VOLTAGE) || (carData.batteryStatus.busVoltage < MIN_BUS_VOLTAGE)) {
         carData.drivingData.prechargeState = PRECHARGE_ERROR;
       }
 
@@ -998,7 +998,7 @@ void CANWriteTask(void* pvParameters)
       prechargeOutgoingMessage.data[2] = 0x01;          // Read / Write Mode (0 = read | 1 = write)
       prechargeOutgoingMessage.data[3] = 0x00;          // N/A
       prechargeOutgoingMessage.data[4] = 0x00;          // Data: ( 0: all off | 1: relay 1 on | 2: relay 2 on | 3: relay 1 & 2 on )
-      prechargeOutgoingMessage.data[5] = 0x55;          // 55 means relay control
+      prechargeOutgoingMessage.data[5] = 0x55;          // 0x55 means external relay control
       prechargeOutgoingMessage.data[6] = 0x00;          // N/A
       prechargeOutgoingMessage.data[7] = 0x00;          // N/A
     break;
@@ -1012,7 +1012,7 @@ void CANWriteTask(void* pvParameters)
       prechargeOutgoingMessage.data[2] = 0x01;          // Read / Write Mode (0 = read | 1 = write)
       prechargeOutgoingMessage.data[3] = 0x00;          // N/A
       prechargeOutgoingMessage.data[4] = 0x01;          // Data: ( 0: all off | 1: relay 1 on | 2: relay 2 on | 3: relay 1 & 2 on )
-      prechargeOutgoingMessage.data[5] = 0x55;          // 55 means relay control
+      prechargeOutgoingMessage.data[5] = 0x55;          // 0x55 means external relay control
       prechargeOutgoingMessage.data[6] = 0x00;          // N/A
       prechargeOutgoingMessage.data[7] = 0x00;          // N/A
     break;
@@ -1027,7 +1027,7 @@ void CANWriteTask(void* pvParameters)
       prechargeOutgoingMessage.data[2] = 0x01;          // Read / Write Mode (0 = read | 1 = write)
       prechargeOutgoingMessage.data[3] = 0x00;          // N/A
       prechargeOutgoingMessage.data[4] = 0x03;          // Data: ( 0: all off | 1: relay 1 on | 2: relay 2 on | 3: relay 1 & 2 on )
-      prechargeOutgoingMessage.data[5] = 0x55;          // 55 is relay control
+      prechargeOutgoingMessage.data[5] = 0x55;          // 0x55 means external relay control
       prechargeOutgoingMessage.data[6] = 0x00;          // N/A
       prechargeOutgoingMessage.data[7] = 0x00;          // N/A
     break;
@@ -1041,7 +1041,7 @@ void CANWriteTask(void* pvParameters)
       prechargeOutgoingMessage.data[2] = 0x01;          // Read / Write Mode (0 = read | 1 = write)
       prechargeOutgoingMessage.data[3] = 0x00;          // N/A
       prechargeOutgoingMessage.data[4] = 0x00;          // Data: ( 0: all off | 1: relay 1 on | 2: relay 2 on | 3: relay 1 & 2 on )
-      prechargeOutgoingMessage.data[5] = 0x55;          // 55 means relay control
+      prechargeOutgoingMessage.data[5] = 0x55;          // 0x55 means external relay control
       prechargeOutgoingMessage.data[6] = 0x00;          // N/A
       prechargeOutgoingMessage.data[7] = 0x00;          // N/A
     break;

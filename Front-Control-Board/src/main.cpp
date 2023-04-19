@@ -62,7 +62,7 @@
 
 // tasks & timers
 #define SENSOR_POLL_INTERVAL            100000      // 0.1 seconds in microseconds
-#define CAN_WRITE_INTERVAL              100000      // 0.1 seconds in microseconds
+#define CAN_UPDATE_INTERVAL             100000      // 0.1 seconds in microseconds
 #define ARDAN_UPDATE_INTERVAL           200000      // 0.2 seconds in microseconds
 #define ESP_NOW_UPDATE_INTERVAL         200000      // 0.2 seconds in microseconds
 #define TASK_STACK_SIZE                 4096        // in bytes
@@ -71,7 +71,7 @@
 // debug
 #define ENABLE_DEBUG                    true       // master debug message control
 #if ENABLE_DEBUG
-  #define MAIN_LOOP_DELAY               500        // delay in main loop
+  #define MAIN_LOOP_DELAY               1000        // delay in main loop
 #else
   #define MAIN_LOOP_DELAY               1
 #endif
@@ -93,8 +93,8 @@ Debugger debugger = {
   .debugEnabled = ENABLE_DEBUG,
   .CAN_debugEnabled = false,
   .WCB_debugEnabled = false,
-  .IO_debugEnabled = true,
-  .scheduler_debugEnable = false,
+  .IO_debugEnabled = false,
+  .scheduler_debugEnable = true,
 
   // debug data
   .CAN_rineCtrlResult = ESP_OK,
@@ -442,7 +442,7 @@ void setup() {
   // timer 2 - CAN Update
   timer2 = timerBegin(1, 80, true);
   timerAttachInterrupt(timer2, &CANCallback, true);
-  timerAlarmWrite(timer2, CAN_WRITE_INTERVAL, true);
+  timerAlarmWrite(timer2, CAN_UPDATE_INTERVAL, true);
 
   // timer 3 - ARDAN Update
   timer3 = timerBegin(2, 80, true);
@@ -670,6 +670,22 @@ void ReadSensorsTask(void* pvParameters)
   // turn off wifi for ADC channel 2 to function
   esp_wifi_stop();
 
+  // get brake positions
+  float tmpBrake = analogRead(BRAKE_PIN);
+  carData.inputs.brakeFront = map(tmpBrake, 0, 1024, 0, 255);   // starting min and max values must be found via testing!!! 
+
+  uint16_t tmpPedal1 = analogReadMilliVolts(PEDAL_1_PIN);
+  carData.inputs.pedal1 = map(tmpPedal1, 290, 1375, PEDAL_MIN, PEDAL_MAX);   // starting min and max values must be found via testing!!! (0.29V - 1.379V)
+
+  if (carData.inputs.pedal1 > 255) {
+    carData.inputs.pedal1 = 255;
+  }
+
+  // wcb connection LED would also be in here
+
+  // turn wifi back on to re-enable esp-now connection to wheel board
+  esp_wifi_start();
+
   // ready to drive button
   if (digitalRead(RTD_BUTTON_PIN) == LOW) {
     if (carData.drivingData.readyToDrive) {
@@ -686,20 +702,8 @@ void ReadSensorsTask(void* pvParameters)
     carData.inputs.pedal0 = 255;
   }
 
-  uint16_t tmpPedal1 = analogReadMilliVolts(PEDAL_1_PIN);
-  carData.inputs.pedal1 = map(tmpPedal1, 290, 1375, PEDAL_MIN, PEDAL_MAX);   // starting min and max values must be found via testing!!! (0.29V - 1.379V)
-
-  if (carData.inputs.pedal1 > 255) {
-    carData.inputs.pedal1 = 255;
-  }
-
   // Calculate commanded torque
   GetCommandedTorque();
-
-
-  // get brake positions
-  float tmpBrake = analogRead(BRAKE_PIN);
-  carData.inputs.brakeFront = map(tmpBrake, 0, 1024, 0, 255);   // starting min and max values must be found via testing!!! 
 
   // brake light logic 
   if (carData.inputs.brakeFront >= BRAKE_LIGHT_THRESHOLD) {
@@ -721,16 +725,16 @@ void ReadSensorsTask(void* pvParameters)
   // buzzer logic
   if (carData.outputs.buzzerActive)
   {
-    digitalWrite(BUZZER_PIN, carData.outputs.buzzerActive);
+    digitalWrite(BUZZER_PIN, HIGH);
     carData.outputs.buzzerCounter++;
 
     if (carData.outputs.buzzerCounter >= (2 * (SENSOR_POLL_INTERVAL / 10000)))    // convert to activations per second and multiply by 2
     {
       // update buzzer state and turn off the buzzer
       carData.outputs.buzzerActive = false;
-      digitalWrite(BUZZER_PIN, carData.outputs.buzzerActive);
-
       carData.outputs.buzzerCounter = 0;                        // reset buzzer count
+      digitalWrite(BUZZER_PIN, LOW);
+
       carData.drivingData.enableInverter = true;                // enable the inverter so that we can tell rinehart to turn inverter on
     }
   }
@@ -757,9 +761,6 @@ void ReadSensorsTask(void* pvParameters)
     debugger.sensorTaskCount++;
   }
 
-  // turn wifi back on to re-enable esp-now connection to wheel board
-  esp_wifi_start();
-
   // end task
   vTaskDelete(NULL);
 }
@@ -777,12 +778,15 @@ void UpdateCANTask(void* pvParameters)
   int id;
 
   // --- receive messages --- //
-  // check for new messages in the CAN buffer
+
+  // if rx queue is full clear it (this is bad, implement can message filtering)
   uint32_t alerts;
   can_read_alerts(&alerts, pdMS_TO_TICKS(100));
   if (alerts & CAN_ALERT_RX_QUEUE_FULL) {
     can_clear_receive_queue();
   }
+
+  // check for new messages in the CAN buffer
   for (int i = 0; i < NUM_CAN_READS; ++i) {
     if (can_receive(&incomingMessage, pdMS_TO_TICKS(CAN_BLOCK_DELAY)) == ESP_OK) { // if there are messages to be read
       id = incomingMessage.identifier;
@@ -793,6 +797,7 @@ void UpdateCANTask(void* pvParameters)
           carData.drivingData.readyToDrive =  incomingMessage.data[0];
           carData.drivingData.imdFault = incomingMessage.data[1];
           carData.drivingData.bmsFault = incomingMessage.data[2];
+          carData.drivingData.enableInverter = incomingMessage.data[3];
         break;
 
         case FCB_DATA_ADDR:

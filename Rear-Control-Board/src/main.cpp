@@ -40,7 +40,7 @@
 #define TIRE_DIAMETER                   20.0        // diameter of the vehicle's tires in inches
 #define WHEEL_RPM_CALC_THRESHOLD        25          // the number of times the hall effect sensor is tripped before calculating vehicle speed
 #define PRECHARGE_FLOOR                 0.8         // minimum percentage of acceptable voltage to run car
-#define MIN_BUS_VOLTAGE                 100         // this should be a voltage that should never be reached
+#define MIN_BUS_VOLTAGE                 150         // this should be a voltage that can only be met if 1 pack is connected
 
 // CAN
 #define NUM_CAN_READS                   6           // in general, the number of expected messages times 2, so 6 
@@ -49,9 +49,9 @@
 #define RCB_CONTROL_ADDR                0x00C       // address for critical data sharing
 #define RCB_DATA_ADDR                   0x00D       // address for non-critical data sharing
 #define RINE_MOTOR_INFO_ADDR            0x0A5       // get motor information from Rinehart 
-#define RINE_VOLT_INFO_ADDR             0x0A7       // get Rinehart electrical information
-#define RINE_BUS_INFO_ADDR              0x0AA       // 
-#define RINE_BUS_CONTROL_ADDR           0x0C1       // 
+#define RINE_VOLT_INFO_ADDR             0x0A7       // get rinehart electrical information
+#define RINE_BUS_INFO_ADDR              0x0AA       // get rinehart relay information 
+#define RINE_BUS_CONTROL_ADDR           0x0C1       // control rinehart relay states
 #define BMS_GEN_DATA_ADDR               0x6B0       // important BMS data
 #define BMS_CELL_DATA_ADDR              0x6B2       // cell data
 
@@ -64,7 +64,7 @@
 #define SENSOR_POLL_INTERVAL            100000      // 0.1 seconds in microseconds
 #define ESP_NOW_UPDATE_INTERVAL         200000      // 0.2 seconds in microseconds
 #define CAN_UPDATE_INTERVAL             100000      // 0.1 seconds in microseconds
-#define LOGGER_UPDATE_INTERVAL          250000      // 0.25 seconds in microseconds
+#define LOGGER_UPDATE_INTERVAL          200000      // 0.2 seconds in microseconds
 #define TASK_STACK_SIZE                 4096        // in bytes
 #define CAN_BLOCK_DELAY                 100         // time to block to complete function call in FreeRTOS ticks (milliseconds)
 
@@ -761,25 +761,9 @@ void ReadSensorsTask(void* pvParameters)
   // turn off wifi for ADC channel 2 to function
   esp_wifi_stop();
 
-  // update wheel ride height values
-  carData.sensors.wheelHeightFR = analogRead(WHEEL_HEIGHT_BR_SENSOR);
-  carData.sensors.wheelHeightFL = analogRead(WHEEL_HEIGHT_BL_SENSOR);
-
-  // read brake sensor
-  // int tmpBrake = analogRead(BRAKE_PIN);
-  // carData.inputs.brakeRear = map(tmpBrake, 0, 1024, 0, 255);
-
   // read radiator sensors
   carData.sensors.pumpTempIn = analogRead(RAD_TEMP_IN_PIN);
   carData.sensors.pumpTempOut = analogRead(RAD_TEMP_OUT_PIN);
-
-  // update fans
-  if (carData.outputs.fansActive) {
-    digitalWrite(FAN_ENABLE_PIN, HIGH);              // turn on fans
-  }
-  else {
-    digitalWrite(FAN_ENABLE_PIN, LOW);               // turn off fans
-  }
 
   // update pump
   if (carData.outputs.pumpActive) {
@@ -789,10 +773,6 @@ void ReadSensorsTask(void* pvParameters)
     digitalWrite(PUMP_ENABLE_PIN, LOW);              // turn off pump
   }
 
-  // read faults
-  carData.drivingData.imdFault = digitalRead(IMD_FAULT_PIN);
-  carData.drivingData.bmsFault = digitalRead(BMS_FAULT_PIN);
-
   // update brake light state
   if (carData.outputs.brakeLight) {
     digitalWrite(BRAKE_LIGHT_PIN, HIGH);            // turn on the brake light
@@ -801,14 +781,36 @@ void ReadSensorsTask(void* pvParameters)
     digitalWrite(BRAKE_LIGHT_PIN, LOW);             // turn off the brake light
   }
 
+  // turn wifi back on to re-enable esp-now connection to wheel board
+  esp_wifi_start();
+
+  // update wheel ride height values
+  carData.sensors.wheelHeightFR = analogRead(WHEEL_HEIGHT_BR_SENSOR);
+  carData.sensors.wheelHeightFL = analogRead(WHEEL_HEIGHT_BL_SENSOR);
+
+  // read brake sensor
+  // int tmpBrake = analogRead(BRAKE_PIN);
+  // carData.inputs.brakeRear = map(tmpBrake, 0, 1024, 0, 255);
+
+
+  // update fans
+  if (carData.outputs.fansActive) {
+    digitalWrite(FAN_ENABLE_PIN, HIGH);              // turn on fans
+  }
+  else {
+    digitalWrite(FAN_ENABLE_PIN, LOW);               // turn off fans
+  }
+
+  // read faults
+  carData.drivingData.imdFault = digitalRead(IMD_FAULT_PIN);
+  carData.drivingData.bmsFault = digitalRead(BMS_FAULT_PIN);
+
+
   // debugging
   if (debugger.debugEnabled) {
     debugger.IO_data = carData;
     debugger.sensorTaskCount++;
   }
-
-  // turn wifi back on to re-enable esp-now connection to wheel board
-  esp_wifi_start();
 
   // end task
   vTaskDelete(NULL);
@@ -857,7 +859,7 @@ void PrechargeTask(void* pvParameters) {
       carData.drivingData.readyToDrive = true;
 
       // if rinehart voltage drops below battery, something's wrong, 
-      if ((carData.batteryStatus.rinehartVoltage < MIN_BUS_VOLTAGE)) {
+      if (carData.batteryStatus.rinehartVoltage < MIN_BUS_VOLTAGE) {
         carData.drivingData.prechargeState = PRECHARGE_ERROR;
       }
 
@@ -872,8 +874,8 @@ void PrechargeTask(void* pvParameters) {
       carData.drivingData.commandedTorque = 0;
       carData.drivingData.enableInverter = false;
 
-      // ensure we do not leave precharge error
-      carData.drivingData.prechargeState = PRECHARGE_ERROR;
+      // reset precharge cycle
+      carData.drivingData.prechargeState = PRECHARGE_OFF;
 
     break;
     
@@ -911,6 +913,14 @@ void CANReadTask(void* pvParameters)
   uint8_t tmp1, tmp2;
 
   // --- receive messages --- //
+
+  // if rx queue is full clear it (this is bad, implement can message filtering)
+  uint32_t alerts;
+  can_read_alerts(&alerts, pdMS_TO_TICKS(CAN_BLOCK_DELAY));
+  if (alerts & CAN_ALERT_RX_QUEUE_FULL) {
+    can_clear_receive_queue();
+  }
+
   // check for new messages in the CAN buffer
   for (int i = 0; i < NUM_CAN_READS; ++i) {
     if (can_receive(&incomingMessage, pdMS_TO_TICKS(CAN_BLOCK_DELAY)) == ESP_OK) { // if there are messages to be read
@@ -1064,7 +1074,7 @@ void CANWriteTask(void* pvParameters)
   fcbCtrlOutgoingMessage.data[0] = carData.drivingData.readyToDrive;
   fcbCtrlOutgoingMessage.data[1] = carData.drivingData.imdFault;
   fcbCtrlOutgoingMessage.data[2] = carData.drivingData.bmsFault;
-  fcbCtrlOutgoingMessage.data[3] = 0x00;
+  fcbCtrlOutgoingMessage.data[3] = carData.drivingData.enableInverter;
   fcbCtrlOutgoingMessage.data[4] = 0x00;
   fcbCtrlOutgoingMessage.data[5] = 0x00;
   fcbCtrlOutgoingMessage.data[6] = 0x00;

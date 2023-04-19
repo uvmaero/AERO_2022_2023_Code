@@ -499,7 +499,8 @@ void setup() {
  * 
  * @param args arguments to be passed to the task
  */
-void SensorCallback() {
+void SensorCallback() 
+{
   portENTER_CRITICAL_ISR(&timerMux);
 
   static uint8_t ucParameterToPass;
@@ -517,7 +518,8 @@ void SensorCallback() {
  * 
  * @param args arguments to be passed to the task
  */
-void CANCallback() {
+void CANCallback() 
+{
   portENTER_CRITICAL_ISR(&timerMux);
 
   static uint8_t ucParameterToPass;
@@ -535,7 +537,8 @@ void CANCallback() {
  * 
  * @param args arguments to be passed to the task
  */
-void ARDANCallback() {
+void ARDANCallback() 
+{
   portENTER_CRITICAL_ISR(&timerMux);
 
   static uint8_t ucParameterToPass;
@@ -553,7 +556,8 @@ void ARDANCallback() {
  * 
  * @param args arguments to be passed to the task
  */
-void ESPNOWCallback() {
+void ESPNOWCallback() 
+{
   portENTER_CRITICAL_ISR(&timerMux);
 
   // queue wcb update
@@ -592,7 +596,8 @@ void WCBDataReceived(const uint8_t* mac, const uint8_t* incomingData, int length
  * 
  * @param args arguments to be passed to the task
  */
-void FRWheelSensorCallback() {
+void FRWheelSensorCallback() 
+{
   portENTER_CRITICAL_ISR(&timerMux);
 
   // increment pass counter
@@ -624,7 +629,8 @@ void FRWheelSensorCallback() {
  * 
  * @param args arguments to be passed to the task
  */
-void FLWheelSensorCallback() {
+void FLWheelSensorCallback() 
+{
   portENTER_CRITICAL_ISR(&timerMux);
 
   // increment pass counter

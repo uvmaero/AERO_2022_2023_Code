@@ -226,16 +226,14 @@ esp_now_peer_info_t rcbInfo = {
 
 
 // CAN
+static const can_general_config_t can_general_config = CAN_GENERAL_CONFIG_DEFAULT((gpio_num_t)CAN_TX_PIN, (gpio_num_t)CAN_RX_PIN, CAN_MODE_NORMAL);
 static const can_timing_config_t can_timing_config = CAN_TIMING_CONFIG_500KBITS();
-//Filter all other IDs except MSG_ID
 static const can_filter_config_t can_filter_config = CAN_FILTER_CONFIG_ACCEPT_ALL();
 // {
 //   .acceptance_code = (MSG_ID << 21),
 //   .acceptance_mask = ~(CAN_STD_ID_MASK << 21),
 //   .single_filter = true
 // };
-//Set to NO_ACK mode due to self testing with single module
-static const can_general_config_t can_general_config = CAN_GENERAL_CONFIG_DEFAULT((gpio_num_t)CAN_TX_PIN, (gpio_num_t)CAN_RX_PIN, CAN_MODE_NORMAL);
 
 
 // LoRa Interface

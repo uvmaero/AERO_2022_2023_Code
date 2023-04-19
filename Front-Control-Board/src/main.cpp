@@ -47,13 +47,13 @@
 
 // CAN
 #define NUM_CAN_READS                   25          // the number of messages to read each time the CAN task is called
-#define FCB_CONTROL_ADDR                0x00A
-#define FCB_DATA_ADDR                   0x00B
-#define RCB_CONTROL_ADDR                0x00C
-#define RCB_DATA_ADDR                   0x00D
-#define RINE_CONTROL_ADDR               0x0C0
-#define RINE_MOTOR_INFO_ADDR            0x0A5
-#define RINE_VOLT_INFO_ADDR             0x0A7
+#define FCB_CONTROL_ADDR                0x00A       // critical data for FCB
+#define FCB_DATA_ADDR                   0x00B       // sensor information for FCB
+#define RCB_CONTROL_ADDR                0x00C       // critical data for RCB
+#define RCB_DATA_ADDR                   0x00D       // sensor information for RCB 
+#define RINE_CONTROL_ADDR               0x0C0       // motor command address 
+#define RINE_MOTOR_INFO_ADDR            0x0A5       // get rinehart motor infromation 
+#define RINE_VOLT_INFO_ADDR             0x0A7       // get rinehart voltage information
 
 // ESP-NOW
 #define WCB_ESP_NOW_ADDRESS             {0xC4, 0xDE, 0xE2, 0xC0, 0x75, 0x80}

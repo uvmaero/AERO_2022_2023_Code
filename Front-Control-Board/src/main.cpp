@@ -46,7 +46,7 @@
 #define MAX_TORQUE                      225         // MAX TORQUE RINEHART CAN ACCEPT, DO NOT EXCEED 230!!!
 
 // CAN
-#define NUM_CAN_READS                   10          // the number of messages to read each time the CAN task is called
+#define NUM_CAN_READS                   25          // the number of messages to read each time the CAN task is called
 #define FCB_CONTROL_ADDR                0x00A
 #define FCB_DATA_ADDR                   0x00B
 #define RCB_CONTROL_ADDR                0x00C
@@ -91,10 +91,10 @@
 Debugger debugger = {
   // debug toggle
   .debugEnabled = ENABLE_DEBUG,
-  .CAN_debugEnabled = false,
+  .CAN_debugEnabled = true,
   .WCB_debugEnabled = false,
   .IO_debugEnabled = false,
-  .scheduler_debugEnable = true,
+  .scheduler_debugEnable = false,
 
   // debug data
   .CAN_rineCtrlResult = ESP_OK,
@@ -307,7 +307,7 @@ void setup() {
   // analogSetAttenuation();
   
   // inputs
-  pinMode(RTD_BUTTON_PIN ,INPUT);
+  pinMode(RTD_BUTTON_PIN, INPUT_PULLUP);
 
   pinMode(PEDAL_0_PIN, INPUT);
   pinMode(PEDAL_1_PIN, INPUT);
@@ -332,7 +332,7 @@ void setup() {
   pinMode(CAN_ENABLE_PIN, OUTPUT);
 
   // interrupts
-  attachInterrupt(RTD_BUTTON_PIN, ReadyToDriveButtonPressed, ONHIGH);
+  attachInterrupt(RTD_BUTTON_PIN, ReadyToDriveButtonPressed, ONLOW);
 
   attachInterrupt(WHEEL_HEIGHT_FR_SENSOR, FRWheelSensorCallback, ONHIGH);
   attachInterrupt(WHEEL_HEIGHT_FL_SENSOR, FLWheelSensorCallback, ONHIGH);
@@ -792,6 +792,11 @@ void UpdateCANTask(void* pvParameters)
 
   // --- receive messages --- //
   // check for new messages in the CAN buffer
+  uint32_t alerts;
+  can_read_alerts(&alerts, pdMS_TO_TICKS(100));
+  if (alerts & CAN_ALERT_RX_QUEUE_FULL) {
+    can_clear_receive_queue();
+  }
   for (int i = 0; i < NUM_CAN_READS; ++i) {
     if (can_receive(&incomingMessage, pdMS_TO_TICKS(CAN_BLOCK_DELAY)) == ESP_OK) { // if there are messages to be read
       id = incomingMessage.identifier;
@@ -1059,7 +1064,7 @@ void PrintCANDebug() {
   // incoming data
   Serial.printf("Incoming RTD Status: %s\n", carData.drivingData.readyToDrive ? "true" : "false");
   Serial.printf("Incoming IMD Fault Status: %s\n", carData.drivingData.imdFault ? "cleared" : "fault state");
-  Serial.printf("Incoming BMS Fault Status: %s\n", carData.drivingData.bmsFault ? "cleared" : "fault state");
+  Serial.printf("Incoming BMS Fault Status: %s\n", carData.drivingData.bmsFault ? "fault state" : "cleared");
 
   // sent status
   Serial.printf("Rine Ctrl Send Status: 0x%X\n", debugger.CAN_rineCtrlResult);
@@ -1117,6 +1122,9 @@ void PrintIODebug() {
 
   // coast regen
   Serial.printf("Coast Regen: %d\n", debugger.IO_data.inputs.coastRegen);
+
+  // faults
+  Serial.printf("Faults: IMD: %d | BMS: %d\n", carData.drivingData.imdFault, carData.drivingData.bmsFault);
 
   // OUTPUTS
   // buzzer status

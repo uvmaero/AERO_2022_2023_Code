@@ -50,7 +50,8 @@
 #define RCB_DATA_ADDR                   0x00D       // address for non-critical data sharing
 #define RINE_MOTOR_INFO_ADDR            0x0A5       // get motor information from Rinehart 
 #define RINE_VOLT_INFO_ADDR             0x0A7       // get Rinehart electrical information
-#define RINE_BUS_CONTROL_ADDR           0x0AA       // 
+#define RINE_BUS_INFO_ADDR              0x0AA       // 
+#define RINE_BUS_CONTROL_ADDR           0x0C1       // 
 #define BMS_GEN_DATA_ADDR               0x6B0       // important BMS data
 #define BMS_CELL_DATA_ADDR              0x6B2       // cell data
 

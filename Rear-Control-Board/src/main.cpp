@@ -39,8 +39,8 @@
 // definitions
 #define TIRE_DIAMETER                   20.0        // diameter of the vehicle's tires in inches
 #define WHEEL_RPM_CALC_THRESHOLD        25          // the number of times the hall effect sensor is tripped before calculating vehicle speed
-#define PRECHARGE_FLOOR                 0.9         // minimum percentage of acceptable voltage to run car
-#define MIN_BUS_VOLTAGE                 75          // this should be a voltage that should never be reached
+#define PRECHARGE_FLOOR                 0.8         // minimum percentage of acceptable voltage to run car
+#define MIN_BUS_VOLTAGE                 100         // this should be a voltage that should never be reached
 
 // CAN
 #define NUM_CAN_READS                   6           // in general, the number of expected messages times 2, so 6 
@@ -69,7 +69,7 @@
 #define CAN_BLOCK_DELAY                 100         // time to block to complete function call in FreeRTOS ticks (milliseconds)
 
 // debug
-#define ENABLE_DEBUG                    false       // master debug control
+#define ENABLE_DEBUG                    true       // master debug control
 #if ENABLE_DEBUG
   #define MAIN_LOOP_DELAY               1000
 #else
@@ -92,9 +92,9 @@ Debugger debugger = {
   // debug toggle
   .debugEnabled = ENABLE_DEBUG,
   .CAN_debugEnabled = false,
-  .IO_debugEnabled = false,
+  .IO_debugEnabled = true,
   .Logger_debugEnabled = false,
-  .scheduler_debugEnable = true,
+  .scheduler_debugEnable = false,
 
   // debug data
   .prechargeResult = ESP_OK,
@@ -857,7 +857,7 @@ void PrechargeTask(void* pvParameters) {
       carData.drivingData.readyToDrive = true;
 
       // if rinehart voltage drops below battery, something's wrong, 
-      if ((carData.batteryStatus.rinehartVoltage < MIN_BUS_VOLTAGE) || (carData.batteryStatus.busVoltage < MIN_BUS_VOLTAGE)) {
+      if ((carData.batteryStatus.rinehartVoltage < MIN_BUS_VOLTAGE)) {
         carData.drivingData.prechargeState = PRECHARGE_ERROR;
       }
 
@@ -1347,8 +1347,8 @@ void PrintIODebug() {
   Serial.printf("BMS Fault: %s\n", carData.drivingData.bmsFault ? "Fault State" : "Cleared");
   Serial.printf("IMD Fault: %s\n", carData.drivingData.imdFault ? "Fault State" : "Cleared");
 
-  Serial.printf("Radiator In Temp: %f", carData.sensors.pumpTempIn);
-  Serial.printf("Radiator Out Temp: %f", carData.sensors.pumpTempOut);
+  Serial.printf("Radiator In Temp: %f\n", carData.sensors.pumpTempIn);
+  Serial.printf("Radiator Out Temp: %f\n", carData.sensors.pumpTempOut);
   Serial.printf("Vicore Temp: %f\n", carData.sensors.vicoreTemp);
 
   Serial.printf("\n\n--- END I/O DEBUG ---\n");

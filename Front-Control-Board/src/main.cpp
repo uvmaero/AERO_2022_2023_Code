@@ -69,9 +69,9 @@
 #define CAN_BLOCK_DELAY                 100         // time to block to complete function call in FreeRTOS ticks (milliseconds)
 
 // debug
-#define ENABLE_DEBUG                    false       // master debug message control
+#define ENABLE_DEBUG                    true       // master debug message control
 #if ENABLE_DEBUG
-  #define MAIN_LOOP_DELAY               1000        // delay in main loop
+  #define MAIN_LOOP_DELAY               500        // delay in main loop
 #else
   #define MAIN_LOOP_DELAY               1
 #endif
@@ -91,9 +91,9 @@
 Debugger debugger = {
   // debug toggle
   .debugEnabled = ENABLE_DEBUG,
-  .CAN_debugEnabled = true,
+  .CAN_debugEnabled = false,
   .WCB_debugEnabled = false,
-  .IO_debugEnabled = false,
+  .IO_debugEnabled = true,
   .scheduler_debugEnable = false,
 
   // debug data
@@ -137,7 +137,7 @@ CarData carData = {
     .commandedTorque = 0,
     .currentSpeed = 0.0f,
     .driveDirection = true,
-    .driveMode = FAST, 
+    .driveMode = SLOW, 
   },
 
   // Battery Status
@@ -265,7 +265,6 @@ void UpdateESPNOWTask(void* pvParameters);
 
 // ISRs
 void WCBDataReceived(const uint8_t* mac, const uint8_t* incomingData, int length);
-void ReadyToDriveButtonPressed();
 
 // helpers
 void GetCommandedTorque();
@@ -325,15 +324,13 @@ void setup() {
   // outputs
   pinMode(RTD_BUTTON_LED_PIN, OUTPUT);
   pinMode(WCB_CONNECTION_LED, OUTPUT);
-  pinMode(BMS_LED_PIN, OUTPUT);
-  pinMode(IMD_LED_PIN, OUTPUT);
+  // pinMode(BMS_LED_PIN, OUTPUT);
+  // pinMode(IMD_LED_PIN, OUTPUT);
 
   pinMode(BUZZER_PIN, OUTPUT);
   pinMode(CAN_ENABLE_PIN, OUTPUT);
 
   // interrupts
-  attachInterrupt(RTD_BUTTON_PIN, ReadyToDriveButtonPressed, ONLOW);
-
   attachInterrupt(WHEEL_HEIGHT_FR_SENSOR, FRWheelSensorCallback, ONHIGH);
   attachInterrupt(WHEEL_HEIGHT_FL_SENSOR, FLWheelSensorCallback, ONHIGH);
 
@@ -656,25 +653,6 @@ void FLWheelSensorCallback() {
 }
 
 
-/**
- * @brief handle the ready to drive button press event
- * 
- * @param args arguments to be passed to the task
- */
-void ReadyToDriveButtonPressed() {
-  portENTER_CRITICAL_ISR(&timerMux);
-
-  if (carData.drivingData.readyToDrive) {
-    // turn on buzzer to indicate TSV is live
-    carData.outputs.buzzerActive = true;
-  }
-
-  portEXIT_CRITICAL_ISR(&timerMux);
-
-  return;
-}
-
-
 /*
 ===============================================================================================
                                 FreeRTOS Task Functions
@@ -691,6 +669,14 @@ void ReadSensorsTask(void* pvParameters)
 {
   // turn off wifi for ADC channel 2 to function
   esp_wifi_stop();
+
+  // ready to drive button
+  if (digitalRead(RTD_BUTTON_PIN) == LOW) {
+    if (carData.drivingData.readyToDrive) {
+      // turn on buzzer to indicate TSV is live
+      carData.outputs.buzzerActive = true;
+    }
+  }
 
   // get pedal positions
   uint16_t tmpPedal0 = analogReadMilliVolts(PEDAL_0_PIN);
@@ -1126,8 +1112,10 @@ void PrintIODebug() {
   // faults
   Serial.printf("Faults: IMD: %d | BMS: %d\n", carData.drivingData.imdFault, carData.drivingData.bmsFault);
 
+  // rtd
+  Serial.printf("Ready to Drive: %s\n", carData.drivingData.readyToDrive ? "READY" : "DEACTIVATED");
+
   // OUTPUTS
-  // buzzer status
   Serial.printf("Buzzer Status: %s, Buzzer Counter: %d\n", debugger.IO_data.outputs.buzzerActive ? "On" : "Off", debugger.IO_data.outputs.buzzerCounter);
 
   Serial.printf("Commanded Torque: %d\n", carData.drivingData.commandedTorque);

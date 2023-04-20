@@ -46,7 +46,7 @@
 #define MIN_BUS_VOLTAGE                 150         // this should be a voltage that can only be met if 1 pack is connected
 
 // CAN
-#define NUM_CAN_READS                   6           // in general, the number of expected messages times 2, so 6 
+#define NUM_CAN_READS                   25          // in general, the number of expected messages times 2, so 6 
 #define FCB_CONTROL_ADDR                0x00A       // 
 #define FCB_DATA_ADDR                   0x00B       // 
 #define RCB_CONTROL_ADDR                0x00C       // address for critical data sharing
@@ -136,8 +136,8 @@ CarData carData = {
     .enableInverter = false,
     .prechargeState = PRECHARGE_OFF,
 
-    .imdFault = LOW,
-    .bmsFault = LOW,
+    .imdFault = true,
+    .bmsFault = true,
 
     .commandedTorque = 0,
     .currentSpeed = 0.0f,
@@ -850,7 +850,7 @@ void PrechargeTask(void* pvParameters) {
       // set ready to drive state
       carData.drivingData.readyToDrive = false;
 
-      if (carData.drivingData.imdFault == false && carData.drivingData.bmsFault == false) { // IMD: HIGH = clear | LOW = fault ||| BMS: HIGH = fault | LOW = clear
+      if (carData.drivingData.imdFault == false && carData.drivingData.bmsFault == false) {
         carData.drivingData.prechargeState = PRECHARGE_ON;
       }
 

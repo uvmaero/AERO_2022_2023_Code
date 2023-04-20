@@ -136,8 +136,8 @@ CarData carData = {
     .enableInverter = false,
     .prechargeState = PRECHARGE_OFF,
 
-    .imdFault = false,
-    .bmsFault = false,
+    .imdFault = true,
+    .bmsFault = true,
 
     .commandedTorque = 0,
     .currentSpeed = 0.0f,
@@ -751,19 +751,19 @@ void ReadSensorsTask(void* pvParameters)
   }
 
   // BMS fault LED
-  if (carData.drivingData.bmsFault) {
-    digitalWrite(BMS_LED_PIN, HIGH);
+  if (!carData.drivingData.bmsFault) {
+    digitalWrite(BMS_LED_PIN, LOW);
   }
   else {
-    digitalWrite(BMS_LED_PIN, LOW);
+    digitalWrite(BMS_LED_PIN, HIGH);
   }
 
   // IMD fault LED
-  if (carData.drivingData.imdFault) {
-    digitalWrite(IMD_LED_PIN, HIGH);
+  if (!carData.drivingData.imdFault) {
+    digitalWrite(IMD_LED_PIN, LOW);
   }
   else {
-    digitalWrite(IMD_LED_PIN, LOW);
+    digitalWrite(IMD_LED_PIN, HIGH);
   }
 
   // debugging

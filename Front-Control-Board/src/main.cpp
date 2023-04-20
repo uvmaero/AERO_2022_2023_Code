@@ -48,6 +48,7 @@
 #define PEDAL_MAX                       255         // maximum value a pedal can read as
 #define TORQUE_DEADBAND                 128         // 5% of 2550
 #define MAX_TORQUE                      225         // MAX TORQUE RINEHART CAN ACCEPT, DO NOT EXCEED 230!!!
+#define MIN_BUS_VOLTAGE                 150         // min bus voltage
 
 // CAN
 #define NUM_CAN_READS                   25          // the number of messages to read each time the CAN task is called
@@ -97,8 +98,8 @@ Debugger debugger = {
   .debugEnabled = ENABLE_DEBUG,
   .CAN_debugEnabled = false,
   .WCB_debugEnabled = false,
-  .IO_debugEnabled = false,
-  .scheduler_debugEnable = true,
+  .IO_debugEnabled = true,
+  .scheduler_debugEnable = false,
 
   // debug data
   .CAN_rineCtrlResult = ESP_OK,
@@ -749,21 +750,21 @@ void ReadSensorsTask(void* pvParameters)
     }
   }
 
-  // BMS fault LED
-  if (!carData.drivingData.bmsFault) {    // BMS fault is inverted
-    digitalWrite(BMS_LED_PIN, LOW);
-  }
-  else {
-    digitalWrite(BMS_LED_PIN, HIGH);
-  }
+  // // BMS fault LED
+  // if (carData.drivingData.bmsFault) {
+  //   digitalWrite(BMS_LED_PIN, HIGH);
+  // }
+  // else {
+  //   digitalWrite(BMS_LED_PIN, LOW);
+  // }
 
-  // IMD fault LED
-  if (carData.drivingData.imdFault) {
-    digitalWrite(IMD_LED_PIN, LOW);
-  }
-  else {
-    digitalWrite(IMD_LED_PIN, HIGH);
-  }
+  // // IMD fault LED
+  // if (carData.drivingData.imdFault) {
+  //   digitalWrite(IMD_LED_PIN, HIGH);
+  // }
+  // else {
+  //   digitalWrite(IMD_LED_PIN, LOW);
+  // }
 
   // debugging
   if (debugger.debugEnabled) {
@@ -786,6 +787,7 @@ void UpdateCANTask(void* pvParameters)
   // inits
   can_message_t incomingMessage;
   int id;
+  uint8_t tmp1, tmp2;
 
   // --- receive messages --- //
 
@@ -803,11 +805,20 @@ void UpdateCANTask(void* pvParameters)
       
       // parse out data
       switch (id) {
+        // Rinehart: voltage information
+        case RINE_VOLT_INFO_ADDR:
+          // rinehart voltage is spread across the first 2 bytes
+          tmp1 = incomingMessage.data[0];
+          tmp2 = incomingMessage.data[1];
+
+          // combine the first two bytes and assign that to the rinehart voltage
+          carData.batteryStatus.rinehartVoltage = (tmp2 << 8) | tmp1;   // little endian combination: value = (byte2 << 8) | byte1;
+        break;
+
         case FCB_CONTROL_ADDR:
           carData.drivingData.readyToDrive =  incomingMessage.data[0];
           carData.drivingData.imdFault = incomingMessage.data[1];
           carData.drivingData.bmsFault = incomingMessage.data[2];
-          carData.drivingData.enableInverter = incomingMessage.data[3];
         break;
 
         case FCB_DATA_ADDR:
@@ -853,7 +864,7 @@ void UpdateCANTask(void* pvParameters)
 
   // build message for RCB - control
   rcbOutgoingMessage.data[0] = (uint8_t)carData.outputs.brakeLight;
-  rcbOutgoingMessage.data[1] = 0x01;
+  rcbOutgoingMessage.data[1] = 0x00;
   rcbOutgoingMessage.data[2] = 0x02;
   rcbOutgoingMessage.data[3] = 0x03;
   rcbOutgoingMessage.data[4] = 0x04;
@@ -995,6 +1006,11 @@ void GetCommandedTorque()
 
   // --- safety checks --- //
 
+  // rinehart voltage check
+    if (carData.batteryStatus.rinehartVoltage < MIN_BUS_VOLTAGE) {
+    carData.drivingData.enableInverter = false;
+  }
+
   // pedal difference 
   int pedalDifference = carData.inputs.pedal0 - carData.inputs.pedal1;
   if (_abs(pedalDifference > (PEDAL_MAX * 0.1))) {
@@ -1129,6 +1145,9 @@ void PrintIODebug() {
 
   // rtd
   Serial.printf("Ready to Drive: %s\n", carData.drivingData.readyToDrive ? "READY" : "DEACTIVATED");
+
+  // inverter
+  Serial.printf("Inverter Enable: %s\n", carData.drivingData.enableInverter ? "ENABLED" : "DISABLED");
 
   // OUTPUTS
   Serial.printf("Buzzer Status: %s, Buzzer Counter: %d\n", debugger.IO_data.outputs.buzzerActive ? "On" : "Off", debugger.IO_data.outputs.buzzerCounter);

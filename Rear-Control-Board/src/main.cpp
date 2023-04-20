@@ -804,10 +804,21 @@ void ReadSensorsTask(void* pvParameters)
     digitalWrite(FAN_ENABLE_PIN, LOW);               // turn off fans
   }
 
-  // read faults
-  carData.drivingData.imdFault = digitalRead(IMD_FAULT_PIN);
-  carData.drivingData.bmsFault = digitalRead(BMS_FAULT_PIN);
+  // bms fault
+  if (digitalRead(IMD_FAULT_PIN) == HIGH) {   // HIGH = CLEAR | LOW = FAULT
+    carData.drivingData.imdFault = false;
+  }
+  else {
+    carData.drivingData.imdFault = true;
+  }
 
+  // imd fault
+  if (digitalRead(BMS_FAULT_PIN) == HIGH) {    // HIGH = FAULT | LOW = CLEAR
+    carData.drivingData.bmsFault = true;
+  }
+  else {
+    carData.drivingData.bmsFault = false;
+  }
 
   // debugging
   if (debugger.debugEnabled) {
@@ -839,7 +850,7 @@ void PrechargeTask(void* pvParameters) {
       // set ready to drive state
       carData.drivingData.readyToDrive = false;
 
-      if (carData.drivingData.imdFault == HIGH && carData.drivingData.bmsFault == LOW) { // IMD: HIGH = clear | LOW = fault ||| BMS: HIGH = fault | LOW = clear
+      if (carData.drivingData.imdFault == false && carData.drivingData.bmsFault == false) { // IMD: HIGH = clear | LOW = fault ||| BMS: HIGH = fault | LOW = clear
         carData.drivingData.prechargeState = PRECHARGE_ON;
       }
 
@@ -848,8 +859,12 @@ void PrechargeTask(void* pvParameters) {
     // do precharge
     case PRECHARGE_ON:
 
+      // set ready to drive state
+      carData.drivingData.readyToDrive = false;
+
       // ensure voltages are above correct values
-      if (carData.batteryStatus.rinehartVoltage >= (carData.batteryStatus.busVoltage * PRECHARGE_FLOOR)) {
+      if ((carData.batteryStatus.rinehartVoltage >= (carData.batteryStatus.busVoltage * PRECHARGE_FLOOR)) &&
+      (carData.batteryStatus.rinehartVoltage > MIN_BUS_VOLTAGE)) {
         carData.drivingData.prechargeState = PRECHARGE_DONE;
       }
 
@@ -859,6 +874,7 @@ void PrechargeTask(void* pvParameters) {
     // precharge complete!
     case PRECHARGE_DONE:
 
+      // set ready to drive state
       carData.drivingData.readyToDrive = true;
 
       // if rinehart voltage drops below battery, something's wrong, 
@@ -875,7 +891,6 @@ void PrechargeTask(void* pvParameters) {
       // ensure car cannot drive
       carData.drivingData.readyToDrive = false;
       carData.drivingData.commandedTorque = 0;
-      carData.drivingData.enableInverter = false;
 
       // reset precharge cycle
       carData.drivingData.prechargeState = PRECHARGE_OFF;
@@ -944,7 +959,7 @@ void CANReadTask(void* pvParameters)
           tmp2 = incomingMessage.data[1];
 
           // combine the first two bytes and assign that to the rinehart voltage
-          carData.batteryStatus.rinehartVoltage = (tmp2 << 8) | tmp1;   // little endian combination: value = (byte2 << 8) | byte1;
+          carData.batteryStatus.rinehartVoltage = ((tmp2 << 8) | tmp1) / 10;   // little endian combination: value = (byte2 << 8) | byte1;
         break;
 
         // BMS: general pack data
@@ -957,7 +972,7 @@ void CANReadTask(void* pvParameters)
           // pack voltage
           tmp1 = incomingMessage.data[2];
           tmp2 = incomingMessage.data[3];
-          carData.batteryStatus.busVoltage = (tmp1 << 8) | tmp2;    // big endian combination: value = (byte1 << 8) | byte2;
+          carData.batteryStatus.busVoltage = ((tmp1 << 8) | tmp2) / 10;    // big endian combination: value = (byte1 << 8) | byte2;
 
           // state of charge
           carData.batteryStatus.batteryChargeState = incomingMessage.data[4];
@@ -1077,7 +1092,7 @@ void CANWriteTask(void* pvParameters)
   fcbCtrlOutgoingMessage.data[0] = carData.drivingData.readyToDrive;
   fcbCtrlOutgoingMessage.data[1] = carData.drivingData.imdFault;
   fcbCtrlOutgoingMessage.data[2] = carData.drivingData.bmsFault;
-  fcbCtrlOutgoingMessage.data[3] = carData.drivingData.enableInverter;
+  fcbCtrlOutgoingMessage.data[3] = 0x00;
   fcbCtrlOutgoingMessage.data[4] = 0x00;
   fcbCtrlOutgoingMessage.data[5] = 0x00;
   fcbCtrlOutgoingMessage.data[6] = 0x00;
@@ -1347,12 +1362,14 @@ void PrintIODebug() {
   break;
   }
 
-  // outputs
-  Serial.printf("Outputs:\n");
-  
+  // outputs  
+  Serial.printf("\nOutputs:\n");
   Serial.printf("Brake Light: %s\n", carData.outputs.brakeLight ? "On" : "Off");
   Serial.printf("Pump: %s\n", carData.outputs.pumpActive ? "On" : "Off");
   Serial.printf("Fans: %s\n", carData.outputs.fansActive ? "On" : "Off");
+  Serial.printf("Ready to Drive: %s\n", carData.drivingData.readyToDrive ? "READY" : "DEACTIVAED");
+  Serial.printf("Rinehart Voltage: %f\n", carData.batteryStatus.rinehartVoltage);
+  Serial.printf("Bus Voltage: %f\n", carData.batteryStatus.busVoltage);
 
   // inputs
   Serial.printf("\nInputs:\n");

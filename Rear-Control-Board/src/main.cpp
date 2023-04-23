@@ -321,7 +321,7 @@ void setup()
   pinMode(RAD_TEMP_OUT_PIN, INPUT);
 
   pinMode(IMD_FAULT_PIN, INPUT);
-  pinMode(BMS_FAULT_PIN, INPUT);
+  pinMode(BMS_FAULT_PIN, INPUT_PULLDOWN);
 
   // outputs
   pinMode(FAN_ENABLE_PIN, OUTPUT);
@@ -813,11 +813,11 @@ void ReadSensorsTask(void* pvParameters)
   }
 
   // imd fault
-  if (digitalRead(BMS_FAULT_PIN) == HIGH) {    // HIGH = FAULT | LOW = CLEAR
-    carData.drivingData.bmsFault = true;
+  if (digitalRead(BMS_FAULT_PIN) == HIGH) {    // HIGH = CLEAR | LOW = FAULT
+    carData.drivingData.bmsFault = false;
   }
   else {
-    carData.drivingData.bmsFault = false;
+    carData.drivingData.bmsFault = true;
   }
 
   // debugging

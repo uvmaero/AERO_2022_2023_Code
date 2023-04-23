@@ -39,7 +39,7 @@ esp_pm_config_esp32_t power_configuration {
 #define WHEEL_SPEED_BL_SENSOR               39
 
 #define WHEEL_HEIGHT_BR_SENSOR              34
-#define WHEEL_HEIGHT_BL_SENSOR              35
+#define WHEEL_HEIGHT_BL_SENSOR              33
 
 
 // Inputs
@@ -47,7 +47,7 @@ esp_pm_config_esp32_t power_configuration {
 #define RAD_TEMP_OUT_PIN                    0
 
 #define IMD_FAULT_PIN                       32
-#define BMS_FAULT_PIN                       33
+#define BMS_FAULT_PIN                       35
 
 // CAN
 #define CAN_RX_PIN                          23

@@ -55,7 +55,7 @@ esp_pm_config_esp32_t power_configuration {
 #define CAN_ENABLE_PIN                      5
 
 // Outputs
-#define RTD_BUTTON_LED_PIN                  21
+#define RTD_LED_PIN                         21
 #define WCB_CONNECTION_LED                  26
 
 #define BMS_LED_PIN                         1

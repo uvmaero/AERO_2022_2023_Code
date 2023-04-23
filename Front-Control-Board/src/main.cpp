@@ -326,7 +326,7 @@ void setup() {
   pinMode(STEERING_WHEEL_POT, INPUT);
 
   // outputs
-  pinMode(RTD_BUTTON_LED_PIN, OUTPUT);
+  pinMode(RTD_LED_PIN, OUTPUT);
   pinMode(WCB_CONNECTION_LED, OUTPUT);
   pinMode(BMS_LED_PIN, OUTPUT);
   pinMode(IMD_LED_PIN, OUTPUT);
@@ -681,12 +681,13 @@ void ReadSensorsTask(void* pvParameters)
   // turn off wifi for ADC channel 2 to function
   esp_wifi_stop();
 
-  // get brake positions
-  float tmpBrake = analogRead(BRAKE_PIN);
-  carData.inputs.brakeFront = map(tmpBrake, 0, 1024, 0, 255);   // starting min and max values must be found via testing!!! 
+  // get brake position
+  float tmpBrake = analogReadMilliVolts(BRAKE_PIN);
+  carData.inputs.brakeFront = map(tmpBrake, 255, 1024, PEDAL_MIN, PEDAL_MAX); // starting min and max values must be found via testing!!! 
 
+  // read pedal potentiometer 1
   uint16_t tmpPedal1 = analogReadMilliVolts(PEDAL_1_PIN);
-  carData.inputs.pedal1 = map(tmpPedal1, 290, 1375, PEDAL_MIN, PEDAL_MAX);   // starting min and max values must be found via testing!!! (0.29V - 1.379V)
+  carData.inputs.pedal1 = map(tmpPedal1, 290, 1375, PEDAL_MIN, PEDAL_MAX);    // starting min and max values must be found via testing!!! (0.29V - 1.379V)
 
   if (carData.inputs.pedal1 > 255) {
     carData.inputs.pedal1 = 255;
@@ -697,14 +698,6 @@ void ReadSensorsTask(void* pvParameters)
   // turn wifi back on to re-enable esp-now connection to wheel board
   esp_wifi_start();
 
-  // ready to drive button
-  if (digitalRead(RTD_BUTTON_PIN) == LOW) {
-    if (carData.drivingData.readyToDrive) {
-      // turn on buzzer to indicate TSV is live
-      carData.outputs.buzzerActive = true;
-    }
-  }
-
   // get pedal positions
   uint16_t tmpPedal0 = analogReadMilliVolts(PEDAL_0_PIN);
   carData.inputs.pedal0 = map(tmpPedal0, 575, 2810, PEDAL_MIN, PEDAL_MAX);   // starting min and max values must be found via testing!!! (0.59V - 2.75V)
@@ -712,9 +705,6 @@ void ReadSensorsTask(void* pvParameters)
   if (carData.inputs.pedal0 > 255) {
     carData.inputs.pedal0 = 255;
   }
-
-  // Calculate commanded torque
-  GetCommandedTorque();
 
   // brake light logic 
   if (carData.inputs.brakeFront >= BRAKE_LIGHT_THRESHOLD) {
@@ -724,7 +714,6 @@ void ReadSensorsTask(void* pvParameters)
   else {
     carData.outputs.brakeLight = false;     // turn it off
   }
-
 
   // update wheel ride height values
   carData.sensors.wheelHeightFR = analogRead(WHEEL_HEIGHT_FR_SENSOR);
@@ -750,6 +739,22 @@ void ReadSensorsTask(void* pvParameters)
     }
   }
 
+  // ready to drive button
+  if (digitalRead(RTD_BUTTON_PIN) == LOW) {
+    if (carData.drivingData.readyToDrive) {
+      // turn on buzzer to indicate TSV is live
+      carData.outputs.buzzerActive = true;
+    }
+  }
+
+  // Ready to Drive LED
+  if (carData.drivingData.readyToDrive) {
+    digitalWrite(RTD_LED_PIN, HIGH);
+  }
+  else {
+    digitalWrite(RTD_LED_PIN, LOW);
+  }
+
   // BMS fault LED
   if (!carData.drivingData.bmsFault) {
     digitalWrite(BMS_LED_PIN, LOW);
@@ -765,6 +770,11 @@ void ReadSensorsTask(void* pvParameters)
   else {
     digitalWrite(IMD_LED_PIN, HIGH);
   }
+
+
+  // calculate commanded torque
+  GetCommandedTorque();
+
 
   // debugging
   if (debugger.debugEnabled) {
@@ -793,7 +803,7 @@ void UpdateCANTask(void* pvParameters)
 
   // if rx queue is full clear it (this is bad, implement can message filtering)
   uint32_t alerts;
-  can_read_alerts(&alerts, pdMS_TO_TICKS(100));
+  can_read_alerts(&alerts, pdMS_TO_TICKS(CAN_BLOCK_DELAY));
   if (alerts & CAN_ALERT_RX_QUEUE_FULL) {
     can_clear_receive_queue();
   }
@@ -1029,13 +1039,13 @@ void GetCommandedTorque()
   }
 
   // if brake is engaged
-  // if (carData.outputs.brakeLight) {
-  //   carData.drivingData.commandedTorque = 0;
-  // }
+  if (carData.outputs.brakeLight) {
+    carData.drivingData.commandedTorque = 0;
+  }
 
   // check if ready to drive
   if (!carData.drivingData.readyToDrive) {
-    carData.drivingData.commandedTorque = 0;    // if not ready to drive then block all torque
+    carData.drivingData.commandedTorque = 0;                    // if not ready to drive then block all torque
   }
 } 
 

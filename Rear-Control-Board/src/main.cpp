@@ -804,7 +804,7 @@ void ReadSensorsTask(void* pvParameters)
     digitalWrite(FAN_ENABLE_PIN, LOW);               // turn off fans
   }
 
-  // bms fault
+  // imd fault
   if (digitalRead(IMD_FAULT_PIN) == HIGH) {   // HIGH = CLEAR | LOW = FAULT
     carData.drivingData.imdFault = false;
   }
@@ -812,12 +812,12 @@ void ReadSensorsTask(void* pvParameters)
     carData.drivingData.imdFault = true;
   }
 
-  // imd fault
-  if (digitalRead(BMS_FAULT_PIN) == HIGH) {    // HIGH = CLEAR | LOW = FAULT
-    carData.drivingData.bmsFault = false;
+  // bms fault
+  if (digitalRead(BMS_FAULT_PIN) == HIGH) {    // HIGH = FAULT | LOW = CLEAR
+    carData.drivingData.bmsFault = true;
   }
   else {
-    carData.drivingData.bmsFault = true;
+    carData.drivingData.bmsFault = false;
   }
 
   // debugging

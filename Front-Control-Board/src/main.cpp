@@ -141,8 +141,8 @@ CarData carData = {
 
     .commandedTorque = 0,
     .currentSpeed = 0.0f,
-    .driveDirection = true,
-    .driveMode = SLOW, 
+    .driveDirection = false,
+    .driveMode = ECO, 
   },
 
   // Battery Status
@@ -683,7 +683,7 @@ void ReadSensorsTask(void* pvParameters)
 
   // get brake position
   float tmpBrake = analogReadMilliVolts(BRAKE_PIN);
-  carData.inputs.brakeFront = map(tmpBrake, 255, 1024, PEDAL_MIN, PEDAL_MAX); // starting min and max values must be found via testing!!! 
+  carData.inputs.brakeFront = map(tmpBrake, 260, 855, PEDAL_MIN, PEDAL_MAX); // starting min and max values must be found via testing!!! 
 
   // read pedal potentiometer 1
   uint16_t tmpPedal1 = analogReadMilliVolts(PEDAL_1_PIN);

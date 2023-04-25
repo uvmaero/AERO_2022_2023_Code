@@ -55,9 +55,9 @@ esp_pm_config_esp32_t power_configuration {
 
 
 // Outputs
-#define FAN_ENABLE_PIN                      25
+#define FAN_ENABLE_PIN                      26
 #define PUMP_ENABLE_PIN                     2
-#define BRAKE_LIGHT_PIN                     26
+#define BRAKE_LIGHT_PIN                     25
 
 #define SD_CMD_PIN                          14
 #define SD_CLK_PIN                          12

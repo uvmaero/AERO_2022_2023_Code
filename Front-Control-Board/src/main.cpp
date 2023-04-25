@@ -43,10 +43,9 @@
 #define TIRE_DIAMETER                   20.0        // diameter of the vehicle's tires in inches
 #define WHEEL_RPM_CALC_THRESHOLD        100         // the number of times the hall effect sensor is tripped before calculating vehicle speed
 #define BRAKE_LIGHT_THRESHOLD           20          // the threshold that must be crossed for the brake to be considered active
-#define PEDAL_DEADBAND                  5           // minimum value that the pedal will activate at
 #define PEDAL_MIN                       0           // minimum value the pedals can read as
 #define PEDAL_MAX                       255         // maximum value a pedal can read as
-#define TORQUE_DEADBAND                 128         // 5% of 2550
+#define PEDAL_DEADBAND                  12          // 5% of PEDAL_MAX
 #define MAX_TORQUE                      225         // MAX TORQUE RINEHART CAN ACCEPT, DO NOT EXCEED 230!!!
 #define MIN_BUS_VOLTAGE                 150         // min bus voltage
 
@@ -271,6 +270,7 @@ void WCBDataReceived(const uint8_t* mac, const uint8_t* incomingData, int length
 
 // helpers
 void GetCommandedTorque();
+uint16_t CalculateThrottleResponse(uint16_t value);
 
 
 /*
@@ -683,15 +683,12 @@ void ReadSensorsTask(void* pvParameters)
 
   // get brake position
   float tmpBrake = analogReadMilliVolts(BRAKE_PIN);
-  carData.inputs.brakeFront = map(tmpBrake, 260, 855, PEDAL_MIN, PEDAL_MAX); // starting min and max values must be found via testing!!! 
+  carData.inputs.brakeFront = map(tmpBrake, 260, 855, PEDAL_MIN, PEDAL_MAX);  // (0.26V - 0.855V) | values found via testing
 
   // read pedal potentiometer 1
   uint16_t tmpPedal1 = analogReadMilliVolts(PEDAL_1_PIN);
-  carData.inputs.pedal1 = map(tmpPedal1, 290, 1375, PEDAL_MIN, PEDAL_MAX);    // starting min and max values must be found via testing!!! (0.29V - 1.379V)
-
-  if (carData.inputs.pedal1 > 255) {
-    carData.inputs.pedal1 = 255;
-  }
+  tmpPedal1 = map(tmpPedal1, 290, 1375, PEDAL_MIN, PEDAL_MAX);                // (0.29V - 1.379V) | values found via testing
+  carData.inputs.pedal1 = CalculateThrottleResponse(tmpPedal1);
 
   // wcb connection LED would also be in here
 
@@ -699,12 +696,9 @@ void ReadSensorsTask(void* pvParameters)
   esp_wifi_start();
 
   // get pedal positions
-  uint16_t tmpPedal0 = analogReadMilliVolts(PEDAL_0_PIN);
-  carData.inputs.pedal0 = map(tmpPedal0, 575, 2810, PEDAL_MIN, PEDAL_MAX);   // starting min and max values must be found via testing!!! (0.59V - 2.75V)
-  
-  if (carData.inputs.pedal0 > 255) {
-    carData.inputs.pedal0 = 255;
-  }
+  uint16_t tmpPedal0 = analogReadMilliVolts(PEDAL_0_PIN);                     //  (0.59V - 2.75V) | values found via testing
+  tmpPedal0 = map(tmpPedal0, 575, 2810, PEDAL_MIN, PEDAL_MAX);                // remap throttle response to 0 - 255 range
+  carData.inputs.pedal0 = CalculateThrottleResponse(tmpPedal0);
 
   // brake light logic 
   if (carData.inputs.brakeFront >= BRAKE_LIGHT_THRESHOLD) {
@@ -1017,24 +1011,18 @@ void GetCommandedTorque()
   // --- safety checks --- //
 
   // rinehart voltage check
-    if (carData.batteryStatus.rinehartVoltage < MIN_BUS_VOLTAGE) {
+  if (carData.batteryStatus.rinehartVoltage < MIN_BUS_VOLTAGE) {
     carData.drivingData.enableInverter = false;
   }
 
   // pedal difference 
   int pedalDifference = carData.inputs.pedal0 - carData.inputs.pedal1;
-  if (_abs(pedalDifference > (PEDAL_MAX * 0.1))) {
+  if (_abs(pedalDifference > (PEDAL_MAX * 0.15))) {
     carData.drivingData.commandedTorque = 0;
   }
   
   // buffer overflow / too much torque somehow
   if ((carData.drivingData.commandedTorque > (MAX_TORQUE * 10)) || (carData.drivingData.commandedTorque < 0)) {
-    carData.drivingData.commandedTorque = 0;
-  }
-
-  // for throttle safety, we will have a deadband
-  if (carData.drivingData.commandedTorque <= TORQUE_DEADBAND)   // if less than 5% power is requested, just call it 0
-  {
     carData.drivingData.commandedTorque = 0;
   }
 
@@ -1045,9 +1033,60 @@ void GetCommandedTorque()
 
   // check if ready to drive
   if (!carData.drivingData.readyToDrive) {
-    carData.drivingData.commandedTorque = 0;                    // if not ready to drive then block all torque
+    carData.drivingData.commandedTorque = 0;      // if not ready to drive then block all torque
   }
 } 
+
+
+/**
+ * @brief calculate throttle response of pedal
+ * 
+ * @param value the raw pedal value
+ * @return uint16_t the commanded torque value
+ */
+uint16_t CalculateThrottleResponse(uint16_t value) 
+{
+  // inits
+  float calculatedResponse = 0;
+  float exponent = 0;
+
+  // check for buffer overflow
+  if (value > 255 || value < 0) {
+    return 0;
+  }
+
+  // account for deadband
+  if (value < PEDAL_DEADBAND) {
+    return 0;
+  }
+
+  // determine response curve based on drive mode
+  switch (carData.drivingData.driveMode)
+  {
+    case SLOW:
+      exponent = (1 / 2.5);
+      calculatedResponse = (pow(value, exponent)) / (pow(255, exponent) / MAX_TORQUE);
+    break;
+
+    case ECO:
+      exponent = (1 / 1.75);
+      calculatedResponse = (pow(value, exponent)) / (pow(255, exponent) / MAX_TORQUE);
+    break;
+
+    case FAST:
+      exponent = 2.0;
+      calculatedResponse = (pow(value, exponent)) / (pow(255, exponent) / MAX_TORQUE);
+    break;
+    
+    // if we are in an undefined state, pedals should do nothing
+    default:
+      return 0;
+    break;
+  }
+
+  // cast final calculated response to an int
+  return (int)calculatedResponse;
+}
 
 
 /* 

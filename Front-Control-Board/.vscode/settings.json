@@ -2,6 +2,7 @@
     "files.associations": {
         "system_error": "cpp",
         "atomic": "cpp",
-        "cstdint": "cpp"
+        "cstdint": "cpp",
+        "cmath": "cpp"
     }
 }

@@ -1065,17 +1065,17 @@ uint16_t CalculateThrottleResponse(uint16_t value)
   {
     case SLOW:
       exponent = (1 / 2.5);
-      calculatedResponse = (pow(value, exponent)) / (pow(255, exponent) / MAX_TORQUE);
+      calculatedResponse = (pow(value, exponent)) / (pow(PEDAL_MAX, exponent) / MAX_TORQUE);
     break;
 
     case ECO:
       exponent = (1 / 1.75);
-      calculatedResponse = (pow(value, exponent)) / (pow(255, exponent) / MAX_TORQUE);
+      calculatedResponse = (pow(value, exponent)) / (pow(PEDAL_MAX, exponent) / MAX_TORQUE);
     break;
 
     case FAST:
       exponent = 2.0;
-      calculatedResponse = (pow(value, exponent)) / (pow(255, exponent) / MAX_TORQUE);
+      calculatedResponse = (pow(value, exponent)) / (pow(PEDAL_MAX, exponent) / MAX_TORQUE);
     break;
     
     // if we are in an undefined state, pedals should do nothing

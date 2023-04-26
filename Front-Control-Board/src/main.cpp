@@ -45,7 +45,7 @@
 #define BRAKE_LIGHT_THRESHOLD           20          // the threshold that must be crossed for the brake to be considered active
 #define PEDAL_MIN                       0           // minimum value the pedals can read as
 #define PEDAL_MAX                       255         // maximum value a pedal can read as
-#define PEDAL_DEADBAND                  15          // 5% of PEDAL_MAX
+#define PEDAL_DEADBAND                  15          // ~5% of PEDAL_MAX
 #define MAX_TORQUE                      225         // MAX TORQUE RINEHART CAN ACCEPT, DO NOT EXCEED 230!!!
 #define MIN_BUS_VOLTAGE                 150         // min bus voltage
 

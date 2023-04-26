@@ -1064,17 +1064,17 @@ uint16_t CalculateThrottleResponse(uint16_t value)
   switch (carData.drivingData.driveMode)
   {
     case SLOW:
-      exponent = (1 / 2.5);
+      exponent = 4.0;
       calculatedResponse = (pow(value, exponent)) / (pow(PEDAL_MAX, exponent) / MAX_TORQUE);
     break;
 
     case ECO:
-      exponent = (1 / 1.75);
+      exponent = 2.0;
       calculatedResponse = (pow(value, exponent)) / (pow(PEDAL_MAX, exponent) / MAX_TORQUE);
     break;
 
     case FAST:
-      exponent = 2.0;
+      exponent = 0.75;
       calculatedResponse = (pow(value, exponent)) / (pow(PEDAL_MAX, exponent) / MAX_TORQUE);
     break;
     

@@ -68,7 +68,7 @@
 // tasks & timers
 #define SENSOR_POLL_INTERVAL            100000      // 0.1 seconds in microseconds
 #define CAN_UPDATE_INTERVAL             100000      // 0.1 seconds in microseconds
-#define ARDAN_UPDATE_INTERVAL           200000      // 0.2 seconds in microseconds
+#define ARDAN_UPDATE_INTERVAL           100000      // 0.1 seconds in microseconds
 #define ESP_NOW_UPDATE_INTERVAL         200000      // 0.2 seconds in microseconds
 #define TASK_STACK_SIZE                 4096        // in bytes
 #define CAN_BLOCK_DELAY                 100         // time to block to complete function call in FreeRTOS ticks (milliseconds)

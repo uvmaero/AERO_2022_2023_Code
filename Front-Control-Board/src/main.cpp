@@ -42,7 +42,7 @@
 // definitions
 #define TIRE_DIAMETER                   20.0        // diameter of the vehicle's tires in inches
 #define WHEEL_RPM_CALC_THRESHOLD        100         // the number of times the hall effect sensor is tripped before calculating vehicle speed
-#define BRAKE_LIGHT_THRESHOLD           20          // the threshold that must be crossed for the brake to be considered active
+#define BRAKE_LIGHT_THRESHOLD           75          // the threshold that must be crossed for the brake to be considered active
 #define PEDAL_MIN                       0           // minimum value the pedals can read as
 #define PEDAL_MAX                       255         // maximum value a pedal can read as
 #define PEDAL_DEADBAND                  15          // ~5% of PEDAL_MAX

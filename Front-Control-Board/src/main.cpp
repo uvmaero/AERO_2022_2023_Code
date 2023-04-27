@@ -63,6 +63,7 @@
 #define WCB_ESP_NOW_ADDRESS             {0xC4, 0xDE, 0xE2, 0xC0, 0x75, 0x80}
 #define FCB_ESP_NOW_ADDRESS             {0xC4, 0xDE, 0xE2, 0xC0, 0x75, 0x81}
 #define RCB_ESP_NOW_ADDRESS             {0xC4, 0xDE, 0xE2, 0xC0, 0x75, 0x82}
+#define ARDAN_ESP_NOW_ADDRESS           {0xC4, 0xDE, 0xE2, 0xC0, 0x75, 0x83}
 
 // tasks & timers
 #define SENSOR_POLL_INTERVAL            100000      // 0.1 seconds in microseconds
@@ -73,7 +74,7 @@
 #define CAN_BLOCK_DELAY                 100         // time to block to complete function call in FreeRTOS ticks (milliseconds)
 
 // debug
-#define ENABLE_DEBUG                    false       // master debug message control
+#define ENABLE_DEBUG                    true       // master debug message control
 #if ENABLE_DEBUG
   #define MAIN_LOOP_DELAY               1000        // delay in main loop
 #else
@@ -97,8 +98,8 @@ Debugger debugger = {
   .debugEnabled = ENABLE_DEBUG,
   .CAN_debugEnabled = false,
   .WCB_debugEnabled = false,
-  .IO_debugEnabled = true,
-  .scheduler_debugEnable = false,
+  .IO_debugEnabled = false,
+  .scheduler_debugEnable = true,
 
   // debug data
   .CAN_rineCtrlResult = ESP_OK,
@@ -228,20 +229,18 @@ esp_now_peer_info_t rcbInfo = {
   .encrypt = false,
 };
 
+esp_now_peer_info_t ardanInfo = {
+  .peer_addr = ARDAN_ESP_NOW_ADDRESS,
+  .channel = 1,
+  .ifidx = WIFI_IF_STA,
+  .encrypt = false,
+};
+
 
 // CAN
 static const can_general_config_t can_general_config = CAN_GENERAL_CONFIG_DEFAULT((gpio_num_t)CAN_TX_PIN, (gpio_num_t)CAN_RX_PIN, CAN_MODE_NORMAL);
 static const can_timing_config_t can_timing_config = CAN_TIMING_CONFIG_500KBITS();
 static const can_filter_config_t can_filter_config = CAN_FILTER_CONFIG_ACCEPT_ALL();
-// {
-//   .acceptance_code = (MSG_ID << 21),
-//   .acceptance_mask = ~(CAN_STD_ID_MASK << 21),
-//   .single_filter = true
-// };
-
-
-// LoRa Interface
-// RFM95 lora = new LoRa();
 
 
 /*
@@ -328,8 +327,8 @@ void setup() {
   // outputs
   pinMode(RTD_LED_PIN, OUTPUT);
   pinMode(WCB_CONNECTION_LED, OUTPUT);
-  pinMode(BMS_LED_PIN, OUTPUT);
-  pinMode(IMD_LED_PIN, OUTPUT);
+  // pinMode(BMS_LED_PIN, OUTPUT);
+  // pinMode(IMD_LED_PIN, OUTPUT);
 
   pinMode(BUZZER_PIN, OUTPUT);
   pinMode(CAN_ENABLE_PIN, OUTPUT);
@@ -373,6 +372,7 @@ void setup() {
 
   // -------------------------- initialize ESP-NOW  ---------------------------- //
   // init wifi and config
+  WiFi.enableLongRange(true);
   if (WiFi.mode(WIFI_STA)) {
     Serial.printf("WIFI INIT [ SUCCESS ]\n");
 
@@ -391,7 +391,9 @@ void setup() {
         // add peers
         esp_err_t rcbResult = esp_now_add_peer(&rcbInfo);
         esp_err_t wcbResult = esp_now_add_peer(&wcbInfo);
+        esp_err_t ardanResult = esp_now_add_peer(&ardanInfo);
 
+        // general esp now 
         if (rcbResult == ESP_OK && wcbResult == ESP_OK) {
           Serial.printf("ESP-NOW ADD PEERS [ SUCCESS ]\n");
 
@@ -400,6 +402,15 @@ void setup() {
         }
         else {
           Serial.printf("ESP-NOW ADD PEERS [ FAILED ]\n");
+        }
+
+        // ardan
+        if (ardanResult == ESP_OK) {
+          Serial.printf("ARDAN NEWORK INIT [ SUCCESS ]\n");
+          setup.ardanActive = true;
+        }
+        else {
+          Serial.printf("ARDAN NEWORK INIT [ FAILED ]\n");
         }
       }
 
@@ -417,24 +428,6 @@ void setup() {
   }
 
   // ------------------------------------------------------------------------ //
-
-
-  // ------------------- initialize ARDAN Connection ------------------------ //
-  // LoRa Interface
-
-  // // init lora
-  // if (lora.begin() == ERR_NONE) {
-  //   Serial.printf("ARDAN INIT [SUCCESSS ]\n");
-
-  //   // set the sync word so the car and monitoring station can communicate
-  //   lora.setSyncWord(0xA1);         // the channel to be transmitting on (range: 0x00 - 0xFF)
-
-  // setup.ardanActive = true;
-  // }
-  // else { 
-  //   Serial.printf("ARDAN INIT [ FAILED ]\n");
-  // }send message
-  // ------------------------------------------------------------------------- //
 
 
   // ---------------------- initialize timer interrupts --------------------- //
@@ -935,17 +928,15 @@ void UpdateESPNOWTask(void* pvParameters)
  */
 void UpdateARDANTask(void* pvParameters)
 {
-  // // convert car data to byte array
-  // char* carDataBytes = reinterpret_cast<char*>(&carData);
+  // send message
+  const uint8_t ardanAddress[6] = ARDAN_ESP_NOW_ADDRESS;
+  esp_err_t ardanResult = esp_now_send(ardanAddress, (uint8_t *) &carData, sizeof(carData));
 
-  // // send LoRa update
-  // int result = lora.transmit(carDataBytes, sizeof(carDataBytes));
-
-  // // debugging
-  // if (debugger.debugEnabled) {
-  //   // debugger.ardanTransmitResult = result;
-  //   debugger.ardanTaskCount++;
-  // }
+  // debugging
+  if (debugger.debugEnabled) {
+    debugger.ardanTaskCount++;
+    debugger.ardanTransmitResult = ardanResult;
+  }
 
   // end task
   vTaskDelete(NULL);

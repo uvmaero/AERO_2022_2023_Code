@@ -42,7 +42,7 @@
 // definitions
 #define TIRE_DIAMETER                   20.0        // diameter of the vehicle's tires in inches
 #define WHEEL_RPM_CALC_THRESHOLD        100         // the number of times the hall effect sensor is tripped before calculating vehicle speed
-#define BRAKE_LIGHT_THRESHOLD           125         // the threshold that must be crossed for the brake to be considered active
+#define BRAKE_LIGHT_THRESHOLD           50          // the threshold that must be crossed for the brake to be considered active
 #define PEDAL_MIN                       0           // minimum value the pedals can read as
 #define PEDAL_MAX                       255         // maximum value a pedal can read as
 #define PEDAL_DEADBAND                  15          // ~5% of PEDAL_MAX
@@ -327,8 +327,8 @@ void setup() {
   // outputs
   pinMode(RTD_LED_PIN, OUTPUT);
   pinMode(WCB_CONNECTION_LED, OUTPUT);
-  // pinMode(BMS_LED_PIN, OUTPUT);
-  // pinMode(IMD_LED_PIN, OUTPUT);
+  pinMode(BMS_LED_PIN, OUTPUT);
+  pinMode(IMD_LED_PIN, OUTPUT);
 
   pinMode(BUZZER_PIN, OUTPUT);
   pinMode(CAN_ENABLE_PIN, OUTPUT);
@@ -1018,9 +1018,9 @@ void GetCommandedTorque()
   }
 
   // if brake is engaged
-  if (carData.outputs.brakeLight) {
-    carData.drivingData.commandedTorque = 0;
-  }
+  // if (carData.outputs.brakeLight) {
+  //   carData.drivingData.commandedTorque = 0;
+  // }
 
   // check if ready to drive
   if (!carData.drivingData.readyToDrive) {

@@ -67,9 +67,9 @@
 
 // tasks & timers
 #define SENSOR_POLL_INTERVAL            100000      // 0.1 seconds in microseconds
-#define CAN_UPDATE_INTERVAL             100000      // 0.1 seconds in microseconds
-#define ARDAN_UPDATE_INTERVAL           100000      // 0.1 seconds in microseconds
-#define ESP_NOW_UPDATE_INTERVAL         200000      // 0.2 seconds in microseconds
+#define CAN_UPDATE_INTERVAL             100000      // 0.05 seconds in microseconds
+#define ARDAN_UPDATE_INTERVAL           250000      // 0.25 seconds in microseconds
+#define ESP_NOW_UPDATE_INTERVAL         250000      // 0.25 seconds in microseconds
 #define TASK_STACK_SIZE                 4096        // in bytes
 #define CAN_BLOCK_DELAY                 100         // time to block to complete function call in FreeRTOS ticks (milliseconds)
 
@@ -505,7 +505,7 @@ void SensorCallback()
 
   static uint8_t ucParameterToPass;
   TaskHandle_t xHandle = NULL;
-  xTaskCreate(ReadSensorsTask, "Poll-Senser-Data", TASK_STACK_SIZE, &ucParameterToPass, tskIDLE_PRIORITY, &xHandle);
+  xTaskCreate(ReadSensorsTask, "Poll-Senser-Data", TASK_STACK_SIZE, &ucParameterToPass, 15, &xHandle);
   
   portEXIT_CRITICAL_ISR(&timerMux);
 
@@ -524,7 +524,7 @@ void CANCallback()
 
   static uint8_t ucParameterToPass;
   TaskHandle_t xHandle = NULL;
-  xTaskCreate(UpdateCANTask, "CAN-Update", TASK_STACK_SIZE, &ucParameterToPass, tskIDLE_PRIORITY, &xHandle);
+  xTaskCreate(UpdateCANTask, "CAN-Update", TASK_STACK_SIZE, &ucParameterToPass, 20, &xHandle);
 
   portEXIT_CRITICAL_ISR(&timerMux);
   
@@ -543,7 +543,7 @@ void ARDANCallback()
 
   static uint8_t ucParameterToPass;
   TaskHandle_t xHandle = NULL;
-  xTaskCreate(UpdateARDANTask, "ARDAN-Update", TASK_STACK_SIZE, &ucParameterToPass, tskIDLE_PRIORITY, &xHandle);
+  xTaskCreate(UpdateARDANTask, "ARDAN-Update", TASK_STACK_SIZE, &ucParameterToPass, 10, &xHandle);
 
   portEXIT_CRITICAL_ISR(&timerMux);
 
@@ -563,7 +563,7 @@ void ESPNOWCallback()
   // queue wcb update
   static uint8_t ucParameterToPassWCB;
   TaskHandle_t xHandleWCB = NULL;
-  xTaskCreate(UpdateESPNOWTask, "ESP-NOW-Update", TASK_STACK_SIZE, &ucParameterToPassWCB, tskIDLE_PRIORITY, &xHandleWCB);
+  xTaskCreate(UpdateESPNOWTask, "ESP-NOW-Update", TASK_STACK_SIZE, &ucParameterToPassWCB, 10, &xHandleWCB);
 
   portEXIT_CRITICAL_ISR(&timerMux);
 

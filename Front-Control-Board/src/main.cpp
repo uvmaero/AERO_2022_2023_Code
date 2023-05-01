@@ -1042,7 +1042,7 @@ uint16_t CalculateThrottleResponse(uint16_t value)
   float exponent = 0;
 
   // check for buffer overflow
-  if (value > 255 || value < 0) {
+  if ((value > PEDAL_MAX) || (value < PEDAL_MIN)) {
     return 0;
   }
 
@@ -1056,17 +1056,17 @@ uint16_t CalculateThrottleResponse(uint16_t value)
   {
     case SLOW:
       exponent = 4.0;
-      calculatedResponse = (pow(value, exponent)) / (pow(PEDAL_MAX, exponent) / MAX_TORQUE);
+      calculatedResponse = (pow(value, exponent)) / (pow(PEDAL_MAX, exponent) / PEDAL_MAX);
     break;
 
     case ECO:
       exponent = 2.0;
-      calculatedResponse = (pow(value, exponent)) / (pow(PEDAL_MAX, exponent) / MAX_TORQUE);
+      calculatedResponse = (pow(value, exponent)) / (pow(PEDAL_MAX, exponent) / PEDAL_MAX);
     break;
 
     case FAST:
       exponent = 0.75;
-      calculatedResponse = (pow(value, exponent)) / (pow(PEDAL_MAX, exponent) / MAX_TORQUE);
+      calculatedResponse = (pow(value, exponent)) / (pow(PEDAL_MAX, exponent) / PEDAL_MAX);
     break;
     
     // if we are in an undefined state, pedals should do nothing

@@ -676,11 +676,11 @@ void ReadSensorsTask(void* pvParameters)
 
   // get brake position
   float tmpBrake = analogReadMilliVolts(BRAKE_PIN);
-  carData.inputs.brakeFront = map(tmpBrake, 260, 855, PEDAL_MIN, PEDAL_MAX);  // (0.26V - 0.855V) | values found via testing
+  carData.inputs.brakeFront = map(tmpBrake, 265, 855, PEDAL_MIN, PEDAL_MAX);  // (0.26V - 0.855V) | values found via testing
 
   // read pedal potentiometer 1
   uint16_t tmpPedal1 = analogReadMilliVolts(PEDAL_1_PIN);
-  tmpPedal1 = map(tmpPedal1, 290, 1375, PEDAL_MIN, PEDAL_MAX);                // (0.29V - 1.379V) | values found via testing
+  tmpPedal1 = map(tmpPedal1, 290, 1425, PEDAL_MIN, PEDAL_MAX);                // (0.29V - 1.379V) | values found via testing
   carData.inputs.pedal1 = CalculateThrottleResponse(tmpPedal1);
 
   // wcb connection LED would also be in here
@@ -1008,7 +1008,7 @@ void GetCommandedTorque()
 
   // pedal difference 
   int pedalDifference = carData.inputs.pedal0 - carData.inputs.pedal1;
-  if (_abs(pedalDifference > (PEDAL_MAX * 0.15))) {
+  if (_abs(pedalDifference) > (PEDAL_MAX * 0.15)) {
     carData.drivingData.commandedTorque = 0;
   }
   

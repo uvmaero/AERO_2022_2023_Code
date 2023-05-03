@@ -76,7 +76,7 @@
 #define CAN_BLOCK_DELAY                 100         // time to block to complete function call in FreeRTOS ticks (milliseconds)
 
 // debug
-#define ENABLE_DEBUG                    true       // master debug message control
+#define ENABLE_DEBUG                    false       // master debug message control
 #if ENABLE_DEBUG
   #define MAIN_LOOP_DELAY               1000        // delay in main loop
 #else
@@ -329,8 +329,8 @@ void setup() {
   // outputs
   pinMode(RTD_LED_PIN, OUTPUT);
   pinMode(WCB_CONNECTION_LED, OUTPUT);
-  // pinMode(BMS_LED_PIN, OUTPUT);
-  // pinMode(IMD_LED_PIN, OUTPUT);
+  pinMode(BMS_LED_PIN, OUTPUT);
+  pinMode(IMD_LED_PIN, OUTPUT);
 
   pinMode(BUZZER_PIN, OUTPUT);
   pinMode(CAN_ENABLE_PIN, OUTPUT);

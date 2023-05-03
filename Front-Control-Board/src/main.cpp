@@ -58,6 +58,8 @@
 #define RINE_CONTROL_ADDR               0x0C0       // motor command address 
 #define RINE_MOTOR_INFO_ADDR            0x0A5       // get rinehart motor infromation 
 #define RINE_VOLT_INFO_ADDR             0x0A7       // get rinehart voltage information
+#define BMS_GEN_DATA_ADDR               0x6B0       // important BMS data
+#define BMS_CELL_DATA_ADDR              0x6B2       // cell data
 
 // ESP-NOW
 #define WCB_ESP_NOW_ADDRESS             {0xC4, 0xDE, 0xE2, 0xC0, 0x75, 0x80}
@@ -67,14 +69,14 @@
 
 // tasks & timers
 #define SENSOR_POLL_INTERVAL            100000      // 0.1 seconds in microseconds
-#define CAN_UPDATE_INTERVAL             100000      // 0.05 seconds in microseconds
-#define ARDAN_UPDATE_INTERVAL           250000      // 0.25 seconds in microseconds
-#define ESP_NOW_UPDATE_INTERVAL         250000      // 0.25 seconds in microseconds
+#define CAN_UPDATE_INTERVAL             100000      // 0.1 seconds in microseconds
+#define ARDAN_UPDATE_INTERVAL           100000      // 0.1 seconds in microseconds
+#define ESP_NOW_UPDATE_INTERVAL         200000      // 0.25 seconds in microseconds
 #define TASK_STACK_SIZE                 4096        // in bytes
 #define CAN_BLOCK_DELAY                 100         // time to block to complete function call in FreeRTOS ticks (milliseconds)
 
 // debug
-#define ENABLE_DEBUG                    false       // master debug message control
+#define ENABLE_DEBUG                    true       // master debug message control
 #if ENABLE_DEBUG
   #define MAIN_LOOP_DELAY               1000        // delay in main loop
 #else
@@ -327,8 +329,8 @@ void setup() {
   // outputs
   pinMode(RTD_LED_PIN, OUTPUT);
   pinMode(WCB_CONNECTION_LED, OUTPUT);
-  pinMode(BMS_LED_PIN, OUTPUT);
-  pinMode(IMD_LED_PIN, OUTPUT);
+  // pinMode(BMS_LED_PIN, OUTPUT);
+  // pinMode(IMD_LED_PIN, OUTPUT);
 
   pinMode(BUZZER_PIN, OUTPUT);
   pinMode(CAN_ENABLE_PIN, OUTPUT);
@@ -825,6 +827,28 @@ void UpdateCANTask(void* pvParameters)
           carData.sensors.wheelHeightBL = incomingMessage.data[3];
         break;
 
+        // BMS: general pack data
+        case BMS_GEN_DATA_ADDR:
+          // pack current
+          tmp1 = incomingMessage.data[0]; 
+          tmp2 = incomingMessage.data[1];
+          carData.batteryStatus.packCurrent = (tmp1 << 8) | tmp2;   // big endian combination: value = (byte1 << 8) | byte2;
+
+          // pack voltage
+          tmp1 = incomingMessage.data[2];
+          tmp2 = incomingMessage.data[3];
+          carData.batteryStatus.busVoltage = ((tmp1 << 8) | tmp2) / 10;    // big endian combination: value = (byte1 << 8) | byte2;
+
+          // state of charge
+          carData.batteryStatus.batteryChargeState = incomingMessage.data[4];
+        break;
+
+        // BMS: cell data
+        case BMS_CELL_DATA_ADDR:
+          carData.batteryStatus.minCellVoltage = incomingMessage.data[0];
+          carData.batteryStatus.maxCellVoltage = incomingMessage.data[1];
+        break;
+
         default:
         break;
       }
@@ -903,13 +927,13 @@ void UpdateESPNOWTask(void* pvParameters)
   // send message
   const uint8_t wcbAddress[6] = WCB_ESP_NOW_ADDRESS;
   const uint8_t rcbAddress[6] = RCB_ESP_NOW_ADDRESS;
-  esp_err_t wcbResult = esp_now_send(wcbAddress, (uint8_t *) &carData, sizeof(carData));
+  // esp_err_t wcbResult = esp_now_send(wcbAddress, (uint8_t *) &carData, sizeof(carData));
   esp_err_t rcbResult = esp_now_send(rcbAddress, (uint8_t *) &carData, sizeof(carData));
 
   // debugging 
   if (debugger.debugEnabled) {
     debugger.WCB_updateMessage = carData;
-    debugger.WCB_updateResult = wcbResult;
+    // debugger.WCB_updateResult = wcbResult;
 
     debugger.RCB_updateMessage = carData;
     debugger.RCB_updateResult = rcbResult;
@@ -1222,8 +1246,7 @@ void PrintDebug() {
 
   // Scheduler
   if (debugger.scheduler_debugEnable) {
-    Serial.printf("sensor: %d | can: %d | wcb: %d | rcb: %d | ardan: %d\n", debugger.sensorTaskCount, debugger.canTaskCount,
-    debugger.espnowTaskCount, debugger.espnowTaskCount, 
-    debugger.ardanTaskCount);
+    Serial.printf("sensor: %d | can: %d | esp-now: %d | ardan: %d\n", debugger.sensorTaskCount, debugger.canTaskCount, 
+    debugger.espnowTaskCount, debugger.ardanTaskCount);
   }
 }

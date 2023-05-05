@@ -70,8 +70,8 @@
 // tasks & timers
 #define SENSOR_POLL_INTERVAL            100000      // 0.1 seconds in microseconds
 #define CAN_UPDATE_INTERVAL             100000      // 0.1 seconds in microseconds
-#define ARDAN_UPDATE_INTERVAL           100000      // 0.1 seconds in microseconds
-#define ESP_NOW_UPDATE_INTERVAL         200000      // 0.25 seconds in microseconds
+#define ARDAN_UPDATE_INTERVAL           250000      // 0.15 seconds in microseconds
+#define ESP_NOW_UPDATE_INTERVAL         250000      // 0.25 seconds in microseconds
 #define TASK_STACK_SIZE                 4096        // in bytes
 #define CAN_BLOCK_DELAY                 100         // time to block to complete function call in FreeRTOS ticks (milliseconds)
 
@@ -832,21 +832,26 @@ void UpdateCANTask(void* pvParameters)
           // pack current
           tmp1 = incomingMessage.data[0]; 
           tmp2 = incomingMessage.data[1];
-          carData.batteryStatus.packCurrent = (tmp1 << 8) | tmp2;   // big endian combination: value = (byte1 << 8) | byte2;
+          carData.batteryStatus.packCurrent = ((tmp1 << 8) | tmp2) / 10.0;   // big endian combination: value = (byte1 << 8) | byte2;
 
           // pack voltage
           tmp1 = incomingMessage.data[2];
           tmp2 = incomingMessage.data[3];
-          carData.batteryStatus.busVoltage = ((tmp1 << 8) | tmp2) / 10;    // big endian combination: value = (byte1 << 8) | byte2;
+          carData.batteryStatus.busVoltage = ((tmp1 << 8) | tmp2) / 10.0;    // big endian combination: value = (byte1 << 8) | byte2;
 
           // state of charge
-          carData.batteryStatus.batteryChargeState = incomingMessage.data[4];
+          carData.batteryStatus.batteryChargeState = incomingMessage.data[4] / 2.0;
         break;
 
         // BMS: cell data
         case BMS_CELL_DATA_ADDR:
-          carData.batteryStatus.minCellVoltage = incomingMessage.data[0];
-          carData.batteryStatus.maxCellVoltage = incomingMessage.data[1];
+          tmp1 = incomingMessage.data[0];
+          tmp2 = incomingMessage.data[1];
+          carData.batteryStatus.minCellVoltage = ((tmp1 << 8) | tmp2) / 10000.0;
+
+          tmp1 = incomingMessage.data[2];
+          tmp2 = incomingMessage.data[3];
+          carData.batteryStatus.maxCellVoltage = ((tmp1 << 8) | tmp2) / 10000.0;
         break;
 
         default:
